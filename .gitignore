@@ -9,6 +9,7 @@
 node_modules/
 dist/
 build/
+target/
 coverage/
 __pycache__/
 .venv/

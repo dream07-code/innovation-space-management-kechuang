@@ -10,7 +10,7 @@
 
 **Spec:** [已确认的后端基础工程技术设计 v1.1](../specs/2026-10-11-backend-bootstrap-design.md)，业务依据为[需求文档 v0.3](../../requirements.md)。
 
-**Plan Status:** v1.0，待用户审阅并确认执行方式。2026-10-11 用户的“继续”确认了技术设计并授权编写本计划，不代表本计划已获准执行。
+**Plan Status:** v1.0，用户于 2026-10-11 确认，采用 Native 在当前会话逐项执行。执行步骤仅在实现及对应验证完成后勾选。
 
 ## Global Constraints
 
@@ -81,8 +81,8 @@
 - Produces: public Clock TimeConfiguration.businessClock()，注册为 Clock Bean。
 - Produces: ./mvnw test 和 ./mvnw package 的基本构建入口；本任务不宣称完整应用启动或数据库已通过验收。
 
-- [ ] **Step 1: 建立最小测试构建环境。** POM 使用设计中的 Parent 与依赖，不增加其他业务库，设置 release=21；声明 Boot 管理的 spring-boot-maven-plugin 并沿用其 repackage 执行，Surefire 匹配普通 *Test。仅准备构建入口及产物排除规则，暂不写生产启动类及 Clock 实现。
-- [ ] **Step 2: 写失败测试。** 写 TimeConfigurationTest 和 ApplicationMetadataTest。Clock 用例名为 businessClockUsesShanghai 与 fixedClockCrossesShanghaiMidnight，核心断言：
+- [x] **Step 1: 建立最小测试构建环境。** POM 使用设计中的 Parent 与依赖，不增加其他业务库，设置 release=21；声明 Boot 管理的 spring-boot-maven-plugin 并沿用其 repackage 执行，Surefire 匹配普通 *Test。仅准备构建入口及产物排除规则，暂不写生产启动类及 Clock 实现。
+- [x] **Step 2: 写失败测试。** 写 TimeConfigurationTest 和 ApplicationMetadataTest。Clock 用例名为 businessClockUsesShanghai 与 fixedClockCrossesShanghaiMidnight，核心断言：
 
 ```java
 assertEquals(ZoneId.of("Asia/Shanghai"), new TimeConfiguration().businessClock().getZone());
@@ -92,11 +92,11 @@ assertEquals(LocalDate.of(2026, 10, 11), LocalDate.now(fixed));
 
 ApplicationMetadataTest 检查启动类的 SpringBootApplication 注解、包名，以及编译类文件 major version 为 65；二进制头使用 DataInputStream 读取，不用文本匹配。
 
-- [ ] **Step 3: 运行红灯。** 在 backend/ 运行 mvn -Dtest=TimeConfigurationTest,ApplicationMetadataTest test。预期因为生产类尚不存在编译失败；依赖下载失败不能算作这次红灯证明。
-- [ ] **Step 4: 实现启动类与 Clock。** main 仅委托 SpringApplication.run；TimeConfiguration 返回 Clock.system(ZoneId.of("Asia/Shanghai"))，不依赖系统默认时区。主配置设置应用名和默认监听地址/端口，不主动激活 dev。
-- [ ] **Step 5: 生成官方 Wrapper。** 运行 mvn -N org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.9.16 -Dtype=only-script；确认只有脚本及 properties，固定分发版本，Unix 脚本可执行，不手工编造脚本。
-- [ ] **Step 6: 验证绿灯与可打包。** 运行 ./mvnw -version、./mvnw -Dtest=TimeConfigurationTest,ApplicationMetadataTest test、./mvnw package。预期 Maven 3.9.16、Java 21、测试通过、生成 target/innovation-space-backend-0.1.0-SNAPSHOT.jar；此时未执行真实数据库测试。
-- [ ] **Step 7: 提交本任务。** 显式 git add 本任务列出的文件，确认 git diff --cached --check 无输出，再提交：feat: bootstrap Java 21 Maven backend and business clock。
+- [x] **Step 3: 运行红灯。** 在 backend/ 运行 mvn -Dtest=TimeConfigurationTest,ApplicationMetadataTest test。预期因为生产类尚不存在编译失败；依赖下载失败不能算作这次红灯证明。
+- [x] **Step 4: 实现启动类与 Clock。** main 仅委托 SpringApplication.run；TimeConfiguration 返回 Clock.system(ZoneId.of("Asia/Shanghai"))，不依赖系统默认时区。主配置设置应用名和默认监听地址/端口，不主动激活 dev。
+- [x] **Step 5: 生成官方 Wrapper。** 运行 mvn -N org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.9.16 -Dtype=only-script；确认只有脚本及 properties，固定分发版本，Unix 脚本可执行，不手工编造脚本。
+- [x] **Step 6: 验证绿灯与可打包。** 运行 ./mvnw -version、./mvnw -Dtest=TimeConfigurationTest,ApplicationMetadataTest test、./mvnw package。预期 Maven 3.9.16、Java 21、测试通过、生成 target/innovation-space-backend-0.1.0-SNAPSHOT.jar；此时未执行真实数据库测试。
+- [x] **Step 7: 提交本任务。** 显式 git add 本任务列出的文件，确认 git diff --cached --check 无输出，再提交：feat: bootstrap Java 21 Maven backend and business clock。
 
 ## Task 2: 公共响应、校验与 HTTP 异常语义
 
