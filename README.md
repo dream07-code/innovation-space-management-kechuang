@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-当前处于需求确认阶段，仅包含项目文档，尚未实现应用程序。
+业务需求及后端基础工程技术设计已整理，当前处于实施计划审阅阶段。仓库仅包含项目文档，尚未实现应用程序。
 
 ## 需求范围
 
@@ -19,7 +19,8 @@
 ## 文档
 
 - [需求文档 v0.3](docs/requirements.md)
-- [后端基础工程技术设计，待审阅](docs/superpowers/specs/2026-10-11-backend-bootstrap-design.md)
+- [后端基础工程技术设计，已确认](docs/superpowers/specs/2026-10-11-backend-bootstrap-design.md)
+- [后端基础工程实施计划，待审阅](docs/superpowers/plans/2026-10-11-backend-bootstrap.md)
 
 需求文档区分了用户已明确要求、建议默认规则和待确认事项。建议默认规则不代表已经获得业务方确认。
 
