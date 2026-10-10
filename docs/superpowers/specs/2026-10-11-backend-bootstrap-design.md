@@ -3,10 +3,10 @@
 | 项目 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-11 |
-| 文档版本 | v1.0 |
+| 文档版本 | v1.1，补充 Knife4j 接口文档接入设计 |
 | 审阅状态 | 待用户审阅；本文件不代表已获准实施 |
 | 开发分支 | backend |
-| 业务依据 | [需求文档 v0.2](../../requirements.md) |
+| 业务依据 | [需求文档 v0.3](../../requirements.md) |
 | 当前范围 | 单个 Maven 模块的后端基础工程，不实现完整业务功能 |
 
 ## 1. 已确认的目标
@@ -15,7 +15,9 @@
 
 用户已确认 Java 21、Spring Boot、MyBatis-Plus、MySQL 8.0、Maven，以及单模块、先搭基础工程的范围。代码放在仓库的 `backend/` 目录，不影响根目录的需求文档，也不修改 `main` 分支。
 
-成功标准是 Java 21 下构建通过、应用可以连接独立 MySQL 8.0 实例、健康检查能正确反映数据库状态，以及公共异常处理和 MyBatis-Plus 分页配置得到实际测试。生成目录和编译成功本身不等于全部验收通过。
+用户另已明确接口文档使用 Knife4j，支持前后端分离开发。本次接入其文档基础能力，不因此提前实现业务接口。
+
+成功标准是 Java 21 下构建通过、应用可以连接独立 MySQL 8.0 实例、健康检查能正确反映数据库状态，以及公共异常处理、分页和 Knife4j 文档得到实际测试。生成目录和编译成功本身不等于全部验收通过。
 
 ## 2. 范围与明确不做的事项
 
@@ -26,6 +28,7 @@
 - 公共响应类型、参数校验、统一异常处理。
 - MyBatis-Plus 配置、MySQL 连接池和分页插件。
 - Spring Boot Actuator 健康检查。
+- 开发环境的 Knife4j 文档页面、OpenAPI JSON 及分组配置，生产环境默认关闭。
 - 单元测试、Web 层测试和真实 MySQL 8.0 集成测试。
 - 环境变量示例、构建与启动说明、测试条件说明。
 - 仅在实际需要时新增业务包；不得用空类和空接口假装完成业务模块。
@@ -73,6 +76,8 @@ backend/
     config/
   src/main/resources/
     application.yml
+    application-dev.yml
+    application-prod.yml
   src/test/java/io/github/dream07code/innovationspace/
     common/
     web/
@@ -94,6 +99,8 @@ backend/
 | Web | Spring Boot 4 对应的 spring-boot-starter-webmvc。 |
 | 参数校验 | spring-boot-starter-validation，由 Boot 管理版本。 |
 | 健康检查 | spring-boot-starter-actuator，由 Boot 管理版本。 |
+| OpenAPI 生成 | org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1。 |
+| Knife4j 文档 UI | com.github.xiaoymin:knife4j-openapi3-ui:4.5.0，仅使用独立静态 UI 模块。 |
 | MyBatis-Plus | mybatis-plus-spring-boot4-starter:3.5.17。 |
 | 分页解析依赖 | mybatis-plus-jsqlparser:3.5.17，与 MyBatis-Plus 保持一致。 |
 | MySQL JDBC | com.mysql:mysql-connector-j，runtime 范围，版本由 Boot BOM 管理。 |
@@ -104,6 +111,16 @@ backend/
 Boot 4.1.1 的 BOM 管理 Connector/J 9.7.0、Testcontainers 2.0.5 和 JUnit Jupiter 6.0.3。驱动版本与数据库服务端版本是不同概念；服务端验收必须查询 `SELECT VERSION()` 并确认属于 8.0。
 
 不另外混用 Boot 3 的 MyBatis-Plus Starter、独立 MyBatis Starter、手工指定 Spring Framework/Jackson 版本或 H2 数据库。不为本次初始化增加 Lombok，简单 DTO 可直接使用 Java record。
+
+### 4.1 Knife4j 兼容性与接入方案
+
+截至 2026-10-11，Knife4j Jakarta Starter 发布版本为 4.5.0，其发布 POM 针对 Boot 3 并引入旧版 springdoc；springdoc 3.1.1 的发布 POM 则以 Boot 4.1.0 为父版本。本项目保留 Boot 4.1.1，不直接使用 knife4j-openapi3-jakarta-spring-boot-starter，也不引入 Springfox 或 Swagger 2。
+
+本设计采用 springdoc 3.1.1 负责 OpenAPI 生成和 swagger-config 接口，Knife4j 独立 UI 4.5.0 负责页面展示。独立 UI 发布 POM 仅打包 META-INF/resources 静态资源，不引入 Boot 3 的服务端依赖。输出规范固定为 OpenAPI 3.0，以减少旧 UI 对新规范的解析差异。
+
+这是有明确依赖边界的接入方案，不是已经运行验证过的官方 Boot 4 Knife4j Starter。实施时须验证文档生成、UI 分组读取、页面资源及浏览器行为；若失败，暂停并说明兼容问题，不擅自降低 Boot 版本或改用其他文档 UI。
+
+### 4.2 测试数据库镜像
 
 真实数据库测试固定使用已核对存在的官方多架构镜像：
 
@@ -121,6 +138,7 @@ mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358
 | --- | --- |
 | SERVER_PORT | 可选，默认 8080。 |
 | SERVER_ADDRESS | 可选，默认 127.0.0.1。 |
+| SPRING_PROFILES_ACTIVE | 默认不启用文档；本地联调显式使用 dev，生产使用 prod。 |
 | DB_HOST | 可选，默认 127.0.0.1。 |
 | DB_PORT | 可选，默认 3306。 |
 | DB_NAME | 可选，默认 innovation_space。 |
@@ -174,21 +192,36 @@ mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358
 
 ### 7.2 健康检查
 
-仅暴露 `/actuator/health`，其他 Actuator 管理端点不公开，健康信息不显示组件详情、数据库地址或凭据。
+运行状态端点仅暴露 `/actuator/health`，其他 Actuator 管理端点不公开，健康信息不显示组件详情、数据库地址或凭据。开发环境另提供下一节定义的接口文档入口，不把文档接口当作业务接口。
 
 健康检查采用 Actuator 原生聚合结果，包含数据库连接状态。数据库连接正常时为 HTTP 200 和 UP；数据库不可用时为 HTTP 503 和 DOWN，而不是始终返回固定字符串。
 
 默认仅监听本机。当前没有认证和业务接口，不能将基础工程视为可公开部署的完整管理系统；新增业务接口前必须单独实现身份认证、角色权限及方向隔离。
 
+### 7.3 Knife4j 接口文档
+
+开发环境启用 Knife4j 页面 `/doc.html`，由 springdoc 提供 `/v3/api-docs`、`/v3/api-docs/swagger-config` 及分组 JSON `/v3/api-docs/innovation-space`。分组名为 innovation-space，仅扫描项目业务包且匹配 `/api/v1/**`，排除 Actuator 和 `/error`。
+
+文档包含后端服务名称及接口版本，未来真实接口使用 OpenAPI 3 的 Tag、Operation、Schema 和响应说明注解。必填标识与参数校验一致，普通响应及错误响应使用真实 HTTP 状态；认证完成后再加入实际认证方案，不预先声称已有 JWT 登录。
+
+本次无生产业务 Controller，文档业务 paths 允许为空，但 Knife4j 页面、服务信息和分组必须正常渲染。验证字段说明或在线请求时使用只在测试上下文出现的 Controller，不为填充文档把探针接口放入生产 JAR。
+
+默认配置和 prod 配置关闭 springdoc 的 API 文档及 Swagger UI，同时关闭默认静态资源映射；dev 配置才启用文档、swagger-config 和静态资源映射。仅关闭 OpenAPI JSON 不足以隐藏独立 Knife4j JAR 中的静态页面，所以必须验证 `/doc.html` 及其资源在非开发环境不被公开。
+
+开发启用的 Swagger UI 资源是 springdoc 文档配置服务的配套依赖，面向开发人员的主要文档入口为 Knife4j。生产环境默认也不提供 `/swagger-ui.html`、`/swagger-ui/**` 或 `/webjars/**` 资源。文档接口不套入 ApiResponse，避免 UI 无法解析标准 OpenAPI 内容。
+
+调试请求遵循与业务请求相同的权限规则，不提供文档专用免认证通道。示例不包含真实学生资料、密码或有效令牌。不会因为前后端分离而默认开启任意来源、带凭据的跨域访问；未来需要跨域时按联调来源单独配置。
+
 ## 8. 主要数据流
 
 未来业务请求的数据流为：HTTP 请求 → Controller 参数校验 → Service 业务处理 → Mapper → MySQL。事务边界放在实际需要一致性的 Service 方法中，不在本次增加没有用途的通用事务封装。
 
-本次实际可运行的链路只有：
+本次实际可运行的链路为：
 
 1. 启动时加载外部配置，装配 Web、数据源、异常处理和分页组件。
 2. 健康请求进入 Actuator，执行数据库健康检查，返回原生状态及相应 HTTP 状态。
 3. 自动化测试注入固定 Clock、测试 Controller 或测试 Mapper，分别验证公共行为及真实数据库访问。
+4. dev 环境中，Knife4j 页面读取 springdoc 文档配置和分组 OpenAPI JSON，展示已实现的接口契约；页面调试直接调用后端真实接口。
 
 身份与方向权限、AI 任务、积分入账及定时任务的数据流属于后续业务设计，不在基础工程提前实现。
 
@@ -215,8 +248,13 @@ Maven Surefire 运行 `*Test` 单元和 Web 测试。Maven Failsafe 运行 `*IT`
 | B-11 | 密钥与数据保护 | 仓库仅包含示例配置，不含真实凭据、学生数据或数据库备份；应用不自动执行 DDL。 |
 | B-12 | 时间 | 业务 Clock 使用 Asia/Shanghai，固定时间测试不依赖宿主机默认时区。 |
 | B-13 | 验证透明性 | 单元测试与集成测试分别报告，完整 verify 未运行或失败时不宣称全部通过。 |
+| B-14 | 开发环境接口文档 | dev 下 Knife4j 页面及引用资源返回成功，OpenAPI 3.0 JSON 和 swagger-config 可解析，innovation-space 分组存在；测试 Controller 的参数、响应和错误说明匹配实现。 |
+| B-15 | 文档页面实际渲染与调试 | 浏览器中 Knife4j 服务信息和分组可见，无资源加载或 OpenAPI 解析错误；可对仅测试上下文中的接口发起真实请求，生产 JAR 无探针接口。 |
+| B-16 | 非开发环境文档隔离 | 默认及 prod 下 /doc.html、/v3/api-docs 及子路径、Swagger UI 和文档静态资源不可访问；健康检查行为不受关闭文档影响。 |
 
 数据库连接不可用的健康测试采用独立测试上下文或受控故障实例，不能停止或篡改开发者正在使用的数据库服务。测试清理仅作用于自己创建的一次性实例。
+
+Knife4j 的 HTTP 和 OpenAPI 结构检查加入自动化测试；页面加载与在线调试还需浏览器实际检查并保留验证结果，不能用 HTTP 200 或 HTML 文件存在代替渲染与联调成功。
 
 ## 10. 已检查的本机环境与实施条件
 
@@ -262,3 +300,8 @@ MySQL 官方发布记录指出，8.0 在 2026 年 4 月随 8.0.46 达到生命�
 - [MySQL 8.0 官方发布记录与生命周期提示](https://dev.mysql.com/doc/relnotes/mysql/8.0/en/)。
 - [MySQL Connector/J 官方版本兼容说明](https://dev.mysql.com/doc/connector-j/en/connector-j-versions.html)。
 - [MySQL 8.0.46 官方镜像标签及摘要](https://hub.docker.com/v2/repositories/library/mysql/tags/8.0.46)。
+- [Knife4j 官方快速开始与 Boot 3 接入说明](https://doc.xiaominfo.com/docs/quick-start)。
+- [Knife4j Jakarta Starter 4.5.0 发布 POM](https://repo.maven.apache.org/maven2/com/github/xiaoymin/knife4j-openapi3-jakarta-spring-boot-starter/4.5.0/knife4j-openapi3-jakarta-spring-boot-starter-4.5.0.pom)。
+- [Knife4j 独立 UI 4.5.0 发布 POM](https://repo.maven.apache.org/maven2/com/github/xiaoymin/knife4j-openapi3-ui/4.5.0/knife4j-openapi3-ui-4.5.0.pom)。
+- [springdoc 官方说明](https://springdoc.org/)。
+- [springdoc 3.1.1 发布 POM](https://repo.maven.apache.org/maven2/org/springdoc/springdoc-openapi/3.1.1/springdoc-openapi-3.1.1.pom)。

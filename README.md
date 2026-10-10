@@ -14,10 +14,11 @@
 - 积分流水、方向排行榜和全空间排行榜。
 - 每月末位成员评定，以及连续两周未提交日报的自动移出。
 - 管理员复核、规则配置和操作留痕。
+- Knife4j 接口文档与 OpenAPI 契约，方便前后端分离开发及联调。
 
 ## 文档
 
-- [需求文档 v0.2](docs/requirements.md)
+- [需求文档 v0.3](docs/requirements.md)
 - [后端基础工程技术设计，待审阅](docs/superpowers/specs/2026-10-11-backend-bootstrap-design.md)
 
 需求文档区分了用户已明确要求、建议默认规则和待确认事项。建议默认规则不代表已经获得业务方确认。
