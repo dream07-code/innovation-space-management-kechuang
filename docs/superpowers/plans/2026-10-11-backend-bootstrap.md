@@ -162,9 +162,9 @@ mockMvc.perform(post("/api/v1/test-probe/validate")
 - Produces: MysqlTestSupport.MYSQL_IMAGE 为固定镜像常量；public static MySQLContainer newMysqlContainer()；public static void registerDataSource(DynamicPropertyRegistry registry, MySQLContainer container)。使用 Testcontainers 2 的 org.testcontainers.mysql.MySQLContainer，不带旧版本泛型。
 - Produces: PersistenceProbeConfiguration，仅测试显式导入；含 bootstrap_probe 表对应 ProbeEntity 和 ProbeMapper extends BaseMapper<ProbeEntity>。ID 使用 INPUT，字段为 Long id、String name；实体提供无参构造、public Long getId()、public void setId(Long id)、public String getName()、public void setName(String name)。测试自己建表并清理。
 
-- [ ] **Step 1: 写失败的配置单元测试。** DatabaseConfigurationTest 分别覆盖缺失、空白 username/password；示例有效密码只用于测试且不出现在配置对象字符串或失败日志中。MyBatisPlusConfigurationTest 检查 MYSQL、200L；生产 YAML 使用 YamlPropertySourceLoader 等结构化 API 检查无密码默认值及 SQL 初始化关闭，不做随意字符串截取。
-- [ ] **Step 2: 运行红灯。** ./mvnw -Dtest=DatabaseConfigurationTest,MyBatisPlusConfigurationTest test，预期缺少配置类或限制不符合约定。
-- [ ] **Step 3: 写真实 MySQL 集成测试和 fixture。** 每个正向测试类有自己的 Container 字段，并在该类的 DynamicPropertySource 中注册容器 URL、用户名与随机生成的测试密码。不得共享跨类后被关闭的静态容器，不启用 reusable containers 或 Docker 缺失自动跳过。MysqlPersistenceIT 包含连接、Mapper、分页和配置污染用例，关键断言为：
+- [x] **Step 1: 写失败的配置单元测试。** DatabaseConfigurationTest 分别覆盖缺失、空白 username/password；示例有效密码只用于测试且不出现在配置对象字符串或失败日志中。MyBatisPlusConfigurationTest 检查 MYSQL、200L；生产 YAML 使用 YamlPropertySourceLoader 等结构化 API 检查无密码默认值及 SQL 初始化关闭，不做随意字符串截取。
+- [x] **Step 2: 运行红灯。** ./mvnw -Dtest=DatabaseConfigurationTest,MyBatisPlusConfigurationTest test，预期缺少配置类或限制不符合约定。
+- [x] **Step 3: 写真实 MySQL 集成测试和 fixture。** 每个正向测试类有自己的 Container 字段，并在该类的 DynamicPropertySource 中注册容器 URL、用户名与随机生成的测试密码。不得共享跨类后被关闭的静态容器，不启用 reusable containers 或 Docker 缺失自动跳过。MysqlPersistenceIT 包含连接、Mapper、分页和配置污染用例，关键断言为：
 
 ```java
 assertThat(jdbcTemplate.queryForObject("SELECT VERSION()", String.class)).startsWith("8.0.46");
@@ -176,10 +176,10 @@ assertEquals(200, probeMapper.selectPage(new Page<>(1, 500), null).getRecords().
 
 实际准备 205 条隔离记录，再验证第二页为 5 条及不存在的 ID；需要断言记录顺序时显式按 ID 排序。向测试属性源设置错误的开发库 URL，确认高优先级动态配置仍仅连接本类容器。无容器的故障测试使用本机受控拒绝连接地址与独立上下文，不停止真实数据库。健康正向和反向断言分别为 200/UP 与 503/DOWN，JSON 不含 code、components、details、数据库地址或凭据；HealthEndpointIT 还须确认 /actuator/env、/actuator/info、/actuator/beans、/actuator/configprops 均为 404。
 
-- [ ] **Step 4: 绑定 Failsafe 并运行红灯。** POM 中声明 Boot 管理的 Failsafe，绑定 integration-test 和 verify，匹配 **/*IT.java，failIfNoTests=true；Surefire 只运行普通 *Test。运行 ./mvnw -Dit.test=MysqlPersistenceIT,HealthEndpointIT,UnavailableDatabaseHealthIT verify。预期因尚未实现的配置类或配置行为失败；Docker/拉取失败单独记录，不算行为红灯，也不故意破坏已完成实现制造失败。
-- [ ] **Step 5: 实现配置及示例。** DB_HOST=127.0.0.1、DB_PORT=3306、DB_NAME=innovation_space，DB_USERNAME/DB_PASSWORD 不提供默认值；JDBC 加入 connectionTimeZone=UTC、forceConnectionTimeZoneToSession=true。配置 connection-timeout=3000ms、validation-timeout=1000ms、initialization-fail-timeout=-1、minimum-idle=0、maximum-pool-size=5，允许数据库不可用时返回健康 DOWN，但凭据校验仍必须失败。SQL 初始化 mode=never；健康详情和组件均 never，仅暴露 health，关闭额外 probes 路径。示例不包含真实凭据。
-- [ ] **Step 6: 验证绿灯。** 校准动态连接和测试 Mapper 注册，不更换数据库目标、不把探针移到生产代码。运行 ./mvnw test 与上述定向 verify；报告实际测试数量、失败和跳过数，完整集成测试必须执行而不是跳过。
-- [ ] **Step 7: 提交本任务。** 仅暂存本任务配置、测试和示例文件，检查无凭据或数据库产物，提交：feat: configure MySQL pagination and database health checks。
+- [x] **Step 4: 绑定 Failsafe 并运行红灯。** POM 中声明 Boot 管理的 Failsafe，绑定 integration-test 和 verify，匹配 **/*IT.java，failIfNoTests=true；Surefire 只运行普通 *Test。运行 ./mvnw -Dit.test=MysqlPersistenceIT,HealthEndpointIT,UnavailableDatabaseHealthIT verify。预期因尚未实现的配置类或配置行为失败；Docker/拉取失败单独记录，不算行为红灯，也不故意破坏已完成实现制造失败。
+- [x] **Step 5: 实现配置及示例。** DB_HOST=127.0.0.1、DB_PORT=3306、DB_NAME=innovation_space，DB_USERNAME/DB_PASSWORD 不提供默认值；JDBC 加入 connectionTimeZone=UTC、forceConnectionTimeZoneToSession=true。配置 connection-timeout=3000ms、validation-timeout=1000ms、initialization-fail-timeout=-1、minimum-idle=0、maximum-pool-size=5，允许数据库不可用时返回健康 DOWN，但凭据校验仍必须失败。SQL 初始化 mode=never；健康详情和组件均 never，仅暴露 health，关闭额外 probes 路径。示例不包含真实凭据。
+- [x] **Step 6: 验证绿灯。** 校准动态连接和测试 Mapper 注册，不更换数据库目标、不把探针移到生产代码。运行 ./mvnw test 与上述定向 verify；报告实际测试数量、失败和跳过数，完整集成测试必须执行而不是跳过。
+- [x] **Step 7: 提交本任务。** 仅暂存本任务配置、测试和示例文件，检查无凭据或数据库产物，提交：feat: configure MySQL pagination and database health checks。
 
 ## Task 4: Knife4j 文档接入与环境隔离
 
@@ -196,7 +196,7 @@ assertEquals(200, probeMapper.selectPage(new Page<>(1, 500), null).getRecords().
 - Produces: 文档 title=学院科创空间管理系统 API、version=v1，group=innovation-space，paths=/api/v1/**；GroupedOpenApi 只设 group 与路径，dev YAML 的 springdoc.packages-to-scan 固定生产根包，不在分组 Bean 中再次硬编码包过滤。生产组件扫描不包含 testsupport。
 - Produces: dev 中 /doc.html、/v3/api-docs/swagger-config、/v3/api-docs/innovation-space，OpenAPI 3.0；默认及 prod 中这些入口和文档资源均不可访问。
 
-- [ ] **Step 1: 写失败测试。** OpenApiConfigurationTest 检查 title、v1 和 group。DevApiDocumentationIT 显式导入测试探针，不更改生产扫描根包；检查 doc.html 的内容与引用资源、swagger-config 的分组 URL、分组 JSON 未被 ApiResponse 包装，以及测试请求 name 必填、password 仅写入、成功响应及 400/500 说明。核心 JSON 断言：
+- [x] **Step 1: 写失败测试。** OpenApiConfigurationTest 检查 title、v1 和 group。DevApiDocumentationIT 显式导入测试探针，不更改生产扫描根包；检查 doc.html 的内容与引用资源、swagger-config 的分组 URL、分组 JSON 未被 ApiResponse 包装，以及测试请求 name 必填、password 仅写入、成功响应及 400/500 说明。核心 JSON 断言：
 
 ```java
 assertThat(openApi.get("openapi").asText()).startsWith("3.0.");
@@ -209,11 +209,11 @@ assertFalse(openApi.has("code"));
 
 ProdApiDocumentationIT 和 DefaultApiDocumentationIT 不导入探针，参数化检查 /doc.html、/v3/api-docs、/v3/api-docs/swagger-config、/v3/api-docs/innovation-space、/swagger-ui.html、/swagger-ui/index.html 以及从 dev HTML 识别的实际 JS/CSS 资源 URL 为 404；健康仍为 200/UP。
 
-- [ ] **Step 2: 运行红灯。** ./mvnw -Dtest=OpenApiConfigurationTest test 与 ./mvnw -Dit.test=DevApiDocumentationIT,ProdApiDocumentationIT,DefaultApiDocumentationIT verify。预期缺少配置、分组、JSON 或非 dev 静态页面仍暴露；若环境问题先修环境诊断，不算接入测试失败证明。
-- [ ] **Step 3: 实现配置和文档契约。** 注册 OpenAPI 信息与 GroupedOpenApi，仅 dev 生效；配置输出 OpenAPI 3.0。默认和 prod 将 springdoc.api-docs.enabled、springdoc.swagger-ui.enabled、spring.web.resources.add-mappings 设为 false；dev 将这三项设为 true。使用指定独立 UI，不添加 EnableKnife4j 或来自旧 Starter 的增强配置，不伪造认证方案。
-- [ ] **Step 4: 完成测试探针注解与资源验证。** 仅给 testsupport 中的 DTO 和 Controller 添加 Operation、Tag、Schema、响应说明。在 DevApiDocumentationIT 中覆盖 springdoc.packages-to-scan=io.github.dream07code.testsupport，不改变生产组件扫描；分组的路径过滤仍生效。生产配置仍仅筛选生产根包。HTML 资源链接通过 HTML 解析器或浏览器提取，不能用一个固定虚构 JS 路径替代实际资源检查。
-- [ ] **Step 5: 验证绿灯。** 运行 ./mvnw test 和定向 verify，确认默认、dev、prod 三类独立上下文的断言都执行。用未导入探针的 dev 上下文确认 paths 为空也能输出有效分组文档；不为了填充文档新增生产接口。兼容失败时记录错误并停止本任务，不擅自改 Boot 版本或文档工具。
-- [ ] **Step 6: 提交本任务。** 显式暂存文档配置与测试，检查 POM 不包含 Boot 3 Knife4j Starter，提交：feat: integrate Knife4j OpenAPI docs for development only。
+- [x] **Step 2: 运行红灯。** ./mvnw -Dtest=OpenApiConfigurationTest test 与 ./mvnw -Dit.test=DevApiDocumentationIT,ProdApiDocumentationIT,DefaultApiDocumentationIT verify。预期缺少配置、分组、JSON 或非 dev 静态页面仍暴露；若环境问题先修环境诊断，不算接入测试失败证明。
+- [x] **Step 3: 实现配置和文档契约。** 注册 OpenAPI 信息与 GroupedOpenApi，仅 dev 生效；配置输出 OpenAPI 3.0。默认和 prod 将 springdoc.api-docs.enabled、springdoc.swagger-ui.enabled、spring.web.resources.add-mappings 设为 false；dev 将这三项设为 true。使用指定独立 UI，不添加 EnableKnife4j 或来自旧 Starter 的增强配置，不伪造认证方案。
+- [x] **Step 4: 完成测试探针注解与资源验证。** 仅给 testsupport 中的 DTO 和 Controller 添加 Operation、Tag、Schema、响应说明。在 DevApiDocumentationIT 中覆盖 springdoc.packages-to-scan=io.github.dream07code.testsupport，不改变生产组件扫描；分组的路径过滤仍生效。生产配置仍仅筛选生产根包。HTML 资源链接通过 HTML 解析器或浏览器提取，不能用一个固定虚构 JS 路径替代实际资源检查。
+- [x] **Step 5: 验证绿灯。** 运行 ./mvnw test 和定向 verify，确认默认、dev、prod 三类独立上下文的断言都执行。用未导入探针的 dev 上下文确认 paths 为空也能输出有效分组文档；不为了填充文档新增生产接口。兼容失败时记录错误并停止本任务，不擅自改 Boot 版本或文档工具。
+- [x] **Step 6: 提交本任务。** 显式暂存文档配置与测试，检查 POM 不包含 Boot 3 Knife4j Starter，提交：feat: integrate Knife4j OpenAPI docs for development only。
 
 ## Task 5: 发布边界、浏览器联调与完整验收
 
@@ -230,12 +230,12 @@ ProdApiDocumentationIT 和 DefaultApiDocumentationIT 不导入探针，参数化
 - Produces: target/verification/ 中的临时浏览器截图及验证输出，不提交截图、日志、数据库文件或运行配置。
 - Produces: 可按说明从干净环境启动的正式 JAR，以及包含实际测试结果的交付说明。
 
-- [ ] **Step 1: 写发布边界失败测试。** JarBoundaryIT 使用 JarFile 读取 target/innovation-space-backend-0.1.0-SNAPSHOT.jar，断言 BOOT-INF/classes/ 不含 testsupport、Probe、BrowserSmokeApplication、.env 或生产 SQL 初始化资源；检查实际启动类存在。运行 ./mvnw -Dit.test=JarBoundaryIT verify；若现有标准打包已满足边界，保留此回归测试，不故意引入泄漏制造红灯。
-- [ ] **Step 2: 实现仅测试的浏览器启动器。** 使用已有容器工厂，通过高优先级 PropertySource 注入动态 JDBC 凭据，不把密码放入命令行或就绪 JSON。明确导入生产应用与 WebProbeConfiguration，设 dev、server.port=0 和仅本上下文的 springdoc.packages-to-scan=io.github.dream07code.testsupport；注册关闭钩子，任何失败都关闭自己创建的上下文和容器。
-- [ ] **Step 3: 浏览器实际验证 Knife4j。** 先 test-compile，再使用 Boot 管理的 dependency:build-classpath 生成 target/test-classpath.txt；运行测试启动器，读取其 baseUrl。用可用的浏览器自动化能力，优先 Playwright，访问 /doc.html 并检查服务 title、innovation-space 分组及页面 JS/网络错误；实际从页面调试 GET ping，响应须为 HTTP 200、code=OK、data=pong。截图存到 target/verification/knife4j-dev.png；测试探针仍不得进入正式 JAR。浏览器不可用时报告此验收项未完成，不能以 HTML 200 代替。
-- [ ] **Step 4: 验证正式 JAR 的默认和 dev 行为。** 在独立测试库上用 Java 21 启动正式 JAR，使用临时本地端口，确认 health 为 UP，生产包中的 dev 分组 paths 为空，测试探针路由为 404。默认/prod 时文档入口为 404。结束后停止自己创建的进程和容器，不停止用户数据库或其他服务。
-- [ ] **Step 5: 写可执行的启动说明。** README 说明 Java 21、Maven Wrapper、Docker 服务前提、独立 MySQL 8.0 和非 root 用户，环境变量如何注入、默认/dev/prod 的差异、health 和 doc.html 地址、test 与 verify 的区别。提供 Docker CLI 路径，不要求 Compose；明确 .env 不自动加载、基础工程没有认证或业务 API、MySQL 8.0 生命周期风险及上线前检查。不在命令示例放入真实凭据。
-- [ ] **Step 6: 完整验收。** ./mvnw clean verify，必须记录 Surefire/Failsafe 实际测试数量与失败、跳过情况；检查缺失凭据、数据库不可用、分页上限、文档三种环境和 JarBoundaryIT。运行 git diff --check，检查依赖树无 Boot 3 Starter、H2 或重复 MyBatis，并检查暂存内容无真实密钥。完整 verify 和浏览器验收均通过后才宣称初始化完成。
+- [x] **Step 1: 写发布边界失败测试。** JarBoundaryIT 使用 JarFile 读取 target/innovation-space-backend-0.1.0-SNAPSHOT.jar，断言 BOOT-INF/classes/ 不含 testsupport、Probe、BrowserSmokeApplication、.env 或生产 SQL 初始化资源；检查实际启动类存在。运行 ./mvnw -Dit.test=JarBoundaryIT verify；若现有标准打包已满足边界，保留此回归测试，不故意引入泄漏制造红灯。
+- [x] **Step 2: 实现仅测试的浏览器启动器。** 使用已有容器工厂，通过高优先级 PropertySource 注入动态 JDBC 凭据，不把密码放入命令行或就绪 JSON。明确导入生产应用与 WebProbeConfiguration，设 dev、server.port=0 和仅本上下文的 springdoc.packages-to-scan=io.github.dream07code.testsupport；注册关闭钩子，任何失败都关闭自己创建的上下文和容器。
+- [x] **Step 3: 浏览器实际验证 Knife4j。** 先 test-compile，再使用 Boot 管理的 dependency:build-classpath 生成 target/test-classpath.txt；运行测试启动器，读取其 baseUrl。用可用的浏览器自动化能力，优先 Playwright，访问 /doc.html 并检查服务 title、innovation-space 分组及页面 JS/网络错误；实际从页面调试 GET ping，响应须为 HTTP 200、code=OK、data=pong。截图存到 target/verification/knife4j-dev.png；测试探针仍不得进入正式 JAR。浏览器不可用时报告此验收项未完成，不能以 HTML 200 代替。
+- [x] **Step 4: 验证正式 JAR 的默认和 dev 行为。** 在独立测试库上用 Java 21 启动正式 JAR，使用临时本地端口，确认 health 为 UP，生产包中的 dev 分组 paths 为空，测试探针路由为 404。默认/prod 时文档入口为 404。结束后停止自己创建的进程和容器，不停止用户数据库或其他服务。
+- [x] **Step 5: 写可执行的启动说明。** README 说明 Java 21、Maven Wrapper、Docker 服务前提、独立 MySQL 8.0 和非 root 用户，环境变量如何注入、默认/dev/prod 的差异、health 和 doc.html 地址、test 与 verify 的区别。提供 Docker CLI 路径，不要求 Compose；明确 .env 不自动加载、基础工程没有认证或业务 API、MySQL 8.0 生命周期风险及上线前检查。不在命令示例放入真实凭据。
+- [x] **Step 6: 完整验收。** ./mvnw clean verify，必须记录 Surefire/Failsafe 实际测试数量与失败、跳过情况；检查缺失凭据、数据库不可用、分页上限、文档三种环境和 JarBoundaryIT。运行 git diff --check，检查依赖树无 Boot 3 Starter、H2 或重复 MyBatis，并检查暂存内容无真实密钥。完整 verify 和浏览器验收均通过后才宣称初始化完成。
 - [ ] **Step 7: 统一代码审查与修复。** 按 requesting-code-review 流程复查整个 backend 分支，重点检查五项 Review Focus；独立审查仅在执行方式或适用技能明确授权时使用代理。修复发现的问题并重新跑相关测试，不仅依赖审查者结论。
 - [ ] **Step 8: 提交和推送。** 仅暂存已核对的代码、测试、示例和说明，提交：test: verify backend packaging and Knife4j browser workflow。推送 origin backend，并读回远程提交编号与本地比较；用户未要求时不合并 main。交付说明列出运行地址或启动方法、测试结果、未完成项及生命周期风险。
 
