@@ -1,0 +1,27 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local runtime output
+node_modules/
+dist/
+build/
+coverage/
+__pycache__/
+.venv/
+*.log
+
+# Databases and backups
+*.db
+*.sqlite
+*.sqlite3
+backups/
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
