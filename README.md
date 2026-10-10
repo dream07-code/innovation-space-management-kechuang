@@ -18,6 +18,7 @@
 ## 文档
 
 - [需求文档 v0.2](docs/requirements.md)
+- [后端基础工程技术设计，待审阅](docs/superpowers/specs/2026-10-11-backend-bootstrap-design.md)
 
 需求文档区分了用户已明确要求、建议默认规则和待确认事项。建议默认规则不代表已经获得业务方确认。
 
