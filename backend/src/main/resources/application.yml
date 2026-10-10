@@ -1,6 +1,12 @@
 spring:
   application:
     name: innovation-space-backend
+  web:
+    error:
+      include-message: never
+      include-binding-errors: never
+      include-stacktrace: never
+      include-exception: false
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}

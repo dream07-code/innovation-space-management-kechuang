@@ -117,7 +117,7 @@ ApplicationMetadataTest 检查启动类的 SpringBootApplication 注解、包名
 - Produces: GlobalExceptionHandler extends ResponseEntityExceptionHandler；覆盖 protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request)，并提供 public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception ex)。
 - Produces: WebProbeConfiguration，测试通过显式 Import 注册嵌套 Controller。GET /api/v1/test-probe/ping 返回 ApiResponse.success("pong")；POST /api/v1/test-probe/validate 校验 ProbeRequest；GET /api/v1/test-probe/failure 抛出测试异常；GET /api/v1/test-probe/query 校验 count>=1。
 
-- [ ] **Step 1: 写失败测试及测试探针。** ProbeRequest 是 record，包含 NotBlank name 和 Size(min=8) password；不得返回 password。用 MVC 测试切片显式导入 WebProbeConfiguration 和待实现的 Advice，不装配数据库。ApiResponseTest 断言成功和失败记录字段；GlobalExceptionHandlerTest 使用下列断言类别，均有独立用例名：
+- [x] **Step 1: 写失败测试及测试探针。** ProbeRequest 是 record，包含 NotBlank name 和 Size(min=8) password；不得返回 password。用 MVC 测试切片显式导入 WebProbeConfiguration 和待实现的 Advice，不装配数据库。ApiResponseTest 断言成功和失败记录字段；GlobalExceptionHandlerTest 使用下列断言类别，均有独立用例名：
 
 ```java
 assertEquals("OK", ApiResponse.success("pong").code());
@@ -138,11 +138,11 @@ mockMvc.perform(post("/api/v1/test-probe/validate")
 
 补充 blankNameReturns400、shortPasswordIsNotEchoed、invalidQueryReturns400、unexpectedFailureIsSanitized；假敏感值统一为 secret7。错误响应不得含 secret7、异常类名或 trace，捕获的应用日志也不得记录该值。
 
-- [ ] **Step 2: 运行红灯。** ./mvnw -Dtest=ApiResponseTest,GlobalExceptionHandlerTest test；预期缺少响应/Advice 或错误 JSON、状态语义不符合断言。
-- [ ] **Step 3: 实现公共记录与 Advice。** 对框架异常保留传入状态和 headers，404/405 分别使用对应错误码，其他请求侧 4xx 用 INVALID_REQUEST，5xx 用 INTERNAL_ERROR；已提交响应保持框架处理约定，不重复写入。未预期异常返回 500。日志保留类型与调用栈，不直接拼接请求体、rejectedValue 或可能含敏感输入的异常消息；不添加 ResponseBodyAdvice。
-- [ ] **Step 4: 关闭默认错误泄露。** 在实际 Boot 4 的 spring.web.error 配置中设 include-message=never、include-binding-errors=never、include-stacktrace=never、include-exception=false；覆盖 /error 回退行为，不使用旧版 server.error 属性来假装生效。
-- [ ] **Step 5: 验证绿灯。** ./mvnw test，确认仍不需要 Docker 或数据库凭据；分别核对 400、404、405、415、500，405 的 Allow 和敏感输入日志断言。
-- [ ] **Step 6: 提交本任务。** 显式暂存本任务文件并检查差异，提交：feat: add validated API responses and safe HTTP error handling。
+- [x] **Step 2: 运行红灯。** ./mvnw -Dtest=ApiResponseTest,GlobalExceptionHandlerTest test；预期缺少响应/Advice 或错误 JSON、状态语义不符合断言。
+- [x] **Step 3: 实现公共记录与 Advice。** 对框架异常保留传入状态和 headers，404/405 分别使用对应错误码，其他请求侧 4xx 用 INVALID_REQUEST，5xx 用 INTERNAL_ERROR；已提交响应保持框架处理约定，不重复写入。未预期异常返回 500。日志保留类型与调用栈，不直接拼接请求体、rejectedValue 或可能含敏感输入的异常消息；不添加 ResponseBodyAdvice。
+- [x] **Step 4: 关闭默认错误泄露。** 在实际 Boot 4 的 spring.web.error 配置中设 include-message=never、include-binding-errors=never、include-stacktrace=never、include-exception=false；覆盖 /error 回退行为，不使用旧版 server.error 属性来假装生效。
+- [x] **Step 5: 验证绿灯。** ./mvnw test，确认仍不需要 Docker 或数据库凭据；分别核对 400、404、405、415、500，405 的 Allow 和敏感输入日志断言。
+- [x] **Step 6: 提交本任务。** 显式暂存本任务文件并检查差异，提交：feat: add validated API responses and safe HTTP error handling。
 
 ## Task 3: 数据源、分页与真实数据库健康检查
 
