@@ -181,6 +181,7 @@ Content-Type: application/json
 | 周报 | 与日报一致，将 daily-reports 换为 weekly-reports | 自然周报告 |
 | 复核 | `GET/POST /score-reviews`、`POST /score-reviews/{reviewId}/resolve` | 申请、处理评分争议 |
 | 积分 | `GET /points/me`、`GET /points/ledger` | 本人概览、权限内流水 |
+| 管理员加分 | `POST /members/{memberId}/points` | 管理员直接给学生增加正整数积分 |
 | 排名 | `GET /rankings/overall`、`GET /rankings/directions/{directionId}`、`GET /rankings/me` | 总榜、方向榜、本人排名 |
 | 规则 | `GET /system/rules` | 查看报告、自动移出和恢复规则 |
 | 审计 | `GET /audits` | 只读脱敏操作记录 |
@@ -225,7 +226,7 @@ Content-Type: application/json
 - `POST /members/{memberId}/restore` 仅学院管理员、版本受控且幂等；只恢复 `REMOVED` 学生。
 - 恢复重置 `membershipStartedAt`，开始新的14个完整自然日观察期，净积分保持0，不恢复旧会话。
 - 月度评定、月度淘汰和月度任务已取消，契约不再提供相关路径。
-- 本版不提供管理员手动提前移出、直接加减积分、物理删除人员、作废报告或公开创建管理员接口。
+- 管理员加分接口不要求原因、version 或幂等键，每次调用均累计；本版不提供减分、管理员手动提前移出、物理删除人员、作废报告或公开创建管理员接口。
 
 ## 9. 前后端并行开发顺序与验收
 

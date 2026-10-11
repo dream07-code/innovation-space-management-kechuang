@@ -42,6 +42,8 @@ class ImplementedApiContractIT {
     assertEquals("implemented", approved.getPaths().get("/api/v1/members/{memberId}/restore").getPost().getExtensions().get("x-implementation-status"));
     assertEquals("implemented", approved.getPaths().get("/api/v1/auth/login").getPost().getExtensions().get("x-implementation-status"));
     assertEquals("pending", approved.getPaths().get("/api/v1/members/{memberId}/remove").getPost().getExtensions().get("x-implementation-status"));
+    assertEquals("implemented", approved.getPaths().get("/api/v1/members/{memberId}/points").getPost().getExtensions().get("x-implementation-status"));
+    assertNotNull(approved.getComponents().getSchemas().get("AddMemberPointsRequest"));
     assertNull(approved.getPaths().get("/api/v1/monthly-assessments"));
     assertNull(approved.getPaths().get("/api/v1/tasks"));
     assertNull(approved.getPaths().get("/api/v1/system/rules/monthly-assessment"));

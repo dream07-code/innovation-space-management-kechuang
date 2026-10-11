@@ -66,6 +66,12 @@ public class MemberController {
     return stored(result);
   }
 
+  @PostMapping("/{memberId}/points")
+  public ApiResponse<Map<String, Object>> addPoints(
+      @PathVariable long memberId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(members.addPoints(memberId, request, actor()));
+  }
+
   @PostMapping("/{memberId}/restore")
   public ResponseEntity<String> restore(
       @PathVariable long memberId,

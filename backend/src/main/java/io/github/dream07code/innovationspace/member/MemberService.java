@@ -256,10 +256,12 @@ public class MemberService {
   }
 
   public Map<String, Object> lockedRow(long id) {
-    return jdbc.queryForMap(
+    var rows = jdbc.queryForList(
         "SELECT m.*,u.id user_id,u.role,u.status account_status,u.must_change_password FROM member"
             + " m JOIN app_user u ON u.member_id=m.id WHERE m.id=? FOR UPDATE",
         id);
+    if (rows.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
+    return rows.getFirst();
   }
 
   public void patch(long id, Map<String, Object> request) {
@@ -462,5 +464,37 @@ public class MemberService {
         "UPDATE audit_log SET detail=JSON_OBJECT('version',?,'membershipStartedAt',?) WHERE id=LAST_INSERT_ID()",
         before.get("version"), Timestamp.from(now));
     return map(row(id));
+  }
+
+  public Map<String, Object> addPoints(long id, Map<String, Object> request, SessionPrincipal actor) {
+    MemberScopePolicy.admin(actor);
+    fields(request, Set.of("points"));
+    if (request.size() != 1 || !(request.get("points") instanceof Number number)
+        || number.doubleValue() != number.longValue()
+        || number.longValue() < 1
+        || number.longValue() > Integer.MAX_VALUE) throw bad();
+    int amount = number.intValue();
+    return tx.execute(
+        status -> {
+          var before = lockedRow(id);
+          if (!"STUDENT".equals(before.get("role"))) throw new ApiException(409, ErrorCode.INVALID_STATE);
+          long current = jdbc.queryForObject(
+              "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE member_id=?", Long.class, id);
+          if (current + amount > Integer.MAX_VALUE) throw bad();
+          Instant now = clock.instant();
+          jdbc.update(
+              "INSERT INTO point_ledger(member_id,delta,source,business_effective_at,recorded_at,rule_version,event_key)"
+                  + " VALUES(?,?,'MANUAL_ADJUSTMENT',?,?,?,?)",
+              id,
+              amount,
+              Timestamp.from(now),
+              Timestamp.from(now),
+              "MANUAL_ADMIN_ADD_V1",
+              "ADMIN_POINTS:" + id + ":" + java.util.UUID.randomUUID());
+          audit(actor, "POINTS_ADDED", id, null, "Added points to student");
+          jdbc.update(
+              "UPDATE audit_log SET detail=JSON_OBJECT('points',?) WHERE id=LAST_INSERT_ID()", amount);
+          return map(row(id));
+        });
   }
 }

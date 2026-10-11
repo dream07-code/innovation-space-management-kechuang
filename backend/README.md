@@ -155,6 +155,8 @@ MEMBERSHIP_AUTO_REMOVAL_ENABLED=true
 MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS=3600000
 MEMBERSHIP_REMOVAL_BATCH_SIZE=500` 且评分开启时才启动有界并发的调度器。真实 Key、Authorization、姓名、学号和联系方式不写入数据库、Git、日志、审计或响应；报告正文只保存在受控的 report_version.content_json，不进入任务、日志或模型响应记录。公共 HTTP base URL 必须 HTTPS；仅 loopback 测试允许 HTTP。
 
+学院管理员可调用 `POST /api/v1/members/{memberId}/points`，请求仅包含正整数 `points`，不需要原因、version 或 Idempotency-Key；每次调用写入一条 `MANUAL_ADJUSTMENT` 流水并累计，不支持减分。
+
 积分模式和报告提交保底规则必须通过 `REPORT_POINTS_POLICY_STATUS=READY` 与 `REPORT_POINTS_MODE` 明确确认；支持 `FINAL_SCORE` 和 `BASE_PLUS_AI`，`PENDING_CONFIRMATION` 时正式提交返回 `RULES_NOT_CONFIGURED`。月度评定/淘汰不再实现。自动移出按 `Asia/Shanghai` 的14个完整自然日执行，历史报告和原始流水保留，净积分通过 `REVERSAL` 清零；管理员恢复后开始新观察期。
 
 会话使用32字节随机不透明token，库内只存SHA-256摘要；密码采用Spring Security PBKDF2-HMAC-SHA256、16字节盐、600000迭代、256位输出。首次/重置后只发300秒受限access，不能refresh或调用业务，改密后重新登录。普通access900秒，refresh家族绝对7天，刷新轮换且旧token重放撤销家族；前端以响应expiresIn为准。改密/重置/学号更正/授权或状态变化立即撤销相关会话。

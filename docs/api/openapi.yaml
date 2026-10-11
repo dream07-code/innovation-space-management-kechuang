@@ -1011,6 +1011,58 @@ paths:
             example:
               version: 1
               reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/points:
+    post:
+      tags:
+      - 成员
+      operationId: addMemberPoints
+      summary: 学院管理员直接增加学生积分
+      description: 仅学院管理员可调用。请求只要求正整数points，不需要reason、version或Idempotency-Key；每次调用都新增一条MANUAL_ADJUSTMENT积分流水并累计。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；返回积分更新后的完整成员资源。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberPointsRequest'
+            example:
+              points: 3
   /api/v1/members/{memberId}/restore:
     post:
       tags:
@@ -3409,6 +3461,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Direction'
+    AddMemberPointsRequest:
+      type: object
+      required:
+      - points
+      properties:
+        points:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+      additionalProperties: false
     Member:
       type: object
       required:
