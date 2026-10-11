@@ -78,3 +78,23 @@
 限流是单进程有界固定窗口，缺省60秒10次；TLS由部署入口提供，跨域默认不开放，无Cookie方案。多实例全局限流、运行告警与备份恢复还需部署设计。MySQL8.0生命周期风险仍按已批准基础工程报告提示。
 
 本轮仅本地backend提交，未推送/合并main，用户确认发布后才按指定分支推送。用户已取消关机，没有待关机计划。
+
+## 完整执行裁定（保留原记录，按发生顺序）
+
+1. Ruling: preserve established clean backend checkout as user-confirmed working branch, no nested worktree — keep changes visible in the established backend location — cost: no additional checkout isolation, all commits confined backend.
+2. Ruling: normalize accidental literal + prefixes in plan Markdown — task brief parser otherwise includes Task2 within Task1 — cost: formatting only.
+3. Ruling: migration/schema health and precise JAR SQL assertion changes move from Task6 to Task1 as required — Task1 cannot pass prior empty-schema/forbid-SQL tests once the approved migration exists — cost: earlier boundary test updates; no deletion of security/isolation tests.
+4. Ruling: Security starter moves to Task3, not Task1 — avoid generated-password/default-login behavior before explicit filter chain is available — cost: dependency added later, same final approved stack.
+5. Ruling: Auth HTTP *IT classes run via Failsafe verify, not Surefire test; Maven from repo root always -f backend/pom.xml — commands in plan otherwise miss project/tests — cost: command correction only.
+6. Ruling: audit persistence required by session/admin management is built in Task2, HTTP list in Task5; schema fixture migration reusable test helper explicitly targets owned datasource — resolve forward dependency — cost: earlier internal service, same API scope.
+7. Ruling: security crypto dependency added Task2, no security web autoconfig until Task3. JDBC TransactionTemplate used for session/idempotency explicit locking and SQL transactions rather than entity BaseMapper scaffolding — schema-sensitive queries easier to audit; member/direction mapper integration remains MyBatis-Plus — cost: hand-maintained SQL, all parameterized and real DB tested.
+8. Ruling: runtime OpenAPI merges approved design-first schemas/operation descriptions only for paths+methods actually registered by Spring; test probes retain own generated docs — map-based response fields cannot auto-infer schema, prevents fictitious unimplemented endpoints — cost: resource contract copy maintained/tested against docs; actual HTTP response contract validation required separately.
+9. Ruling: whole-suite preflight tests ran alongside targeted Maven tests early on; this could recompile test sets while another verify is running, so all final verification is strictly serial. No acceptance based on overlapped runs.
+10. Ruling: google-java-format applied to changed Java for review readability — compact initial patches were unreadable — cost: format-only diff enlarged; formatter uses temporary cached all-deps JAR, not product dependency.
+11. Final: Ruling: maintenance modes share Spring resolved environment listener — all supported sources must select same nonWeb behavior, reject simultaneous modes — cost: startup listener maintenance/regression coverage.
+12. Final: Ruling: reports/AI/points/monthly/remove/restore reviewer declined remain explicitly unimplemented — approved scope — cost: further development required.
+13. Final: Ruling: deployment credential/TLS/proxy/DB privileges reviewer declined not validated — no real deployment evidence — cost: separate deployment review required.
+14. Final: Ruling: browser new business UI reviewer declined, executor probe-page rerun passes but no frontend app exists — distinguish actual HTTP vs frontend UI — cost: no business UI end-to-end proof.
+15. Final: Ruling: exhaustive copiedYAML review declined — already reviewed main contract copied unchanged, static validation plus actualHTTP contracts — cost: not every example manually re-reviewed this round.
+16. Final: Ruling: exhaustive schema drift/failed migration secret leakage declined — no guarantee of exhaustive negative cases, documented limit — cost: deployment fault injection still needed.
+17. Final: Ruling: later README/fixture changes author-verified rather than second review — one review workflow preserved — cost: no independent re-review of metadata changes.
