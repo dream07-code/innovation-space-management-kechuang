@@ -212,6 +212,7 @@ public class ReportService {
         () ->
             tx.execute(
                 status -> {
+          lockMemberForReport(id);
           Map<String, Object> row = locked(id, true);
           ReportScopePolicy.requireOwner(principal, ((Number) row.get("member_id")).longValue());
           if (((Number) row.get("current_version")).longValue() != version)
@@ -252,6 +253,7 @@ public class ReportService {
       long id, Map<String, Object> request, SessionPrincipal principal, ReportType type) {
     return tx.execute(
         status -> {
+          lockMemberForReport(id);
           Map<String, Object> row = locked(id, true);
           ReportScopePolicy.requireOwner(principal, ((Number) row.get("member_id")).longValue());
           ReportType actual = ReportType.valueOf((String) row.get("report_type"));
@@ -381,6 +383,15 @@ public class ReportService {
         versionId,
         Timestamp.from(now),
         Timestamp.from(now));
+  }
+
+
+  private void lockMemberForReport(long reportId) {
+    Long memberId = jdbc.queryForObject("SELECT member_id FROM report WHERE id=?", Long.class, reportId);
+    Integer active = jdbc.queryForObject(
+        "SELECT COUNT(*) FROM member WHERE id=? AND membership_status='ACTIVE' FOR UPDATE",
+        Integer.class, memberId);
+    if (active == null || active != 1) throw new ApiException(409, ErrorCode.INVALID_STATE);
   }
 
   private Map<String, Object> locked(long id, boolean lock) {

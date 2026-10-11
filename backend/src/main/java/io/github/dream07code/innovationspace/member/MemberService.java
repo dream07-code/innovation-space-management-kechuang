@@ -448,6 +448,11 @@ public class MemberService {
     Instant now = clock.instant();
     points.reverseNonZeroEntries(id, InactivityPolicy.RULE_VERSION, now);
     jdbc.update(
+        "UPDATE report_scoring_task t JOIN report r ON r.id=t.report_id"
+            + " SET t.status='STALE',t.safe_error_code='MEMBER_RESTORED',t.finished_at=?,t.updated_at=?"
+            + " WHERE r.member_id=? AND t.status IN ('QUEUED','PROCESSING','RETRYING')",
+        Timestamp.from(now), Timestamp.from(now), id);
+    jdbc.update(
         "UPDATE member SET membership_status='ACTIVE',membership_started_at=?,removed_at=NULL,removal_reason=NULL,version=version+1,updated_at=? WHERE id=? AND membership_status='REMOVED'",
         Timestamp.from(now), Timestamp.from(now), id);
     jdbc.update("UPDATE app_user SET auth_revision=auth_revision+1 WHERE id=?", user);

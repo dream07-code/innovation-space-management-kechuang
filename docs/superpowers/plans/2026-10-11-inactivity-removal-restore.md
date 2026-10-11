@@ -60,7 +60,7 @@
 - `completedInactiveDays=max(0, DAYS.between(referenceDate.plusDays(1), businessDate))`。
 - `removable=completedInactiveDays>=14`。
 
-- [ ] **Step 1: Write RED tests**
+- [x] **Step 1: Write RED tests**
 
 Create `InactivityPolicyTest.completeDaysUseShanghaiDateBoundaries`：
 
@@ -74,12 +74,12 @@ assertEquals(14, policy.evaluate(LocalDate.of(2026,10,25), LocalDate.of(2026,10,
 
 Add V5 assertions：两个索引存在，`member`/`report` 行数仍为0。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=InactivityPolicyTest test`  
 Expected: compilation failure/missing policy.
 
-- [ ] **Step 3: Implement policy and migration**
+- [x] **Step 3: Implement policy and migration**
 
 Implement the exact `Evaluation` record and `evaluate` signature above。V5 只创建：
 
@@ -88,12 +88,12 @@ CREATE INDEX idx_report_member_activity ON report(member_id,report_type,status,f
 CREATE INDEX idx_member_auto_removal ON member(membership_status,membership_started_at);
 ```
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=InactivityPolicyTest test` and `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=FlywayMigrationIT,JarBoundaryIT verify`  
 Expected: PASS，V1–V5 可迁移，正式 JAR 只带 V1–V5。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java backend/src/main/resources backend/src/test/java
@@ -116,11 +116,11 @@ git commit -m "feat: add inactivity policy and membership indexes"
 - 只读取 `delta<>0 AND source<>'REVERSAL'`。
 - 冲正 `delta=-原delta`、`source='REVERSAL'`。
 - 复用原行的 `report_id/report_version_id/business_effective_at`。
-- `event_key="MEMBERSHIP_POINTS_ZERO:"+memberId+":"+originalLedgerId+":"+ruleVersion`。
+- `event_key="MEMBERSHIP_POINTS_RESET:"+memberId+":"+originalLedgerId+":"+ruleVersion`。
 - `rule_version` 使用传入规则版本。
 - `DuplicateKeyException` 视为已冲正，不报错、不重复写。
 
-- [ ] **Step 1: Write RED test**
+- [x] **Step 1: Write RED test**
 
 `PointLedgerResetIT.zeroesEveryNetWithoutDeletingHistory` 使用真实 MySQL 创建两个报告、跨两个月的三条非0原始流水，调用两次。断言：
 
@@ -130,21 +130,21 @@ git commit -m "feat: add inactivity policy and membership indexes"
 - 每个 `business_effective_at` 月份的净分均为0。
 - 第一次返回原始行数，第二次返回0。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=PointLedgerResetIT verify`  
 Expected: missing method/behavior。
 
-- [ ] **Step 3: Implement reversal primitive**
+- [x] **Step 3: Implement reversal primitive**
 
 实现 `reverseNonZeroEntries(long memberId, String ruleVersion, Instant recordedAt)`；每个原始行独立事务外执行参数化插入并捕获 `DuplicateKeyException`。
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=PointLedgerResetIT verify`  
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java backend/src/test/java
@@ -182,7 +182,7 @@ git commit -m "feat: add idempotent membership point reversal"
 - `safe detail` 含 `reasonCode/membershipStartedAt/lastDailySubmittedAt/completedInactiveDays/thresholdDays=14/ruleVersion`，不含学号、姓名和正文。
 - 调度器使用 `@Scheduled(fixedDelayString="${app.membership.removal-check-interval-ms:3600000}")`，可通过属性禁用。
 
-- [ ] **Step 1: Write RED tests**
+- [x] **Step 1: Write RED tests**
 
 `MembershipRemovalServiceIT` 覆盖：
 
@@ -195,21 +195,21 @@ git commit -m "feat: add idempotent membership point reversal"
 
 `MembershipRemovalSchedulerTest` 断言 disabled 不调用 service、enabled 调用一次。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=MembershipRemovalSchedulerTest test` and `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=MembershipRemovalServiceIT verify`  
 Expected: missing implementation。
 
-- [ ] **Step 3: Implement properties, service, scheduler**
+- [x] **Step 3: Implement properties, service, scheduler**
 
 实现上述精确接口；移出更新使用 `WHERE id=? AND membership_status='ACTIVE'`，返回受影响行数决定是否继续。
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: both targeted commands above。  
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java backend/src/test/java
@@ -241,25 +241,25 @@ git commit -m "feat: auto-remove inactive students"
 - 审计 action `MEMBER_RESTORED`，记录 actor/reason/version。
 - 同一 Idempotency-Key 重放；不同请求复用 Key 返回409。
 
-- [ ] **Step 1: Write RED HTTP tests**
+- [x] **Step 1: Write RED HTTP tests**
 
 `MemberRestoreHttpIT.restoreIsAdminOnlyVersionedAndIdempotent` 覆盖管理员成功、学生/负责人403、ACTIVE 409、旧 version 409、Key 冲突409、重复成功幂等、账号 DISABLED 仍DISABLED、报告/流水保留且积分0、`membership_started_at` 改变。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=MemberRestoreHttpIT verify`  
 Expected: route不存在/行为缺失。
 
-- [ ] **Step 3: Implement restore service and route**
+- [x] **Step 3: Implement restore service and route**
 
 复用 `adminAction` 的权限、版本和幂等边界；只新增 restore 状态事务和积分清零调用。
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: targeted command。  
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java backend/src/test/java
@@ -283,25 +283,25 @@ git commit -m "feat: add admin student restore"
 - `REMOVED` 时任务 `STALE`，报告已有清零状态不被改写。
 - 失败回调同样不得把已移出成员任务覆盖为 RETRYING/REVIEW_REQUIRED。
 
-- [ ] **Step 1: Write RED test**
+- [x] **Step 1: Write RED test**
 
 `ScoringWorkerIT.removedMemberLateScoreCannotAddPoints`：提交报告后移出并清零，令评分任务返回3分，执行 Worker，断言任务 `STALE`、净积分仍0、报告状态不增加流水。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ScoringWorkerIT verify`  
 Expected: 当前会增加积分。
 
-- [ ] **Step 3: Implement member-state guard**
+- [x] **Step 3: Implement member-state guard**
 
 在成功/失败落账事务中加入状态检查；保持 manual/stale 优先级。
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: targeted command。  
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java backend/src/test/java
@@ -334,25 +334,25 @@ git commit -m "fix: prevent late scores after member removal"
 - 需求文档删除“每月评定末位移出”，写入14个完整自然日自动移出和管理员恢复。
 - README 写清配置、清零冲正、恢复语义和月度淘汰取消。
 
-- [ ] **Step 1: Write RED contract tests**
+- [x] **Step 1: Write RED contract tests**
 
 `ImplementedApiContractIT` 断言 restore 存在且 implemented、月度 assessment/tasks/monthly rule 路径不存在、两份契约一致、rankings `period=MONTH` 仍存在。
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ImplementedApiContractIT verify`  
 Expected: restore未标实现/月度路径仍存在。
 
-- [ ] **Step 3: Update contract and docs**
+- [x] **Step 3: Update contract and docs**
 
 按上述规则同步 OpenAPI、运行契约、需求和运维文档；禁止写入真实账号/Key/正文。
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run: targeted command。  
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs backend
@@ -371,7 +371,7 @@ git commit -m "docs: specify inactivity removal and cancel monthly elimination"
 - Consumes: Task 1–6 的代码、迁移、契约和文档。
 - Produces: 完整验证报告、最终 `backend` 提交和远端更新。
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run：
 
@@ -385,15 +385,15 @@ backend/mvnw -f backend/pom.xml -B -ntp clean verify
 
 Expected: zero failures/errors/skips。
 
-- [ ] **Step 2: Run operational scans**
+- [x] **Step 2: Run operational scans**
 
 Run dependency tree、`git diff --check`、密钥/Token/正文扫描、V1–V5 JAR 边界和 Playwright Knife4j smoke。Expected: all PASS。
 
-- [ ] **Step 3: Independent whole-branch review**
+- [x] **Step 3: Independent whole-branch review**
 
 Review `origin/main..HEAD` against the confirmed spec；fix all Critical/Important with RED→GREEN，记录 Ruling/deferred Minor。
 
-- [ ] **Step 4: Rerun after review fixes**
+- [x] **Step 4: Rerun after review fixes**
 
 Repeat Step 1–2 and browser smoke after final code change。
 

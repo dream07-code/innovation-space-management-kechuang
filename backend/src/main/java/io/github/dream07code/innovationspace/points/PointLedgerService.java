@@ -119,7 +119,7 @@ public class PointLedgerService {
       long originalId = ((Number) original.get("id")).longValue();
       int delta = -((Number) original.get("delta")).intValue();
       String eventKey =
-          "MEMBERSHIP_POINTS_ZERO:" + memberId + ":" + originalId + ":" + ruleVersion;
+          "MEMBERSHIP_POINTS_RESET:" + memberId + ":" + originalId + ":" + ruleVersion;
       try {
         jdbc.update(
             "INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key)"
@@ -138,6 +138,39 @@ public class PointLedgerService {
       }
     }
     return inserted;
+  }
+
+
+  public int sourceNet(long memberId, String source) {
+    return sourceNet(memberId, null, source);
+  }
+
+  public int sourceNet(long memberId, Long reportId, String source) {
+    var rows = jdbc.queryForList(
+        "SELECT id,report_id,source,delta,event_key FROM point_ledger WHERE member_id=?", memberId);
+    var originalSources = new java.util.HashMap<Long, String>();
+    for (var row : rows) {
+      if (!"REVERSAL".equals(row.get("source")))
+        originalSources.put(((Number) row.get("id")).longValue(), (String) row.get("source"));
+    }
+    int net = 0;
+    for (var row : rows) {
+      if (reportId != null && !reportId.equals(((Number) row.get("report_id")).longValue())) continue;
+      String rowSource = (String) row.get("source");
+      boolean counted = source.equals(rowSource);
+      if ("REVERSAL".equals(rowSource)) {
+        String[] parts = String.valueOf(row.get("event_key")).split(":");
+        if (parts.length >= 3) {
+          try {
+            counted = source.equals(originalSources.get(Long.parseLong(parts[2])));
+          } catch (NumberFormatException ignored) {
+            counted = false;
+          }
+        }
+      }
+      if (counted) net += ((Number) row.get("delta")).intValue();
+    }
+    return net;
   }
 
   private long resolveMember(SessionPrincipal principal, Long requested) {

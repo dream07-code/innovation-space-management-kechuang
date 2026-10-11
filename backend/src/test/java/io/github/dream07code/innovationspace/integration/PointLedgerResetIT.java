@@ -32,13 +32,15 @@ class PointLedgerResetIT {
     insertLedger(jdbc, 40, 20, 30, 2, "2026-09-30 15:00:00", "original-40");
     insertLedger(jdbc, 41, 20, 30, 1, "2026-10-01 01:00:00", "original-41");
     insertLedger(jdbc, 42, 21, 31, 3, "2026-10-02 01:00:00", "original-42");
+    jdbc.update("INSERT INTO point_ledger(id,member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(43,10,20,30,2,'AI_ADJUSTMENT','2026-10-02 02:00:00','2026-10-02 02:00:00','v1','original-43')");
 
     var points = new PointLedgerService(jdbc, Clock.systemUTC());
-    assertEquals(3, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-16T00:00:00Z")));
+    assertEquals(4, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-16T00:00:00Z")));
     assertEquals(0, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-17T00:00:00Z")));
 
-    assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source<>'REVERSAL'", Integer.class));
-    assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source='REVERSAL'", Integer.class));
+    assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source<>'REVERSAL'", Integer.class));
+    assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source='REVERSAL'", Integer.class));
+    assertEquals(0, points.sourceNet(10, "AI_ADJUSTMENT"));
     assertEquals(0, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE member_id=10", Integer.class));
     assertEquals(0, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=20", Integer.class));
     assertEquals(0, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=21", Integer.class));

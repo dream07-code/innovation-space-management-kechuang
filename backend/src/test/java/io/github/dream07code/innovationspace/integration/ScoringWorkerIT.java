@@ -169,6 +169,7 @@ class ScoringWorkerIT {
     reports.create(dailyRequest("跨月评分", "月末提交"), principal, "66666666-6666-4666-8666-666666666666", ReportType.DAILY);
     long id = jdbc.queryForObject("SELECT id FROM report", Long.class);
     reports.submit(id, 1, principal, "11111111-1111-4111-8111-111111111111");
+    jdbc.update("UPDATE member SET membership_started_at='2026-09-30 15:00:00' WHERE id=10");
     jdbc.update("UPDATE report SET first_submitted_at='2026-09-30 15:00:00' WHERE id=?", id);
     jdbc.update("UPDATE point_ledger SET business_effective_at='2026-09-30 15:00:00' WHERE report_id=?", id);
     assertTrue(scoring.processOne());

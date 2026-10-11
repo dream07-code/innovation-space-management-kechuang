@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,33 +44,38 @@ public class MembershipRemovalService {
   public int removeDueMembers() {
     int removed = 0;
     for (Map<String, Object> candidate : candidates(null, properties.getRemovalBatchSize())) {
-      if (removeDueMember(((Number) candidate.get("id")).longValue())) removed++;
+      long memberId = ((Number) candidate.get("id")).longValue();
+      try {
+        if (removeDueMember(memberId)) removed++;
+      } catch (Exception failure) {
+        recordFailureSafely(memberId);
+      }
     }
     return removed;
   }
 
   public boolean removeDueMember(long memberId) {
-    var candidate = candidates(memberId, 1).stream().findFirst().orElse(null);
-    if (candidate == null) return false;
-    LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
-    var evaluation =
-        policy.evaluate(
-            businessDate,
-            localDate(candidate.get("membership_started_at")),
-            candidate.get("last_daily_submitted_at") == null
-                ? null
-                : localDate(candidate.get("last_daily_submitted_at")));
-    if (!evaluation.removable()) return false;
+    if (candidates(memberId, 1).isEmpty()) return false;
     Instant now = clock.instant();
+    LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
     Boolean removed =
         tx.execute(
             status -> {
+              Long userId =
+                  jdbc.queryForObject(
+                      "SELECT id FROM app_user WHERE member_id=? FOR UPDATE", Long.class, memberId);
               var locked =
                   jdbc.queryForMap(
-                      "SELECT m.id,m.membership_started_at,u.id user_id FROM member m"
-                          + " JOIN app_user u ON u.member_id=m.id WHERE m.id=? AND m.membership_status='ACTIVE'"
-                          + " AND u.role='STUDENT' FOR UPDATE",
+                      "SELECT id,membership_started_at FROM member WHERE id=? AND membership_status='ACTIVE' FOR UPDATE",
                       memberId);
+              Instant membershipStarted = instant(locked.get("membership_started_at"));
+              Instant lastSubmitted = latestDailySubmitted(memberId, membershipStarted);
+              var evaluation =
+                  policy.evaluate(
+                      businessDate,
+                      localDate(locked.get("membership_started_at")),
+                      lastSubmitted == null ? null : localDate(Timestamp.from(lastSubmitted)));
+              if (!evaluation.removable()) return false;
               int changed =
                   jdbc.update(
                       "UPDATE member SET membership_status='REMOVED',removed_at=?,removal_reason=?,"
@@ -79,11 +85,15 @@ public class MembershipRemovalService {
                       Timestamp.from(now),
                       memberId);
               if (changed == 0) return false;
-              long userId = ((Number) locked.get("user_id")).longValue();
-              points.reverseNonZeroEntries(
-                  memberId, InactivityPolicy.RULE_VERSION, now);
               jdbc.update(
-                  "UPDATE app_user SET auth_revision=auth_revision+1 WHERE id=?", userId);
+                  "UPDATE report_scoring_task t JOIN report r ON r.id=t.report_id"
+                      + " SET t.status='STALE',t.safe_error_code='MEMBER_REMOVED',t.finished_at=?,t.updated_at=?"
+                      + " WHERE r.member_id=? AND t.status IN ('QUEUED','PROCESSING','RETRYING')",
+                  Timestamp.from(now),
+                  Timestamp.from(now),
+                  memberId);
+              points.reverseNonZeroEntries(memberId, InactivityPolicy.RULE_VERSION, now);
+              jdbc.update("UPDATE app_user SET auth_revision=auth_revision+1 WHERE id=?", userId);
               jdbc.update(
                   "UPDATE auth_session SET revoked_at=COALESCE(revoked_at,?),revoke_reason=? WHERE user_id=?",
                   Timestamp.from(now),
@@ -96,10 +106,8 @@ public class MembershipRemovalService {
                   memberId,
                   "TWO_WEEKS_NO_DAILY_REPORT",
                   "TWO_WEEKS_NO_DAILY_REPORT",
-                  timestampText(candidate.get("membership_started_at")),
-                  candidate.get("last_daily_submitted_at") == null
-                      ? null
-                      : timestampText(candidate.get("last_daily_submitted_at")),
+                  iso(membershipStarted),
+                  lastSubmitted == null ? null : iso(lastSubmitted),
                   evaluation.completedInactiveDays(),
                   InactivityPolicy.THRESHOLD_DAYS,
                   InactivityPolicy.RULE_VERSION,
@@ -107,6 +115,33 @@ public class MembershipRemovalService {
               return true;
             });
     return Boolean.TRUE.equals(removed);
+  }
+
+  private Instant latestDailySubmitted(long memberId, Instant membershipStarted) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT first_submitted_at FROM report"
+                + " WHERE member_id=? AND report_type='DAILY' AND status='SUBMITTED'"
+                + " AND first_submitted_at>=? ORDER BY first_submitted_at DESC LIMIT 1 FOR UPDATE",
+            memberId,
+            Timestamp.from(membershipStarted));
+    return rows.isEmpty() || rows.getFirst().get("first_submitted_at") == null
+        ? null
+        : instant(rows.getFirst().get("first_submitted_at"));
+  }
+
+  private void recordFailureSafely(long memberId) {
+    try {
+      jdbc.update(
+          "INSERT INTO audit_log(actor_user_id,action,resource_type,resource_id,reason,summary,result,detail,occurred_at)"
+              + " VALUES(NULL,'MEMBER_AUTO_REMOVAL_FAILED','MEMBER',?,'MEMBER_AUTO_REMOVAL_FAILED',"
+              + "'Skipped one member after failure','FAILURE',JSON_OBJECT('reasonCode',?),?)",
+          memberId,
+          "MEMBER_AUTO_REMOVAL_FAILED",
+          Timestamp.from(clock.instant()));
+    } catch (Exception ignored) {
+      // Database-wide failures remain retryable on the next scheduled run.
+    }
   }
 
   private List<Map<String, Object>> candidates(Long memberId, int limit) {
@@ -135,7 +170,14 @@ public class MembershipRemovalService {
     return instant.atZone(BUSINESS_ZONE).toLocalDate();
   }
 
-  private static String timestampText(Object value) {
-    return value == null ? null : value.toString();
+  private static Instant instant(Object value) {
+    if (value instanceof Timestamp timestamp) return timestamp.toInstant();
+    if (value instanceof LocalDateTime local) return local.toInstant(ZoneOffset.UTC);
+    if (value instanceof Instant temporal) return temporal;
+    throw new IllegalStateException("Unsupported timestamp");
+  }
+
+  private static String iso(Instant value) {
+    return DateTimeFormatter.ISO_INSTANT.format(value);
   }
 }

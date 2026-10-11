@@ -96,6 +96,7 @@ class MemberRestoreHttpIT {
     assertNotEquals(originalStart, jdbc.queryForObject("SELECT membership_started_at FROM member WHERE id=10", Timestamp.class));
     assertNotNull(jdbc.queryForObject("SELECT revoked_at FROM auth_session WHERE user_id=10", Timestamp.class));
     assertFalse(removals.removeDueMember(10));
+    assertEquals("STALE", jdbc.queryForObject("SELECT status FROM report_scoring_task WHERE report_id=100", String.class));
 
     var replay =
         send(
@@ -143,6 +144,7 @@ class MemberRestoreHttpIT {
   private void seedReportAndZeroedPoints(int memberId) {
     jdbc.update("INSERT INTO report(id,member_id,direction_id,report_type,report_date,status,current_version,score_status,first_submitted_at,created_at,updated_at) VALUES(100,?,1,'DAILY',CURDATE(),'SUBMITTED',1,'SCORED',DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 31 DAY),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", memberId);
     jdbc.update("INSERT INTO report_version(id,report_id,version,content_json,content_hash,edited_by,created_at) VALUES(100,100,1,'{}',UNHEX(SHA2('{}',256)),?,UTC_TIMESTAMP(6))", memberId);
+    jdbc.update("INSERT INTO report_scoring_task(report_id,report_version_id,status,attempt,created_at,updated_at) VALUES(100,100,'QUEUED',0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
     jdbc.update("INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(?,100,100,2,'SUBMISSION_BASE',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'v1','restore-original')", memberId);
     points.reverseNonZeroEntries(memberId, "INACTIVE_DAILY_REPORT_14_COMPLETE_DAYS_V1", java.time.Instant.now());
   }

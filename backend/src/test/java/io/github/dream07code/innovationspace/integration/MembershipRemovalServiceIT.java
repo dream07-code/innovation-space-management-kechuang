@@ -7,6 +7,10 @@ import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +24,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
@@ -41,6 +46,7 @@ class MembershipRemovalServiceIT {
   @Autowired JdbcTemplate jdbc;
   @Autowired MembershipRemovalService removals;
   @Autowired SessionService sessions;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
 
   @BeforeEach
   void fixture() {
@@ -129,5 +135,41 @@ class MembershipRemovalServiceIT {
 
   private static Timestamp businessTimestamp(int daysAgo) {
     return Timestamp.from(localDate(daysAgo).atTime(12, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+  }
+
+  @Test
+  void memberLockedDuringScanRechecksFreshDailySubmission() throws Exception {
+    var transaction = new org.springframework.transaction.support.TransactionTemplate(transactions);
+    var locked = new CountDownLatch(1);
+    var release = new CountDownLatch(1);
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      Future<?> locker = executor.submit(() -> transaction.executeWithoutResult(status -> {
+        jdbc.queryForList("SELECT id FROM app_user WHERE id=11 FOR UPDATE");
+        jdbc.queryForList("SELECT id FROM member WHERE id=11 FOR UPDATE");
+        locked.countDown();
+        try {
+          Thread.sleep(250);
+          jdbc.update("INSERT INTO report(id,member_id,direction_id,report_type,report_date,status,current_version,score_status,first_submitted_at,created_at,updated_at) VALUES(1100,11,1,'DAILY',CURDATE(),'SUBMITTED',1,'NOT_REQUESTED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
+          jdbc.update("INSERT INTO report_version(id,report_id,version,content_json,content_hash,edited_by,created_at) VALUES(1100,1100,1,'{}',UNHEX(SHA2('{}',256)),11,UTC_TIMESTAMP(6))");
+        } catch (Exception failure) { throw new IllegalStateException(failure); }
+        release.countDown();
+      }));
+      assertTrue(locked.await(5, TimeUnit.SECONDS));
+      Future<Boolean> removal = executor.submit(() -> removals.removeDueMember(11));
+      release.countDown();
+      locker.get(5, TimeUnit.SECONDS);
+      assertFalse(removal.get(5, TimeUnit.SECONDS));
+      assertEquals("ACTIVE", status(11));
+    }
+  }
+
+  @Test
+  void oneMemberFailureDoesNotStopBatchAndIsAudited() {
+    var spy = spy(removals);
+    doThrow(new IllegalStateException("synthetic member failure")).when(spy).removeDueMember(11);
+    assertEquals(4, spy.removeDueMembers());
+    assertEquals("ACTIVE", status(11));
+    assertEquals("REMOVED", status(12));
+    assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM audit_log WHERE action='MEMBER_AUTO_REMOVAL_FAILED' AND resource_id=11", Integer.class));
   }
 }
