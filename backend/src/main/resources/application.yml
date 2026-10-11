@@ -53,6 +53,23 @@ app:
     required-version: "4"
   auth:
     initial-password: ${MEMBER_INITIAL_PASSWORD:}
+  report:
+    points-policy-status: ${REPORT_POINTS_POLICY_STATUS:PENDING_CONFIRMATION}
+    points-mode: ${REPORT_POINTS_MODE:FINAL_SCORE}
+    daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
+    weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
+  ai:
+    enabled: ${AI_SCORING_ENABLED:false}
+    provider: ${AI_PROVIDER:disabled}
+    base-url: ${AI_BASE_URL:}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:}
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:3000}
+    request-timeout-ms: ${AI_REQUEST_TIMEOUT_MS:30000}
+    max-retries: ${AI_MAX_RETRIES:2}
+    max-concurrency: ${AI_MAX_CONCURRENCY:2}
+    poll-interval-ms: ${AI_POLL_INTERVAL_MS:1000}
+    worker-scheduling-enabled: ${AI_WORKER_SCHEDULING_ENABLED:true}
 
 mybatis-plus:
   configuration:

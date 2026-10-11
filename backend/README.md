@@ -123,6 +123,28 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar --app.migration.mod
 
 学生和负责人使用学号登录；学生不能自注册。当前尚未实现日报、周报、AI 评分、积分、排行榜、月度评定及自动移出。
 
+### 报告、评分与积分（进行中）
+
+已实现日报/周报草稿、查询、合并 PATCH、提交、报告版本基础、可插拔 Mock/OpenAI-compatible 评分 Provider、异步评分 Worker、评分任务和积分流水表，以及个人积分、积分流水、总榜、方向榜和个人排名接口。报告列表先按学生/负责人/管理员范围过滤；评分 Worker 会按版本校验后补 AI 差额积分，旧版本迟到结果只标记 STALE，人工结果优先；提交状态和评分状态相互独立。
+
+外部模型仅从私密环境配置注入：
+
+```text
+AI_SCORING_ENABLED=false
+AI_PROVIDER=disabled|mock|openai-compatible
+AI_BASE_URL=
+AI_API_KEY=
+AI_MODEL=
+AI_MAX_RETRIES=2
+AI_MAX_CONCURRENCY=2
+AI_POLL_INTERVAL_MS=1000
+AI_WORKER_SCHEDULING_ENABLED=true
+```
+
+默认关闭，未配置 Key 不调用外部服务；`AI_WORKER_SCHEDULING_ENABLED=true` 且评分开启时才启动有界并发的调度器。真实 Key、Authorization、报告正文、姓名、学号和联系方式不写入数据库、Git、日志、审计或响应。公共 HTTP base URL 必须 HTTPS；仅 loopback 测试允许 HTTP。
+
+积分模式和报告提交保底规则必须通过 `REPORT_POINTS_POLICY_STATUS=READY` 与 `REPORT_POINTS_MODE` 明确确认；`PENDING_CONFIRMATION` 时正式提交返回 `RULES_NOT_CONFIGURED`。本月度评定和自动移出仍不在本阶段范围，不注册其生产 API。
+
 会话使用32字节随机不透明token，库内只存SHA-256摘要；密码采用Spring Security PBKDF2-HMAC-SHA256、16字节盐、600000迭代、256位输出。首次/重置后只发300秒受限access，不能refresh或调用业务，改密后重新登录。普通access900秒，refresh家族绝对7天，刷新轮换且旧token重放撤销家族；前端以响应expiresIn为准。改密/重置/学号更正/授权或状态变化立即撤销相关会话。
 
 登录/刷新/改密均为单进程有界固定窗口限流（60秒10次）；429含Retry-After，不信任未配置代理的X-Forwarded-For。当前无Cookie认证、默认管理员或JSESSIONID，跨域默认不开放。多实例需要另行设计全局限流；共享初始密码也不能替代身份交付核验。默认TLS由部署入口负责。
