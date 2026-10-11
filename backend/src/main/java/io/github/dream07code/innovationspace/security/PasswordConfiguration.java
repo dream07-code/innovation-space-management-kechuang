@@ -4,8 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@org.springframework.boot.context.properties.EnableConfigurationProperties(
-    RateLimitProperties.class)
+@org.springframework.boot.context.properties.EnableConfigurationProperties({
+    RateLimitProperties.class, io.github.dream07code.innovationspace.report.ReportProperties.class})
 public class PasswordConfiguration {
   @Bean
   public PasswordService passwordService() {

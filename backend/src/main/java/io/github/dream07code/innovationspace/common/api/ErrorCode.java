@@ -18,7 +18,9 @@ public enum ErrorCode {
   ACCOUNT_ALREADY_EXISTS("Account already exists"),
   INVALID_STATE("Invalid state"),
   IDEMPOTENCY_CONFLICT("Idempotency conflict"),
-  RATE_LIMITED("Rate limited"),
+    RATE_LIMITED("Rate limited"),
+    REPORT_ALREADY_EXISTS("Report already exists"),
+    RULES_NOT_CONFIGURED("Rules not configured"),
   INTERNAL_ERROR("Internal server error");
 
   private final String message;
