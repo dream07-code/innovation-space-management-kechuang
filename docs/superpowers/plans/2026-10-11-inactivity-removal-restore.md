@@ -397,7 +397,7 @@ Review `origin/main..HEAD` against the confirmed spec；fix all Critical/Importa
 
 Repeat Step 1–2 and browser smoke after final code change。
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 Create the verification report, mark plan checkboxes, commit `test: verify inactivity removal and restore delivery`, and push `backend` only。
 
