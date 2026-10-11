@@ -66,6 +66,22 @@ public class MemberController {
     return stored(result);
   }
 
+  @PostMapping("/{memberId}/restore")
+  public ResponseEntity<String> restore(
+      @PathVariable long memberId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    var result =
+        members.adminAction(
+            memberId,
+            request,
+            actor(),
+            key,
+            "/api/v1/members/" + memberId + "/restore",
+            () -> members.restore(memberId, request, actor()));
+    return stored(result);
+  }
+
   @PostMapping("/{memberId}/password-reset")
   public ResponseEntity<String> reset(
       @PathVariable long memberId,

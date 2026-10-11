@@ -2,6 +2,8 @@ package io.github.dream07code.innovationspace.member;
 
 import io.github.dream07code.innovationspace.common.api.*;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
+import io.github.dream07code.innovationspace.membership.InactivityPolicy;
+import io.github.dream07code.innovationspace.points.PointLedgerService;
 import io.github.dream07code.innovationspace.security.*;
 import java.sql.Timestamp;
 import java.time.*;
@@ -20,6 +22,7 @@ public class MemberService {
   private final PasswordService passwords;
   private final SessionService sessions;
   private final IdempotencyService idem;
+  private final PointLedgerService points;
   private final TransactionTemplate tx;
   private final Clock clock;
   private final String initial;
@@ -31,6 +34,7 @@ public class MemberService {
       PasswordService passwords,
       SessionService sessions,
       IdempotencyService idem,
+      PointLedgerService points,
       PlatformTransactionManager manager,
       Clock clock,
       @Value("${app.auth.initial-password:}") String initial) {
@@ -39,6 +43,7 @@ public class MemberService {
     this.passwords = passwords;
     this.sessions = sessions;
     this.idem = idem;
+    this.points = points;
     this.tx = new TransactionTemplate(manager);
     this.clock = clock;
     this.initial = initial;
@@ -430,5 +435,27 @@ public class MemberService {
         Timestamp.from(clock.instant()),
         reason,
         user);
+  }
+
+  public Map<String, Object> restore(long id, Map<String, Object> request, SessionPrincipal actor) {
+    fields(request, Set.of("version", "reason"));
+    String reason = required(request, "reason", 1000);
+    if (reason.length() < 5) throw bad();
+    var before = lockedRow(id);
+    if (!"STUDENT".equals(before.get("role")) || !"REMOVED".equals(before.get("membership_status")))
+      throw new ApiException(409, ErrorCode.INVALID_STATE);
+    long user = ((Number) before.get("user_id")).longValue();
+    Instant now = clock.instant();
+    points.reverseNonZeroEntries(id, InactivityPolicy.RULE_VERSION, now);
+    jdbc.update(
+        "UPDATE member SET membership_status='ACTIVE',membership_started_at=?,removed_at=NULL,removal_reason=NULL,version=version+1,updated_at=? WHERE id=? AND membership_status='REMOVED'",
+        Timestamp.from(now), Timestamp.from(now), id);
+    jdbc.update("UPDATE app_user SET auth_revision=auth_revision+1 WHERE id=?", user);
+    revoke(user, "MEMBER_RESTORED");
+    audit(actor, "MEMBER_RESTORED", id, reason, "Restored removed student");
+    jdbc.update(
+        "UPDATE audit_log SET detail=JSON_OBJECT('version',?,'membershipStartedAt',?) WHERE id=LAST_INSERT_ID()",
+        before.get("version"), Timestamp.from(now));
+    return map(row(id));
   }
 }
