@@ -17,8 +17,7 @@ tags:
 - name: 积分
 - name: 排行榜
 - name: 规则
-- name: 月度评定
-- name: 任务与审计
+- name: 审计
 - name: 运行状态
 security:
 - BearerAuth: []
@@ -31,7 +30,7 @@ paths:
       summary: 账号密码登录
       description: 管理员账号由项目负责人指定；学生/负责人用学号。无自注册或自动开户。错误账号/密码/被禁用账号登录统一401 INVALID_CREDENTIALS。待改密登录返回受限 access token、refreshToken=null、mustChangePassword=true；仅可访问
         me/password/logout。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles: []
       responses:
         '200':
@@ -125,7 +124,7 @@ paths:
       summary: 轮换刷新令牌
       description: 请求体携带 refresh token，不要求 access token。轮换旧 refresh token 并重新验证状态/权限；重放则撤销 session 并401。受限待改密 session
         不发 refresh token；其状态不能绕过改密。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles: []
       responses:
         '200':
@@ -194,7 +193,7 @@ paths:
       operationId: logout
       summary: 退出当前会话
       description: 包括受限待改密 token；撤销当前 session 的 access/refresh。已失效 token 返回401，客户端仍清除本地状态。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -235,7 +234,7 @@ paths:
       operationId: getMe
       summary: 当前登录身份和本人资料
       description: 待改密 token 可访问；身份和 managedDirectionIds 以服务端现状为准。管理员 memberId 和学生字段可为 null。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -294,7 +293,7 @@ paths:
       summary: 修改本人密码并撤销全部会话
       description: 允许受限待改密 token；成功后必须重新登录，旧 access/refresh 全部失效。oldPassword错误400 OLD_PASSWORD_INVALID；不合新密码策略400
         PASSWORD_POLICY_VIOLATION。不返回密码或新 token。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -346,7 +345,7 @@ paths:
       operationId: listDirections
       summary: 方向目录
       description: 按固定目录顺序返回七个方向，不包括人数、负责人学号或联系方式。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -415,7 +414,7 @@ paths:
       operationId: getDirection
       summary: 方向详情
       description: ''
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -469,7 +468,7 @@ paths:
       operationId: listMembers
       summary: 管理端成员列表
       description: 学院管理员全方向；负责人只看所辖方向普通学生，不能查看其他负责人资料。先授权过滤再计算total。按 createdAt DESC,id数值 DESC。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -541,7 +540,7 @@ paths:
       summary: 添加学生并创建账号
       description: 固定创建 STUDENT，初始积分0、mustChangePassword=true；密码从私密配置读取不返回。负责人仅可添加到其 managedDirectionIds。学号/统一account重复409
         ACCOUNT_ALREADY_EXISTS；禁止提交role/password/points。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -617,7 +616,7 @@ paths:
       operationId: getMember
       summary: 管理端成员详情
       description: 管理员所有成员；负责人仅所辖普通学生。学生查看自己使用auth/me，不开放全量人员字段给排行榜。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -688,7 +687,7 @@ paths:
       summary: 更新学生资料
       description: 仅STUDENT；负责人只改所辖普通学生资料，不能改directionId；学院管理员可改学生方向。学号/角色/积分不允许此接口写入，负责人资料走专用接口。version冲突409；方向调整保留历史报告/快照归属，活动月评期间拒绝调方向409
         INVALID_STATE。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -770,7 +769,7 @@ paths:
       operationId: correctStudentNumber
       summary: 管理员更正学号
       description: 适用于学生及负责人；不能处理学院管理员账号。校验新学号/统一account唯一，审计原/新学号及原因，内部memberId/userId不变、历史不变，撤销全部会话。旧学号不再登录，不复制账户；密码哈希和mustChangePassword保持不变。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -853,7 +852,7 @@ paths:
       operationId: resetMemberPassword
       summary: 管理员重置学生或负责人密码
       description: 重置为私密配置中的统一初始口令，不接收/返回密码；mustChangePassword=true，撤销全部会话，version递增。账号禁用/移出状态不因重置恢复。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -935,7 +934,7 @@ paths:
       operationId: removeMember
       summary: 移出学生并撤销会话
       description: 不物理删除；保留报告积分审计。负责人仅可移出所辖普通学生。若对象是负责人须由学院管理员先撤销负责人授权，否则409 INVALID_STATE。重复已移出状态不得产生第二次资格变化。
-      x-implementation-status: planned
+      x-implementation-status: pending
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -1012,14 +1011,66 @@ paths:
             example:
               version: 1
               reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/points:
+    post:
+      tags:
+      - 成员
+      operationId: addMemberPoints
+      summary: 学院管理员直接增加学生积分
+      description: 仅学院管理员可调用。请求只要求正整数points，不需要reason、version或Idempotency-Key；每次调用都新增一条MANUAL_ADJUSTMENT积分流水并累计。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；返回积分更新后的完整成员资源。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberPointsRequest'
+            example:
+              points: 3
   /api/v1/members/{memberId}/restore:
     post:
       tags:
       - 成员
       operationId: restoreMember
-      summary: 恢复在籍资格（规则待确认）
-      description: 仅REMOVED可恢复；启用前必须确认恢复与历史积分规则。建议新在籍周期且历史保留；不恢复旧token或先前负责人授权。缺规则503。
-      x-implementation-status: pending
+      summary: 恢复学生在籍资格
+      description: 仅学院管理员可恢复REMOVED学生。保留报告和积分原始流水/冲正历史，但净积分保持0；membershipStartedAt重置为恢复时间，开始新的14个完整自然日观察期。不恢复旧token或先前会话。
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -1075,7 +1126,6 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
       parameters:
       - name: memberId
         in: path
@@ -1102,7 +1152,7 @@ paths:
       operationId: listLeaders
       summary: 管理员查询负责人
       description: 仅学院管理员；按memberId数值升序。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -1156,7 +1206,7 @@ paths:
       operationId: appointLeader
       summary: 任命现有学生为方向负责人
       description: memberId必须是ACTIVE且ENABLED的STUDENT。若档案不存在先POST /members，不能重复开户。同一身份改role为DIRECTION_LEADER并赋予managedDirectionIds，保留现有密码/改密标记和历史，撤销旧会话。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -1234,7 +1284,7 @@ paths:
       operationId: updateLeader
       summary: 管理员修改负责人资料、授权和账号状态
       description: 仅DIRECTION_LEADER；学号更正/密码重置走独立接口。变更授权或账号状态撤销全部会话。managedDirectionIds至少一项；清空授权使用revoke。禁用不等于移出，不影响历史。directionId变更同样保留历史且活动月评期间拒绝。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -1317,7 +1367,7 @@ paths:
       operationId: revokeLeader
       summary: 撤销任命并保留学生身份
       description: 清空managedDirectionIds，role恢复STUDENT，立即撤销全部会话。不是删除账号或报告，不自动移出；非负责人返回409 INVALID_STATE。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -1399,7 +1449,7 @@ paths:
       operationId: listDailyReports
       summary: 查询权限范围内报告
       description: 学生只看本人；负责人本人全部+获授权提交方向正式报告；管理员只看正式报告，不读他人草稿。越权筛选403。按周期起点DESC,id数值DESC；未传日期不限日期。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -1503,7 +1553,7 @@ paths:
       operationId: createDailyReport
       summary: 创建本人草稿
       description: 身份从token取，不能传memberId。仅在籍且ENABLED成员；每成员每日期/自然周仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -1576,7 +1626,7 @@ paths:
       operationId: getDailyReport
       summary: 报告详情及异步评分结果
       description: 沿用列表逐对象权限，不可用ID读取他人草稿；方向管理员权限按提交时方向。评分中的finalScore/scoreReason可空；awardedPoints是实际已入账分。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -1646,7 +1696,7 @@ paths:
       summary: 修改本人报告内容
       description: 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。草稿允许不完整。SUBMITTED 必须先合并PATCH与现有正文，再验证两项必填内容均非空白；失败400
         INVALID_REQUEST，报告/积分/任务均不变。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -1728,7 +1778,7 @@ paths:
       summary: 正式提交本人报告并异步评分
       description: 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503
         RULES_NOT_CONFIGURED。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -1809,7 +1859,7 @@ paths:
       operationId: listWeeklyReports
       summary: 查询权限范围内报告
       description: 学生只看本人；负责人本人全部+获授权提交方向正式报告；管理员只看正式报告，不读他人草稿。越权筛选403。按周期起点DESC,id数值DESC；未传日期不限日期。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -1913,7 +1963,7 @@ paths:
       operationId: createWeeklyReport
       summary: 创建本人草稿
       description: 身份从token取，不能传memberId。仅在籍且ENABLED成员；每成员每日期/自然周仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -1987,7 +2037,7 @@ paths:
       operationId: getWeeklyReport
       summary: 报告详情及异步评分结果
       description: 沿用列表逐对象权限，不可用ID读取他人草稿；方向管理员权限按提交时方向。评分中的finalScore/scoreReason可空；awardedPoints是实际已入账分。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2058,7 +2108,7 @@ paths:
       summary: 修改本人报告内容
       description: 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。草稿允许不完整。SUBMITTED 必须先合并PATCH与现有正文，再验证两项必填内容均非空白；失败400
         INVALID_REQUEST，报告/积分/任务均不变。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -2141,7 +2191,7 @@ paths:
       summary: 正式提交本人报告并异步评分
       description: 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503
         RULES_NOT_CONFIGURED。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -2424,7 +2474,7 @@ paths:
       operationId: getMyPoints
       summary: 本人累计和本月积分
       description: 只读，积分只由流水净和得到，不提供前端写入积分接口。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -2478,7 +2528,7 @@ paths:
       operationId: listPointEntries
       summary: 积分流水
       description: 学生不得指定他人；方向负责人不能看授权范围外成员。按recordedAt DESC,id数值DESC；不含原始报告/模型内容。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2543,7 +2593,7 @@ paths:
       operationId: getOverallRanking
       summary: 全空间排行榜
       description: 仅ACTIVE成员的最小展示信息。按points DESC,memberId数值ASC，同分rank并列且下一名跳位(1,1,3)。榜单时间asOf，同一次分页可能变化，不能用于直接淘汰。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2613,7 +2663,7 @@ paths:
       operationId: getDirectionRanking
       summary: 方向内排行榜
       description: 所有已登录用户可看方向的最小公开榜单；按成员当前方向归组，历史月评不因此改写。排序/同分同总榜，返回真实方向内rank。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2691,7 +2741,7 @@ paths:
       operationId: getMyRanking
       summary: 本人总榜与方向榜名次
       description: 不在榜单时eligible=false，两种rank均null；不能用分页序号当全榜名次。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       - STUDENT
@@ -2788,27 +2838,15 @@ paths:
                     allowBackfill: null
                     dailyEditPolicy: null
                     weeklyEditPolicy: null
-                  monthlyAssessment:
-                    version: 1
-                    configStatus: PENDING_CONFIRMATION
-                    enabled: false
-                    scope: null
-                    eliminateCount: null
-                    minimumParticipants: null
-                    minimumRetained: null
-                    newMemberProtectionDays: null
-                    tiePolicy: null
-                    leaderParticipates: null
-                    executionMode: null
-                    effectiveFromMonth: 2026-10
                   inactivityPolicy:
                     configStatus: PENDING_CONFIRMATION
-                    enabled: false
-                    thresholdDays: null
-                    clockPolicy: null
+                    enabled: true
+                    thresholdDays: 14
+                    clockPolicy: FULL_CALENDAR_DAYS
                   restorePolicy:
-                    configStatus: PENDING_CONFIRMATION
-                    retainHistoricalPoints: null
+                    configStatus: READY
+                    retainHistoricalPointEntries: true
+                    resetNetPoints: true
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2827,618 +2865,6 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/Unavailable'
-  /api/v1/system/rules/monthly-assessment:
-    put:
-      tags:
-      - 规则
-      operationId: updateMonthlyRule
-      summary: 配置已确认的月度评定规则
-      description: 需学院明确政策后开放；version乐观锁，enabled=true时全部必要参数非null。只对未来月份生效，不修改既有快照或已关闭月份，审计规则差异和原因。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MonthlyRuleResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  version: 1
-                  configStatus: PENDING_CONFIRMATION
-                  enabled: false
-                  scope: null
-                  eliminateCount: null
-                  minimumParticipants: null
-                  minimumRetained: null
-                  newMemberProtectionDays: null
-                  tiePolicy: null
-                  leaderParticipates: null
-                  executionMode: null
-                  effectiveFromMonth: 2026-10
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateMonthlyRuleRequest'
-            example:
-              version: 1
-              enabled: false
-              scope: null
-              eliminateCount: null
-              minimumParticipants: null
-              minimumRetained: null
-              newMemberProtectionDays: null
-              tiePolicy: null
-              leaderParticipates: null
-              executionMode: null
-              effectiveFromMonth: 2026-10
-              reason: 已核对本次操作原因
-  /api/v1/monthly-assessments:
-    get:
-      tags:
-      - 月度评定
-      operationId: listAssessments
-      summary: 月度评定列表
-      description: 按month DESC,createdAt DESC,id数值DESC；无规则时可返回空列表，不自动评定。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssessmentPageResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  items: []
-                  page: 1
-                  size: 20
-                  total: 0
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-      x-rule-status: requires-confirmation
-      parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Size'
-      - name: month
-        in: query
-        required: false
-        description: ''
-        schema:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-    post:
-      tags:
-      - 月度评定
-      operationId: generateAssessment
-      summary: 生成月度候选快照
-      description: 仅生成DRAFT，不移出。规则不完整/未确认503，进行中的同月同范围快照409。范围内该业务月的正式报告必须全部SCORED/MANUAL且无会影响积分的PENDING复核；否则409
-        SCORING_PENDING，不生成可确认快照，不能按暂时保底分淘汰。scope须匹配rulesVersion，周报按首次提交月份归属。STALE/FAILED修订显式提供supersedesAssessmentId，保留历史。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '201':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssessmentResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  month: 2026-09
-                  scope: PER_DIRECTION
-                  directionId: '1'
-                  status: DRAFT
-                  version: 1
-                  rulesVersion: 1
-                  candidateCount: 0
-                  unresolvedTieCount: 0
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  taskId: null
-                  candidates: []
-                  snapshotAt: '2026-10-11T09:00:00+08:00'
-                  confirmedAt: null
-                  completedAt: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateAssessmentRequest'
-            example:
-              month: 2026-09
-              scope: PER_DIRECTION
-              directionId: '1'
-              rulesVersion: 1
-  /api/v1/monthly-assessments/{assessmentId}:
-    get:
-      tags:
-      - 月度评定
-      operationId: getAssessment
-      summary: 快照详情
-      description: ''
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssessmentResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  month: 2026-10
-                  scope: PER_DIRECTION
-                  directionId: null
-                  status: DRAFT
-                  version: 1
-                  rulesVersion: 1
-                  candidateCount: 0
-                  unresolvedTieCount: 0
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  taskId: null
-                  candidates: []
-                  snapshotAt: '2026-10-11T09:00:00+08:00'
-                  confirmedAt: null
-                  completedAt: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-      x-rule-status: requires-confirmation
-      parameters:
-      - name: assessmentId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-  /api/v1/monthly-assessments/{assessmentId}/confirm:
-    post:
-      tags:
-      - 月度评定
-      operationId: confirmAssessment
-      summary: 确认完整候选名单
-      description: 仅DRAFT且无未决同分，候选集合与快照完整一致。再次检查范围内该月正式报告全部SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。版本/规则/资格变化409，不接受额外成员ID。未决同分不靠数组顺序解决；本版无同分裁定接口，须另行补规则后修订快照。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssessmentResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  month: 2026-10
-                  scope: PER_DIRECTION
-                  directionId: null
-                  status: CONFIRMED
-                  version: 2
-                  rulesVersion: 1
-                  candidateCount: 0
-                  unresolvedTieCount: 0
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  taskId: null
-                  candidates: []
-                  snapshotAt: '2026-10-11T09:00:00+08:00'
-                  confirmedAt: '2026-10-11T09:00:00+08:00'
-                  completedAt: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
-      parameters:
-      - name: assessmentId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmAssessmentRequest'
-            example:
-              version: 1
-              rulesVersion: 1
-              candidateMemberIds: []
-              reason: 已核对本次操作原因
-  /api/v1/monthly-assessments/{assessmentId}/execute:
-    post:
-      tags:
-      - 月度评定
-      operationId: executeAssessment
-      summary: 异步执行已确认名单
-      description: 仅CONFIRMED；派任务前确认范围内当月正式报告全为SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。Worker每次移出前同样检查评分已结清和最新成员/报告/积分版本，有未结评分/复核或变化则置STALE并停止，不能只比较版本。检查与资格写入须并发安全。同key不重复派任务，按资格周期幂等移出。返回data.id用于GET
-        /tasks/{taskId}轮询。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '202':
-          description: 异步任务已接受，轮询任务状态；不是已执行成功。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  type: MONTHLY_ASSESSMENT
-                  status: QUEUED
-                  version: 1
-                  attempt: 0
-                  retryable: false
-                  relatedResourceId: '201'
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  updatedAt: '2026-10-11T09:00:00+08:00'
-                  failureCode: null
-                  failureMessage: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
-      parameters:
-      - name: assessmentId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonVersionRequest'
-            example:
-              version: 1
-              reason: 已核对本次操作原因
-  /api/v1/tasks:
-    get:
-      tags:
-      - 任务与审计
-      operationId: listTasks
-      summary: 内部任务只读列表
-      description: 仅学院管理员；按createdAt DESC,id数值DESC。不得返回模型原文、数据库连接或执行脚本。
-      x-implementation-status: planned
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskPageResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  items: []
-                  page: 1
-                  size: 20
-                  total: 0
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-      parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Size'
-      - name: type
-        in: query
-        required: false
-        description: ''
-        schema:
-          type: string
-          enum:
-          - AI_SCORING
-          - INACTIVITY_REMOVAL
-          - MONTHLY_ASSESSMENT
-      - name: status
-        in: query
-        required: false
-        description: ''
-        schema:
-          type: string
-          enum:
-          - QUEUED
-          - RUNNING
-          - SUCCEEDED
-          - FAILED
-          - PAUSED
-  /api/v1/tasks/{taskId}:
-    get:
-      tags:
-      - 任务与审计
-      operationId: getTask
-      summary: 内部任务状态
-      description: ''
-      x-implementation-status: planned
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '200':
-          description: 成功；响应为完整资源现状。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  type: AI_SCORING
-                  status: QUEUED
-                  version: 1
-                  attempt: 0
-                  retryable: false
-                  relatedResourceId: null
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  updatedAt: '2026-10-11T09:00:00+08:00'
-                  failureCode: null
-                  failureMessage: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-      parameters:
-      - name: taskId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-  /api/v1/tasks/{taskId}/retry:
-    post:
-      tags:
-      - 任务与审计
-      operationId: retryTask
-      summary: 重试可重试的失败任务
-      description: 必须FAILED/retryable=true，version及业务资格/规则仍有效。仅重排服务端已登记任务，不接受任务类型替换、脚本、SQL、URL等参数；重复任务事件不再加分/移出。
-      x-implementation-status: pending
-      x-roles:
-      - COLLEGE_ADMIN
-      responses:
-        '202':
-          description: 异步任务已接受，轮询任务状态；不是已执行成功。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskResponse'
-              example:
-                code: OK
-                message: Success
-                data:
-                  id: '201'
-                  type: AI_SCORING
-                  status: QUEUED
-                  version: 1
-                  attempt: 0
-                  retryable: false
-                  relatedResourceId: null
-                  createdAt: '2026-10-11T09:00:00+08:00'
-                  updatedAt: '2026-10-11T09:00:00+08:00'
-                  failureCode: null
-                  failureMessage: null
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-      x-rule-status: requires-confirmation
-      parameters:
-      - name: taskId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonVersionRequest'
-            example:
-              version: 1
-              reason: 已核对本次操作原因
   /api/v1/audits:
     get:
       tags:
@@ -3446,7 +2872,7 @@ paths:
       operationId: listAudits
       summary: 脱敏审计列表
       description: 按occurredAt DESC,id数值DESC。审计完整敏感前后值由服务端受控保存，此API只给脱敏summary；无密码、token、联系方式、报告全文。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       responses:
@@ -4035,6 +3461,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Direction'
+    AddMemberPointsRequest:
+      type: object
+      required:
+      - points
+      properties:
+        points:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+      additionalProperties: false
     Member:
       type: object
       required:
@@ -4511,7 +3948,7 @@ components:
           type: integer
           format: int32
           minimum: 0
-          maximum: 3
+          maximum: 4
         finalScore:
           type: integer
           format: int32
@@ -4767,7 +4204,7 @@ components:
           type: integer
           format: int32
           minimum: 0
-          maximum: 3
+          maximum: 4
         finalScore:
           type: integer
           format: int32
@@ -5502,90 +4939,11 @@ components:
           example: Success
         data:
           $ref: '#/components/schemas/MyRanking'
-    MonthlyRule:
-      type: object
-      required:
-      - version
-      - configStatus
-      - enabled
-      - scope
-      - eliminateCount
-      - minimumParticipants
-      - minimumRetained
-      - newMemberProtectionDays
-      - tiePolicy
-      - leaderParticipates
-      - executionMode
-      - effectiveFromMonth
-      properties:
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        configStatus:
-          type: string
-          enum:
-          - PENDING_CONFIRMATION
-          - READY
-        enabled:
-          type: boolean
-          example: false
-        scope:
-          type: string
-          enum:
-          - PER_DIRECTION
-          - OVERALL
-          - null
-          nullable: true
-        eliminateCount:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000
-          nullable: true
-        minimumParticipants:
-          type: integer
-          format: int32
-          minimum: 1
-          nullable: true
-        minimumRetained:
-          type: integer
-          format: int32
-          minimum: 1
-          nullable: true
-        newMemberProtectionDays:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 365
-          nullable: true
-        tiePolicy:
-          type: string
-          enum:
-          - MANUAL_REVIEW
-          - null
-          nullable: true
-        leaderParticipates:
-          type: boolean
-          nullable: true
-        executionMode:
-          type: string
-          enum:
-          - ADMIN_CONFIRM
-          - null
-          nullable: true
-        effectiveFromMonth:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-          nullable: true
     SystemRules:
       type: object
       required:
       - businessTimezone
       - reportPolicy
-      - monthlyAssessment
       - inactivityPolicy
       - restorePolicy
       properties:
@@ -5646,8 +5004,6 @@ components:
               - SAME_WEEK
               - null
               nullable: true
-        monthlyAssessment:
-          $ref: '#/components/schemas/MonthlyRule'
         inactivityPolicy:
           type: object
           required:
@@ -5663,33 +5019,35 @@ components:
               - READY
             enabled:
               type: boolean
-              example: false
+              example: true
             thresholdDays:
               type: integer
               format: int32
               minimum: 14
               maximum: 14
-              nullable: true
             clockPolicy:
               type: string
               enum:
               - FULL_CALENDAR_DAYS
-              - null
-              nullable: true
         restorePolicy:
           type: object
           required:
           - configStatus
-          - retainHistoricalPoints
+          - retainHistoricalPointEntries
+          - resetNetPoints
           properties:
             configStatus:
               type: string
               enum:
-              - PENDING_CONFIRMATION
               - READY
-            retainHistoricalPoints:
+            retainHistoricalPointEntries:
               type: boolean
-              nullable: true
+              enum:
+              - true
+            resetNetPoints:
+              type: boolean
+              enum:
+              - true
     SystemRulesResponse:
       type: object
       required:
@@ -5706,562 +5064,6 @@ components:
           example: Success
         data:
           $ref: '#/components/schemas/SystemRules'
-    MonthlyRuleResponse:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: string
-          enum:
-          - OK
-        message:
-          type: string
-          example: Success
-        data:
-          $ref: '#/components/schemas/MonthlyRule'
-    UpdateMonthlyRuleRequest:
-      type: object
-      required:
-      - version
-      - enabled
-      - scope
-      - eliminateCount
-      - minimumParticipants
-      - minimumRetained
-      - newMemberProtectionDays
-      - tiePolicy
-      - leaderParticipates
-      - executionMode
-      - effectiveFromMonth
-      - reason
-      properties:
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        enabled:
-          type: boolean
-          example: false
-        scope:
-          type: string
-          enum:
-          - PER_DIRECTION
-          - OVERALL
-          - null
-          nullable: true
-        eliminateCount:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000
-          nullable: true
-        minimumParticipants:
-          type: integer
-          format: int32
-          minimum: 1
-          nullable: true
-        minimumRetained:
-          type: integer
-          format: int32
-          minimum: 1
-          nullable: true
-        newMemberProtectionDays:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 365
-          nullable: true
-        tiePolicy:
-          type: string
-          enum:
-          - MANUAL_REVIEW
-          - null
-          nullable: true
-        leaderParticipates:
-          type: boolean
-          nullable: true
-        executionMode:
-          type: string
-          enum:
-          - ADMIN_CONFIRM
-          - null
-          nullable: true
-        effectiveFromMonth:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-          nullable: true
-        reason:
-          type: string
-          minLength: 5
-          maxLength: 1000
-          example: 已核对本次操作原因
-      additionalProperties: false
-      description: 完整替换；enabled=true 时 nullable 项必须全部已确认且非 null。minimumRetained>=1，禁止配置清空全部成员；仅未来月份生效。
-    AssessmentCandidate:
-      type: object
-      required:
-      - memberId
-      - displayName
-      - directionId
-      - points
-      - rank
-      - tieUnresolved
-      - reason
-      properties:
-        memberId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        displayName:
-          type: string
-          minLength: 1
-          maxLength: 64
-          example: 示例同学
-        directionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        points:
-          type: integer
-          format: int32
-          minimum: 0
-          example: 3
-        rank:
-          type: integer
-          format: int32
-          minimum: 1
-        tieUnresolved:
-          type: boolean
-        reason:
-          type: string
-          example: 月度候选，尚未执行
-    AssessmentSummary:
-      type: object
-      required:
-      - id
-      - month
-      - scope
-      - directionId
-      - status
-      - version
-      - rulesVersion
-      - candidateCount
-      - unresolvedTieCount
-      - createdAt
-      - taskId
-      properties:
-        id:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        month:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-        scope:
-          type: string
-          enum:
-          - PER_DIRECTION
-          - OVERALL
-        directionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-        status:
-          type: string
-          enum:
-          - DRAFT
-          - CONFIRMED
-          - EXECUTING
-          - COMPLETED
-          - FAILED
-          - STALE
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        rulesVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        candidateCount:
-          type: integer
-          format: int32
-          minimum: 0
-        unresolvedTieCount:
-          type: integer
-          format: int32
-          minimum: 0
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-        taskId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-    Assessment:
-      type: object
-      required:
-      - id
-      - month
-      - scope
-      - directionId
-      - status
-      - version
-      - rulesVersion
-      - candidateCount
-      - unresolvedTieCount
-      - createdAt
-      - taskId
-      - candidates
-      - snapshotAt
-      - confirmedAt
-      - completedAt
-      properties:
-        id:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        month:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-        scope:
-          type: string
-          enum:
-          - PER_DIRECTION
-          - OVERALL
-        directionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-        status:
-          type: string
-          enum:
-          - DRAFT
-          - CONFIRMED
-          - EXECUTING
-          - COMPLETED
-          - FAILED
-          - STALE
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        rulesVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        candidateCount:
-          type: integer
-          format: int32
-          minimum: 0
-        unresolvedTieCount:
-          type: integer
-          format: int32
-          minimum: 0
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-        taskId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-        candidates:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssessmentCandidate'
-        snapshotAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-        confirmedAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-          nullable: true
-        completedAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-          nullable: true
-    AssessmentResponse:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: string
-          enum:
-          - OK
-        message:
-          type: string
-          example: Success
-        data:
-          $ref: '#/components/schemas/Assessment'
-    AssessmentPage:
-      type: object
-      required:
-      - items
-      - page
-      - size
-      - total
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssessmentSummary'
-        page:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        size:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 200
-          example: 20
-        total:
-          type: integer
-          format: int64
-          minimum: 0
-          example: 0
-    AssessmentPageResponse:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: string
-          enum:
-          - OK
-        message:
-          type: string
-          example: Success
-        data:
-          $ref: '#/components/schemas/AssessmentPage'
-    GenerateAssessmentRequest:
-      type: object
-      required:
-      - month
-      - scope
-      - directionId
-      - rulesVersion
-      properties:
-        month:
-          type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-          example: 2026-10
-        scope:
-          type: string
-          enum:
-          - PER_DIRECTION
-          - OVERALL
-        directionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-        rulesVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        supersedesAssessmentId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-      additionalProperties: false
-      description: 只评估已结束自然月；PER_DIRECTION 必填方向，OVERALL 方向为 null；scope 必须与规则一致。重建只能明确替代 STALE/FAILED 快照，不重复执行已完成的资格变更。
-    ConfirmAssessmentRequest:
-      type: object
-      required:
-      - version
-      - rulesVersion
-      - candidateMemberIds
-      - reason
-      properties:
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        rulesVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        candidateMemberIds:
-          type: array
-          items:
-            type: string
-            description: 十进制字符串 ID，不转换为 JavaScript Number。
-            pattern: ^[1-9][0-9]{0,18}$
-            example: '201'
-          uniqueItems: true
-        reason:
-          type: string
-          minLength: 5
-          maxLength: 1000
-          example: 已核对本次操作原因
-      additionalProperties: false
-    Task:
-      type: object
-      required:
-      - id
-      - type
-      - status
-      - version
-      - attempt
-      - retryable
-      - relatedResourceId
-      - createdAt
-      - updatedAt
-      - failureCode
-      - failureMessage
-      properties:
-        id:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        type:
-          type: string
-          enum:
-          - AI_SCORING
-          - INACTIVITY_REMOVAL
-          - MONTHLY_ASSESSMENT
-        status:
-          type: string
-          enum:
-          - QUEUED
-          - RUNNING
-          - SUCCEEDED
-          - FAILED
-          - PAUSED
-        version:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        attempt:
-          type: integer
-          format: int32
-          minimum: 0
-        retryable:
-          type: boolean
-        relatedResourceId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: null
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2026-10-11T09:00:00+08:00'
-        failureCode:
-          type: string
-          nullable: true
-        failureMessage:
-          type: string
-          description: 仅安全摘要，无 SQL/密码/报告正文/模型原文。
-          nullable: true
-    TaskResponse:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: string
-          enum:
-          - OK
-        message:
-          type: string
-          example: Success
-        data:
-          $ref: '#/components/schemas/Task'
-    TaskPage:
-      type: object
-      required:
-      - items
-      - page
-      - size
-      - total
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Task'
-        page:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 1
-        size:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 200
-          example: 20
-        total:
-          type: integer
-          format: int64
-          minimum: 0
-          example: 0
-    TaskPageResponse:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: string
-          enum:
-          - OK
-        message:
-          type: string
-          example: Success
-        data:
-          $ref: '#/components/schemas/TaskPage'
     AuditEntry:
       type: object
       required:
