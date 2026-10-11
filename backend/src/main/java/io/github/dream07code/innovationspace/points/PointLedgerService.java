@@ -106,6 +106,40 @@ public class PointLedgerService {
     }
   }
 
+  public int reverseNonZeroEntries(long memberId, String ruleVersion, Instant recordedAt) {
+    if (ruleVersion == null || ruleVersion.isBlank() || ruleVersion.length() > 64)
+      throw new IllegalArgumentException("ruleVersion");
+    var originals =
+        jdbc.queryForList(
+            "SELECT id,report_id,report_version_id,delta,business_effective_at FROM point_ledger"
+                + " WHERE member_id=? AND delta<>0 AND source<>'REVERSAL' ORDER BY id",
+            memberId);
+    int inserted = 0;
+    for (var original : originals) {
+      long originalId = ((Number) original.get("id")).longValue();
+      int delta = -((Number) original.get("delta")).intValue();
+      String eventKey =
+          "MEMBERSHIP_POINTS_ZERO:" + memberId + ":" + originalId + ":" + ruleVersion;
+      try {
+        jdbc.update(
+            "INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key)"
+                + " VALUES(?,?,?,?,'REVERSAL',?,?,?,?)",
+            memberId,
+            original.get("report_id"),
+            original.get("report_version_id"),
+            delta,
+            original.get("business_effective_at"),
+            Timestamp.from(recordedAt),
+            ruleVersion,
+            eventKey);
+        inserted++;
+      } catch (DuplicateKeyException duplicate) {
+        // A prior removal/restore already reversed this original event.
+      }
+    }
+    return inserted;
+  }
+
   private long resolveMember(SessionPrincipal principal, Long requested) {
     if (requested == null) {
       if (principal.memberId() == null) throw new ApiException(400, ErrorCode.INVALID_REQUEST);
