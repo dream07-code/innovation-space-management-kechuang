@@ -82,15 +82,19 @@ public class ReportController {
   }
 
   @PostMapping("/api/v1/daily-reports/{reportId}/submit")
-  public ApiResponse<Map<String, Object>> dailySubmit(
-      @PathVariable("reportId") long reportId, @RequestBody Map<String, Object> request) {
-    return ApiResponse.success(service.submit(reportId, version(request), actor()));
+  public ResponseEntity<String> dailySubmit(
+      @PathVariable("reportId") long reportId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    return stored(service.submit(reportId, version(request), actor(), key));
   }
 
   @PostMapping("/api/v1/weekly-reports/{reportId}/submit")
-  public ApiResponse<Map<String, Object>> weeklySubmit(
-      @PathVariable("reportId") long reportId, @RequestBody Map<String, Object> request) {
-    return ApiResponse.success(service.submit(reportId, version(request), actor()));
+  public ResponseEntity<String> weeklySubmit(
+      @PathVariable("reportId") long reportId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    return stored(service.submit(reportId, version(request), actor(), key));
   }
 
   private static long version(Map<String, Object> request) {

@@ -104,6 +104,12 @@ class PointsRankingHttpIT {
     assertFalse(ledger.body().contains("event_key"));
     assertEquals(403, send(studentToken, "GET", "/api/v1/points/ledger?memberId=11", null).statusCode());
     assertEquals(400, send(studentToken, "GET", "/api/v1/rankings/overall?period=MONTH", null).statusCode());
+    jdbc.update("INSERT INTO app_user(id,member_id,account,password_hash,role,must_change_password,status,display_name,created_at,updated_at) VALUES(20,NULL,'synthetic-admin',?,'COLLEGE_ADMIN',false,'ENABLED','管理员',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", passwords.encode("synthetic-password12"));
+    String adminToken = sessions.issue(20).accessToken();
+    var member = send(adminToken, "GET", "/api/v1/members/10", null);
+    assertEquals(200, member.statusCode());
+    assertEquals(5, HttpTestSupport.json(member).at("/data/totalPoints").asInt());
+    assertEquals(403, send(adminToken, "GET", "/api/v1/points/me", null).statusCode());
   }
 
   private void insertMember(int id, String studentNo, int directionId, String name, String status) {

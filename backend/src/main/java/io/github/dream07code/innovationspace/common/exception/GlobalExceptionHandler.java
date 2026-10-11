@@ -34,8 +34,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
-  public ResponseEntity<ApiResponse<Void>> duplicateKey() {
-    return ResponseEntity.status(409).body(ApiResponse.failure(ErrorCode.ACCOUNT_ALREADY_EXISTS));
+  public ResponseEntity<ApiResponse<Void>> duplicateKey(
+      org.springframework.dao.DuplicateKeyException exception) {
+    String cause = String.valueOf(exception.getMostSpecificCause()).toLowerCase(java.util.Locale.ROOT);
+    ErrorCode error =
+        cause.contains("uk_app_user") || cause.contains("member")
+            ? ErrorCode.ACCOUNT_ALREADY_EXISTS
+            : cause.contains("uk_report") || cause.contains("report")
+                ? ErrorCode.REPORT_ALREADY_EXISTS
+                : ErrorCode.INVALID_STATE;
+    return ResponseEntity.status(409).body(ApiResponse.failure(error));
   }
 
   @Override

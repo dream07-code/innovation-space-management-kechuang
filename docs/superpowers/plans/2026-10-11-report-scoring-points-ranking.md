@@ -55,11 +55,11 @@
 - `ReportMapper`: parameterized methods for find by owner/period, scoped page query, lock current version, insert draft/version, submit transition, and update score state.
 - `PointLedgerMapper`: insert idempotent ledger event, sum by member/month, scoped ledger page, and ranking aggregation query; no direct total update.
 
-- [ ] **Step 1: Write RED tests.** Assert V4 tables/indexes exist only after explicit migration, no report/user rows are seeded, daily/weekly period boundaries use Shanghai time, duplicate member+period is rejected, and ledger schema supports signed deltas/idempotency.
-- [ ] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ReportPointsMigrationIT verify` and `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ReportCyclePolicyTest test`; expected missing migration/entities/policy.
-- [ ] **Step 3: Implement V4 and mappings.** Add strict foreign keys to member/direction, report version hashes, task status/attempt fields, ledger source/effective time/rule version and review version fields. Use only parameterized SQL/MyBatis mappings; do not store provider response or Key.
-- [ ] **Step 4: Run GREEN.** Repeat targeted tests and existing migration suite; expected V1–V4 clean migration, repeatable migration and zero personal seed rows.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add report scoring and points schema"`
+- [x] **Step 1: Write RED tests.** Assert V4 tables/indexes exist only after explicit migration, no report/user rows are seeded, daily/weekly period boundaries use Shanghai time, duplicate member+period is rejected, and ledger schema supports signed deltas/idempotency.
+- [x] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ReportPointsMigrationIT verify` and `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ReportCyclePolicyTest test`; expected missing migration/entities/policy.
+- [x] **Step 3: Implement V4 and mappings.** Add strict foreign keys to member/direction, report version hashes, task status/attempt fields, ledger source/effective time/rule version and review version fields. Use only parameterized SQL/MyBatis mappings; do not store provider response or Key.
+- [x] **Step 4: Run GREEN.** Repeat targeted tests and existing migration suite; expected V1–V4 clean migration, repeatable migration and zero personal seed rows.
+- [x] **Step 5: Commit.** `git commit -m "feat: add report scoring and points schema"`
 
 ## Task 2: Report draft/submit/query APIs
 
@@ -79,11 +79,11 @@
 - Submit transaction locks report/member, checks version and active membership, transitions once, adds configured submission ledger event once, and creates one QUEUED task. If points policy is `PENDING_CONFIRMATION`, return `503 RULES_NOT_CONFIGURED` rather than guessing.
 - PATCH supports omission/null semantics, rejects studentNo/role/points/memberId/unknown fields, and for submitted reports validates merged complete content before changing anything. Manual final reports are not editable.
 
-- [ ] **Step 1: Write RED HTTP/policy tests.** Cover draft creation, daily/weekly uniqueness, student ownership, leader/admin scope, no other draft visibility, valid submit, invalid empty submit, duplicate submit, version conflict, idempotency replay, submitted PATCH merge validation, and no unregistered report-delete/monthly routes.
-- [ ] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ReportHttpIT verify` and `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ReportScopePolicyTest test`.
-- [ ] **Step 3: Implement report service/controllers.** Reuse existing SessionPrincipal, MemberScopePolicy, IdempotencyService and DatabaseSchemaGuard. Apply scope predicates before count/page and map responses without password/contact leaks.
-- [ ] **Step 4: Run GREEN.** Targeted tests plus `ContractAssertions` against actual report responses; expected submit is persisted before any provider call.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add daily and weekly report APIs"`
+- [x] **Step 1: Write RED HTTP/policy tests.** Cover draft creation, daily/weekly uniqueness, student ownership, leader/admin scope, no other draft visibility, valid submit, invalid empty submit, duplicate submit, version conflict, idempotency replay, submitted PATCH merge validation, and no unregistered report-delete/monthly routes.
+- [x] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=ReportHttpIT verify` and `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ReportScopePolicyTest test`.
+- [x] **Step 3: Implement report service/controllers.** Reuse existing SessionPrincipal, MemberScopePolicy, IdempotencyService and DatabaseSchemaGuard. Apply scope predicates before count/page and map responses without password/contact leaks.
+- [x] **Step 4: Run GREEN.** Targeted tests plus `ContractAssertions` against actual report responses; expected submit is persisted before any provider call.
+- [x] **Step 5: Commit.** `git commit -m "feat: add daily and weekly report APIs"`
 
 ## Task 3: Configurable provider registry and asynchronous scoring worker
 
@@ -107,12 +107,12 @@
 - `ScoringWorker`: claim queued task under lock, call provider outside transaction, then lock report/task/version and transition to SCORED/RETRYING/REVIEW_REQUIRED/STALE. It invokes `PointLedgerService` for only the necessary score delta.
 - `ScoringRubric`: versioned text and input-safe delimiters; report content is data, never instructions.
 
-- [ ] **Step 1: Write RED unit tests.** Disabled config does not require key; enabled config rejects missing key/model/base URL, public HTTP base URL, invalid timeout/concurrency. Mock returns valid 1/2/3; provider rejects malformed JSON, score 0/4, missing reason, giant reason and leaked secret. Registry rejects unknown provider. Worker retries timeout/5xx, transitions final failure to REVIEW_REQUIRED, ignores stale/manual versions, and never logs/stores key/raw provider response.
-- [ ] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ScoringPropertiesTest,ProviderRegistryTest,ProviderResponseValidationTest,ScoringWorkerTest test`.
-- [ ] **Step 3: Implement providers and worker.** Load configuration at startup, construct only enabled provider, use bounded executor/concurrency and scheduled claim polling. Keep provider calls outside DB transactions; revalidate task/report state before scoring and ledger delta.
-- [ ] **Step 4: Add fake HTTP integration tests.** `ScoringProviderIT` starts an owned loopback fake server, asserts no name/studentNo/contact/token in request, exercises valid/invalid/timeout/500 responses, and confirms no external network or real key.
-- [ ] **Step 5: Run GREEN.** Targeted provider/worker/fake-server tests and report submit-to-score flow pass; disabled production profile makes no outbound call.
-- [ ] **Step 6: Commit.** `git commit -m "feat: add configurable report scoring providers"`
+- [x] **Step 1: Write RED unit tests.** Disabled config does not require key; enabled config rejects missing key/model/base URL, public HTTP base URL, invalid timeout/concurrency. Mock returns valid 1/2/3; provider rejects malformed JSON, score 0/4, missing reason, giant reason and leaked secret. Registry rejects unknown provider. Worker retries timeout/5xx, transitions final failure to REVIEW_REQUIRED, ignores stale/manual versions, and never logs/stores key/raw provider response.
+- [x] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dtest=ScoringPropertiesTest,ProviderRegistryTest,ProviderResponseValidationTest,ScoringWorkerTest test`.
+- [x] **Step 3: Implement providers and worker.** Load configuration at startup, construct only enabled provider, use bounded executor/concurrency and scheduled claim polling. Keep provider calls outside DB transactions; revalidate task/report state before scoring and ledger delta.
+- [x] **Step 4: Add fake HTTP integration tests.** `ScoringProviderIT` starts an owned loopback fake server, asserts no name/studentNo/contact/token in request, exercises valid/invalid/timeout/500 responses, and confirms no external network or real key.
+- [x] **Step 5: Run GREEN.** Targeted provider/worker/fake-server tests and report submit-to-score flow pass; disabled production profile makes no outbound call.
+- [x] **Step 6: Commit.** `git commit -m "feat: add configurable report scoring providers"`
 
 ## Task 4: Point ledger service and rankings
 
@@ -131,11 +131,11 @@
 - `RankingService`: `Page<RankingEntry> overall(PeriodQuery, SessionPrincipal)`, `Page<RankingEntry> direction(long directionId, PeriodQuery, SessionPrincipal)`, `MyRanking me(...)`; SQL aggregation includes ACTIVE members only, uses `RANK()`/equivalent rank 1,1,3 and deterministic member ID ordering.
 - `PointsController` registers `/points/me`, `/points/ledger`; `RankingController` registers `/rankings/overall`, `/rankings/directions/{directionId}`, `/rankings/me`.
 
-- [ ] **Step 1: Write RED tests.** Cover base point once, score delta +2/-2, manual/old version idempotency, monthly effectiveAt not callback time, no direct point mutation, leader scope, student self-only, ranking fields exclude PII, all-time/month/direction filters, inactive members excluded, ties 1/1/3, page total before data.
-- [ ] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=PointsRankingHttpIT verify` and unit tests.
-- [ ] **Step 3: Implement ledger/ranking services and APIs.** Ensure report worker invokes one transactional ledger operation; SQL aggregation and scope predicates run before pagination/count; return IDs as strings and `finalScore=null` when pending.
-- [ ] **Step 4: Run GREEN.** Targeted tests and API contract body assertions pass; no monthly/remove/task routes appear.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add points ledger and ranking APIs"`
+- [x] **Step 1: Write RED tests.** Cover base point once, score delta +2/-2, manual/old version idempotency, monthly effectiveAt not callback time, no direct point mutation, leader scope, student self-only, ranking fields exclude PII, all-time/month/direction filters, inactive members excluded, ties 1/1/3, page total before data.
+- [x] **Step 2: Run RED.** `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=PointsRankingHttpIT verify` and unit tests.
+- [x] **Step 3: Implement ledger/ranking services and APIs.** Ensure report worker invokes one transactional ledger operation; SQL aggregation and scope predicates run before pagination/count; return IDs as strings and `finalScore=null` when pending.
+- [x] **Step 4: Run GREEN.** Targeted tests and API contract body assertions pass; no monthly/remove/task routes appear.
+- [x] **Step 5: Commit.** `git commit -m "feat: add points ledger and ranking APIs"`
 
 ## Task 5: Contract sync, operational docs and full delivery
 
@@ -146,12 +146,12 @@
 - Create: `docs/superpowers/reports/2026-10-11-report-scoring-points-ranking-verification.md`.
 - Modify: `backend/src/test/java/io/github/dream07code/innovationspace/integration/ImplementedApiContractIT.java`, `JarBoundaryIT.java`, `PackagedApplicationIT.java`.
 
-- [ ] **Step 1: Write RED contract/package tests.** Assert implemented report/points/ranking paths and schemas, omitted monthly/remove paths, provider config not exposed, runtime contract equals approved design for implemented paths, migration JAR whitelist and no keys/provider responses.
-- [ ] **Step 2: Run full verification.** Poison profile/Hikari settings and execute `backend/mvnw -f backend/pom.xml -B -ntp clean verify`; expected all previous plus new report/scoring/points tests pass with zero failures/errors/skips.
-- [ ] **Step 3: Run provider/document scans.** Validate OpenAPI 3.0.3, examples, refs, `AI_API_KEY`/Authorization/private-key scan, dependency tree, diff check, JAR boundary, and fake provider outbound assertions.
-- [ ] **Step 4: Update docs/report.** Explain config examples without secrets, provider compatibility, disabled/default behavior, scoring failure states, report period rules, ledger/ranking semantics, and all unimplemented monthly/automatic-removal scope.
-- [ ] **Step 5: One final whole-branch review.** Review against this spec/plan; fix Critical/Important findings with RED→GREEN, record deferred minors/rulings, rerun clean verify and browser probe.
-- [ ] **Step 6: Commit.** `git commit -m "test: verify reports scoring points and rankings delivery"`; keep changes on `backend` until separately authorized.
+- [x] **Step 1: Write RED contract/package tests.** Assert implemented report/points/ranking paths and schemas, omitted monthly/remove paths, provider config not exposed, runtime contract equals approved design for implemented paths, migration JAR whitelist and no keys/provider responses.
+- [x] **Step 2: Run full verification.** Poison profile/Hikari settings and execute `backend/mvnw -f backend/pom.xml -B -ntp clean verify`; expected all previous plus new report/scoring/points tests pass with zero failures/errors/skips.
+- [x] **Step 3: Run provider/document scans.** Validate OpenAPI 3.0.3, examples, refs, `AI_API_KEY`/Authorization/private-key scan, dependency tree, diff check, JAR boundary, and fake provider outbound assertions.
+- [x] **Step 4: Update docs/report.** Explain config examples without secrets, provider compatibility, disabled/default behavior, scoring failure states, report period rules, ledger/ranking semantics, and all unimplemented monthly/automatic-removal scope.
+- [x] **Step 5: One final whole-branch review.** Review against this spec/plan; fix Critical/Important findings with RED→GREEN, record deferred minors/rulings, rerun clean verify and browser probe.
+- [x] **Step 6: Commit.** `git commit -m "test: verify reports scoring points and rankings delivery"`; keep changes on `backend` until separately authorized.
 
 ## Acceptance Matrix
 

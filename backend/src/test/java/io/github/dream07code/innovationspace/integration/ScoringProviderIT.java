@@ -43,6 +43,8 @@ class ScoringProviderIT {
       var result = provider.score(new ScoringInput("DAILY", "1", "v1", "学习了安全接口"));
       assertEquals(3, result.score()); result.validate();
       assertTrue(observed.get().contains("学习了安全接口"));
+      assertTrue(observed.get().contains("评1至3分"));
+      assertTrue(observed.get().contains("untrusted content"));
       assertFalse(observed.get().contains("synthetic-not-a-real-key"));
       assertFalse(observed.get().contains("20260001"));
       var jdbc = new JdbcTemplate(dataSource());
@@ -63,5 +65,35 @@ class ScoringProviderIT {
     var config = new com.zaxxer.hikari.HikariConfig();
     config.setJdbcUrl(MYSQL.getJdbcUrl()); config.setUsername(MYSQL.getUsername()); config.setPassword(MYSQL.getPassword());
     return new com.zaxxer.hikari.HikariDataSource(config);
+  }
+
+  @Test
+  void providerRejectsMalformedOutOfBoundsAndUnavailableResponses() throws Exception {
+    for (String body : new String[] {"not-json", "{\"score\":0,\"reason\":\"bad\"}", "{\"score\":4,\"reason\":\"bad\"}", "{\"score\":3}"}) {
+      assertThrows(OpenAiCompatibleReportScoringProvider.ProviderScoreException.class, () -> callProvider(body, 200, 0));
+    }
+    assertThrows(OpenAiCompatibleReportScoringProvider.ProviderScoreException.class, () -> callProvider("{\"score\":3,\"reason\":\"ok\"}", 500, 0));
+    assertThrows(OpenAiCompatibleReportScoringProvider.ProviderScoreException.class, () -> callProvider("{\"score\":3,\"reason\":\"ok\"}", 200, 1200));
+  }
+
+  private ProviderScore callProvider(String body, int status, long delayMillis) throws Exception {
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext("/v1/chat/completions", exchange -> {
+      if (delayMillis > 0) {
+        try { Thread.sleep(delayMillis); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+      }
+      byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+      exchange.getResponseHeaders().add("Content-Type", "application/json");
+      exchange.sendResponseHeaders(status, bytes.length);
+      exchange.getResponseBody().write(bytes);
+    });
+    server.start();
+    try {
+      var props = new ScoringProperties();
+      props.setEnabled(true); props.setProvider("openai-compatible");
+      props.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+      props.setApiKey("synthetic-not-a-real-key"); props.setModel("fake-model"); props.setRequestTimeoutMs(1000);
+      return new OpenAiCompatibleReportScoringProvider(props).score(new ScoringInput("DAILY", "1", "v1", "synthetic"));
+    } finally { server.stop(0); }
   }
 }

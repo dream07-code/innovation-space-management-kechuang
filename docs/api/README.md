@@ -8,7 +8,7 @@
 
 ### backend 本轮实现说明
 
-此副本在 backend 分支与 `main@37797e4` 的契约保持路径/DTO一致。当前backend新增认证、方向、成员基本管理、负责人管理、更正学号/密码重置与审计查询；`remove/restore`、报告/积分/排名/月评/任务仍未实现。上文baseline标签为main发布时的历史基线，不应误读成backend当前状态。运行中的springdoc只覆盖已注册路径并标implemented，不能依据静态设计文件中的planned就断言真实接口不存在，亦不能把pending接口当已授权功能。详细验收以本阶段报告为准，本轮未向main推送状态更新。
+此副本在 backend 分支与 `main@37797e4` 的契约保持路径/DTO一致。当前backend新增认证、方向、成员基本管理、负责人管理、更正学号/密码重置与审计查询，以及日报/周报、评分、积分和排名接口；`remove/restore`、月评和任务仍未实现。上文baseline标签为main发布时的历史基线，不应误读成backend当前状态。运行中的springdoc只覆盖已注册路径并标implemented，不能依据静态设计文件中的planned就断言真实接口不存在，亦不能把pending接口当已授权功能。详细验收以本阶段报告为准，本轮未向main推送状态更新。
 
 ## 1. 使用方式与实现状态
 
@@ -23,7 +23,7 @@
 | `planned` | 本版设计契约，尚未实现；前端使用 Mock |
 | `pending` | 契约草案且依赖业务决策；可以做页面骨架，不启用真实执行 |
 
-后端基线为 `backend` 分支 `e16d7fc`。目前仅 `/actuator/health` 已实现；**本文件的全部 `/api/v1/**` 业务接口均未实现**。基线开发文档在 `/doc.html`，分组 JSON 在 `/v3/api-docs/innovation-space`，业务 paths 为空仍是正常现象；默认及 prod 不开放这些文档入口。这份 YAML 是设计契约，不会因放入 Git 自动出现在运行中的 Knife4j，也不得用测试探针冒充业务接口。
+后端基线为当前 `backend` 分支。认证、方向、成员、日报、周报、积分和排行榜接口已实现；月评、自动移出、成员 remove/restore 和任务接口仍是设计契约。开发文档在 `/doc.html`，分组 JSON 在 `/v3/api-docs/innovation-space`，默认及 prod 不开放这些文档入口。这份 YAML 是设计契约，不会因放入 Git 自动出现在运行中的 Knife4j，也不得用测试探针冒充业务接口。
 
 本次 main 只更新文档，没有合并 Java 工程，没有创建数据库账号，也不包含真实学生或负责人信息。
 

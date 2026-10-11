@@ -14,7 +14,7 @@ class ReportPointsMigrationIT {
    for(String table:new String[]{"report","report_version","report_scoring_task","report_review","point_ledger"})assertEquals(0,count(s,table),table);
    assertEquals(4,version(s));
    assertEquals(7,count(s,"direction"));
-   assertThrows(java.sql.SQLException.class,()->s.executeUpdate("INSERT INTO report(member_id,report_type,report_date,status,version,created_at,updated_at) VALUES (999,'DAILY','2026-10-11','DRAFT',1,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))"));
+   var error=assertThrows(java.sql.SQLException.class,()->s.executeUpdate("INSERT INTO report(member_id,direction_id,report_type,report_date,status,current_version,created_at,updated_at) VALUES (999,1,'DAILY',CURDATE(),'DRAFT',1,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))"));assertEquals("23000",error.getSQLState());assertTrue(error.getMessage().contains("fk_report_member"));
   }
  }
  private int count(java.sql.Statement s,String table)throws Exception{try(var r=s.executeQuery("SELECT COUNT(*) FROM "+table)){r.next();return r.getInt(1);}}

@@ -63,6 +63,7 @@ public class ReportService {
 
   public IdempotencyService.StoredResponse create(
       Map<String, Object> request, SessionPrincipal principal, String key, ReportType type) {
+    if (principal.memberId() == null) throw new ApiException(403, ErrorCode.FORBIDDEN);
     ReportScopePolicy.requireOwner(principal, principal.memberId());
     Map<String, Object> content = normalizeContent(request, type, true);
     LocalDate day = periods.dailyPeriod();
@@ -71,11 +72,9 @@ public class ReportService {
     String weekStart = type == ReportType.WEEKLY ? week.start().toString() : null;
     String weekEnd = type == ReportType.WEEKLY ? week.end().toString() : null;
     if (type == ReportType.DAILY
-        && request.get("reportDate") != null
-        && !day.toString().equals(request.get("reportDate"))) throw bad();
+        && (!day.toString().equals(request.get("reportDate")))) throw bad();
     if (type == ReportType.WEEKLY
-        && request.get("weekStart") != null
-        && !week.start().toString().equals(request.get("weekStart"))) throw bad();
+        && (!week.start().toString().equals(request.get("weekStart")))) throw bad();
     String path = "/api/v1/" + (type == ReportType.DAILY ? "daily-reports" : "weekly-reports");
     return idem.execute(
         principal,
@@ -202,14 +201,24 @@ public class ReportService {
     return Map.of("items", items, "page", page, "size", size, "total", total);
   }
 
-  public Map<String, Object> submit(long id, long version, SessionPrincipal principal) {
-    return tx.execute(
-        status -> {
+  public IdempotencyService.StoredResponse submit(
+      long id, long version, SessionPrincipal principal, String key) {
+    return idem.execute(
+        principal,
+        "POST",
+        "/api/v1/" + reportPath(id) + "/" + id + "/submit",
+        key,
+        json.writeValueAsString(Map.of("version", version)),
+        () ->
+            tx.execute(
+                status -> {
           Map<String, Object> row = locked(id, true);
           ReportScopePolicy.requireOwner(principal, ((Number) row.get("member_id")).longValue());
           if (((Number) row.get("current_version")).longValue() != version)
             throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
-          if ("SUBMITTED".equals(row.get("status"))) return response(id);
+          if ("SUBMITTED".equals(row.get("status")))
+            return new IdempotencyService.StoredResponse(200, json.writeValueAsString(ApiResponse.success(response(id))));
+          requireCurrentPeriod(id, row);
           ReportType type = ReportType.valueOf((String) row.get("report_type"));
           Map<String, Object> content = content(id, version);
           if (!ReportScopePolicy.validContent(type, content, true)) throw bad();
@@ -235,8 +244,8 @@ public class ReportService {
               "REPORT_SUBMISSION:" + id + ":" + version,
               now);
           insertTask(id, versionId, now);
-          return response(id);
-        });
+          return new IdempotencyService.StoredResponse(200, json.writeValueAsString(ApiResponse.success(response(id))));
+                }));
   }
 
   public Map<String, Object> update(
@@ -249,16 +258,20 @@ public class ReportService {
           if (actual != type) throw new ApiException(404, ErrorCode.NOT_FOUND);
           Object rawVersion = request.get("version");
           if (!(rawVersion instanceof Number number) || number.longValue() < 1) throw bad();
+          if (request.size() < 2) throw bad();
           long version = number.longValue();
           if (((Number) row.get("current_version")).longValue() != version)
             throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
           ReportStatus reportStatus = ReportStatus.valueOf((String) row.get("status"));
+          if ("MANUAL".equals(row.get("score_status"))) throw new ApiException(409, ErrorCode.INVALID_STATE);
+          if (reportStatus == ReportStatus.DRAFT) requireCurrentPeriod(id, row);
           Instant editableUntil =
               row.get("editable_until") == null ? null : instant(row.get("editable_until"));
           if (!periods.isEditable(reportStatus, editableUntil, clock.instant()))
             throw new ApiException(409, ErrorCode.INVALID_STATE);
           Map<String, Object> patch = new LinkedHashMap<>(request);
           patch.remove("version");
+          if (patch.containsKey("reportDate") || patch.containsKey("weekStart") || patch.containsKey("weekEnd")) throw bad();
           Map<String, Object> merged = new LinkedHashMap<>(content(id, version));
           merged.putAll(normalizeContent(patch, type, false));
           normalizeMerged(merged, type);
@@ -391,14 +404,20 @@ public class ReportService {
     if (principal.memberId() != null && principal.memberId() == memberId) return;
     if ("DIRECTION_LEADER".equals(principal.role())) {
       if (principal.managedDirectionIds().isEmpty()) throw new ApiException(403, ErrorCode.FORBIDDEN);
-      Integer count =
+      String placeholders =
+          String.join(",", java.util.Collections.nCopies(principal.managedDirectionIds().size(), "?"));
+      Integer currentDirection =
           jdbc.queryForObject(
-              "SELECT COUNT(*) FROM member WHERE id=? AND direction_id IN ("
-                  + String.join(",", java.util.Collections.nCopies(principal.managedDirectionIds().size(), "?"))
-                  + ")",
+              "SELECT COUNT(*) FROM member WHERE id=? AND direction_id IN (" + placeholders + ")",
               Integer.class,
               concat(memberId, principal.managedDirectionIds()));
-      if (count != null && count > 0) return;
+      Integer historicalDirection =
+          jdbc.queryForObject(
+              "SELECT COUNT(*) FROM report WHERE member_id=? AND direction_id IN (" + placeholders + ")",
+              Integer.class,
+              concat(memberId, principal.managedDirectionIds()));
+      if ((currentDirection != null && currentDirection > 0)
+          || (historicalDirection != null && historicalDirection > 0)) return;
     }
     throw new ApiException(403, ErrorCode.FORBIDDEN);
   }
@@ -415,9 +434,27 @@ public class ReportService {
   }
 
   private void requireReadyRules() {
+    pointsPolicy.validate();
     if (!"READY".equals(props.getPointsPolicyStatus())
-        || !"FINAL_SCORE".equals(pointsPolicy.getPointsMode()))
+        || (props.getDailyBasePoints() < 1 || props.getDailyBasePoints() > 3)
+        || (props.getWeeklyBasePoints() < 1 || props.getWeeklyBasePoints() > 3))
       throw new ApiException(503, ErrorCode.RULES_NOT_CONFIGURED);
+  }
+
+  private void requireCurrentPeriod(long id, Map<String, Object> row) {
+    ReportType type = ReportType.valueOf((String) row.get("report_type"));
+    LocalDate current = periods.dailyPeriod();
+    boolean currentPeriod =
+        type == ReportType.DAILY
+            ? current.toString().equals(date(row.get("report_date")))
+            : periods.weeklyPeriod().start().toString().equals(date(row.get("week_start")));
+    if (!currentPeriod) throw new ApiException(409, ErrorCode.INVALID_STATE);
+  }
+
+  private String reportPath(long id) {
+    return ReportType.valueOf((String) locked(id, false).get("report_type")) == ReportType.DAILY
+        ? "daily-reports"
+        : "weekly-reports";
   }
 
   private Map<String, Object> normalizeContent(

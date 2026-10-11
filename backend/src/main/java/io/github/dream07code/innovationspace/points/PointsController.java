@@ -1,6 +1,8 @@
 package io.github.dream07code.innovationspace.points;
 
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
+import io.github.dream07code.innovationspace.common.api.ErrorCode;
+import io.github.dream07code.innovationspace.common.exception.ApiException;
 import io.github.dream07code.innovationspace.member.MemberController;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import java.util.Map;
@@ -19,6 +21,7 @@ public class PointsController {
   @GetMapping("/api/v1/points/me")
   public ApiResponse<Map<String, Object>> me(@RequestParam(required = false) String month) {
     SessionPrincipal principal = MemberController.actor();
+    if (principal.memberId() == null) throw new ApiException(403, ErrorCode.FORBIDDEN);
     return ApiResponse.success(points.summary(principal.memberId(), month));
   }
 

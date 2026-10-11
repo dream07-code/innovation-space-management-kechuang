@@ -4511,7 +4511,7 @@ components:
           type: integer
           format: int32
           minimum: 0
-          maximum: 3
+          maximum: 4
         finalScore:
           type: integer
           format: int32
@@ -4767,7 +4767,7 @@ components:
           type: integer
           format: int32
           minimum: 0
-          maximum: 3
+          maximum: 4
         finalScore:
           type: integer
           format: int32

@@ -1,6 +1,6 @@
 # 后端基础工程
 
-已实现后端基础设施以及登录/首次改密、数据库Bearer会话、方向范围授权、人员和负责人管理、学号更正/密码重置与审计。**日报周报、AI评分、积分、排行榜和自动移出尚未实现**。学生不能自行注册，只能由方向负责人或学院管理员添加。
+已实现后端基础设施以及登录/首次改密、数据库Bearer会话、方向范围授权、人员和负责人管理、学号更正/密码重置与审计，并完成日报周报、可配置 AI 评分、积分流水、排行榜和 Knife4j 契约接口。月度评定、月度淘汰和两周未提交自动移出仍等待业务规则确认。学生不能自行注册，只能由方向负责人或学院管理员添加。
 
 ## 技术栈与边界
 
@@ -79,7 +79,7 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar
 
 默认地址：健康检查 `http://127.0.0.1:8080/actuator/health`；开发文档 `http://127.0.0.1:8080/doc.html`。分组 `innovation-space` 的契约在 `/v3/api-docs/innovation-space`，配置在 `/v3/api-docs/swagger-config`。
 
-正式JAR开发文档只显示已注册的业务API，描述/DTO依据已审阅的契约；实际HTTP响应另有契约断言。报告和月评等未实现路径不会显示为可用。测试探针不进入正式JAR，不提供自注册接口。健康原生JSON，不公开数据库细节或其他Actuator端点；数据库已连通但尚未迁移仍为DOWN/503。
+正式JAR开发文档只显示已注册的业务API，描述/DTO依据已审阅的契约；实际HTTP响应另有契约断言。月评、自动移出等未实现路径不会显示为可用。测试探针不进入正式JAR，不提供自注册接口。健康原生JSON，不公开数据库细节或其他Actuator端点；数据库已连通但尚未迁移仍为DOWN/503。
 
 ## 验证与浏览器联调
 
@@ -99,7 +99,7 @@ java -cp "target/test-classes:target/classes:$(cat target/test-classpath.txt)" \
 
 ## 上线前必须补齐
 
-当前不是完整业务系统。上线前仍需补齐报告/积分/AI、移出复核、账号私密交付、隐私保护、限流部署策略与备份恢复，不能因为已有认证就声称全业务完成。
+当前后端已完成本阶段报告/积分功能；上线前仍需确认月度规则、移出复核、账号私密交付、隐私保护、限流部署策略与备份恢复，不能因为已有认证就跳过业务确认。
 
 ## 认证与业务基础接口（backend 当前实现）
 
@@ -121,7 +121,7 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar --app.migration.mod
 
 管理员初始化是非 HTTP 维护模式，要求数据库已迁移。只在受控环境临时导出 `ADMIN_ACCOUNT`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME`，然后运行 `--app.bootstrap.mode=admin`；缺少变量会失败，已有管理员不会被覆盖，输出不会回显密码或哈希。不要把这些变量写入 `.env`、脚本或 Git。
 
-学生和负责人使用学号登录；学生不能自注册。当前尚未实现日报、周报、AI 评分、积分、排行榜、月度评定及自动移出。
+学生和负责人使用学号登录；学生不能自注册。日报、周报、AI 评分、积分和排行榜已实现；月度评定及自动移出仍未启用。
 
 ### 报告、评分与积分（进行中）
 
@@ -139,11 +139,17 @@ AI_MAX_RETRIES=2
 AI_MAX_CONCURRENCY=2
 AI_POLL_INTERVAL_MS=1000
 AI_WORKER_SCHEDULING_ENABLED=true
+REPORT_POINTS_POLICY_STATUS=PENDING_CONFIRMATION
+REPORT_POINTS_MODE=FINAL_SCORE
+REPORT_MAX_FINAL_SCORE=3
 ```
 
-默认关闭，未配置 Key 不调用外部服务；`AI_WORKER_SCHEDULING_ENABLED=true` 且评分开启时才启动有界并发的调度器。真实 Key、Authorization、报告正文、姓名、学号和联系方式不写入数据库、Git、日志、审计或响应。公共 HTTP base URL 必须 HTTPS；仅 loopback 测试允许 HTTP。
+默认关闭，未配置 Key 不调用外部服务；`AI_WORKER_SCHEDULING_ENABLED=true
+REPORT_POINTS_POLICY_STATUS=PENDING_CONFIRMATION
+REPORT_POINTS_MODE=FINAL_SCORE
+REPORT_MAX_FINAL_SCORE=3` 且评分开启时才启动有界并发的调度器。真实 Key、Authorization、姓名、学号和联系方式不写入数据库、Git、日志、审计或响应；报告正文只保存在受控的 report_version.content_json，不进入任务、日志或模型响应记录。公共 HTTP base URL 必须 HTTPS；仅 loopback 测试允许 HTTP。
 
-积分模式和报告提交保底规则必须通过 `REPORT_POINTS_POLICY_STATUS=READY` 与 `REPORT_POINTS_MODE` 明确确认；`PENDING_CONFIRMATION` 时正式提交返回 `RULES_NOT_CONFIGURED`。本月度评定和自动移出仍不在本阶段范围，不注册其生产 API。
+积分模式和报告提交保底规则必须通过 `REPORT_POINTS_POLICY_STATUS=READY` 与 `REPORT_POINTS_MODE` 明确确认；支持 `FINAL_SCORE` 和 `BASE_PLUS_AI`，`PENDING_CONFIRMATION` 时正式提交返回 `RULES_NOT_CONFIGURED`。本月度评定和自动移出仍不在本阶段范围，不注册其生产 API。
 
 会话使用32字节随机不透明token，库内只存SHA-256摘要；密码采用Spring Security PBKDF2-HMAC-SHA256、16字节盐、600000迭代、256位输出。首次/重置后只发300秒受限access，不能refresh或调用业务，改密后重新登录。普通access900秒，refresh家族绝对7天，刷新轮换且旧token重放撤销家族；前端以响应expiresIn为准。改密/重置/学号更正/授权或状态变化立即撤销相关会话。
 

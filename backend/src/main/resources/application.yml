@@ -56,6 +56,7 @@ app:
   report:
     points-policy-status: ${REPORT_POINTS_POLICY_STATUS:PENDING_CONFIRMATION}
     points-mode: ${REPORT_POINTS_MODE:FINAL_SCORE}
+    max-final-score: ${REPORT_MAX_FINAL_SCORE:3}
     daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
     weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
   ai:

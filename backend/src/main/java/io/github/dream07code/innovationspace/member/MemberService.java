@@ -74,7 +74,11 @@ public class MemberService {
           {"updatedAt", "updated_at"}
         }) m.put(names[0], time(r.get(names[1])));
     m.put("removalReason", r.get("removal_reason"));
-    m.put("totalPoints", 0);
+    long memberId = ((Number) r.get("id")).longValue();
+    m.put(
+        "totalPoints",
+        jdbc.queryForObject(
+            "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE member_id=?", Long.class, memberId));
     m.put("version", r.get("version"));
     return m;
   }
