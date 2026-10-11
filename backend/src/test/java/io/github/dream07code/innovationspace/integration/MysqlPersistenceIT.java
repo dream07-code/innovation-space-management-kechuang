@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @SpringBootTest(properties = {"DB_HOST=never-contact.invalid", "DB_PORT=1", "DB_NAME=do_not_use", "DB_USERNAME=do_not_use", "DB_PASSWORD=do_not_use"})
-@Import(PersistenceProbeConfiguration.class)
+@Import({PersistenceProbeConfiguration.class, io.github.dream07code.testsupport.OwnedDataSourceConfiguration.class})
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MysqlPersistenceIT {
@@ -41,7 +41,10 @@ class MysqlPersistenceIT {
     @Autowired private ProbeMapper mapper;
 
     @BeforeEach
-    void prepareOwnedProbeTable() {
+    void prepareOwnedProbeTable() throws Exception {
+        try (var connection = jdbc.getDataSource().getConnection()) {
+            assertEquals(MYSQL.getJdbcUrl(), connection.getMetaData().getURL(), "refuse SQL outside owned container");
+        }
         jdbc.execute("CREATE TABLE IF NOT EXISTS bootstrap_probe (id BIGINT PRIMARY KEY, name VARCHAR(255) NOT NULL)");
         jdbc.update("DELETE FROM bootstrap_probe");
     }

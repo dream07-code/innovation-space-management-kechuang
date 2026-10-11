@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "springdoc.packages-to-scan=io.github.dream07code.testsupport")
 @ActiveProfiles("dev")
-@Import(WebProbeConfiguration.class)
+@Import({WebProbeConfiguration.class, OwnedDataSourceConfiguration.class})
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class DevApiDocumentationIT {

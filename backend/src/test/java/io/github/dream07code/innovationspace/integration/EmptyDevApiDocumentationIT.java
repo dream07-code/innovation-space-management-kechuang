@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
+@org.springframework.context.annotation.Import(io.github.dream07code.testsupport.OwnedDataSourceConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("dev")
 @Testcontainers

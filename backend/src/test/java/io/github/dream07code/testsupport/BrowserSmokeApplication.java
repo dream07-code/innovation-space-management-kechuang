@@ -14,7 +14,7 @@ import org.springframework.core.env.StandardEnvironment;
 
 /** Manual browser fixture. Never part of the executable production JAR. */
 @Configuration(proxyBeanMethods = false)
-@Import({InnovationSpaceApplication.class, WebProbeConfiguration.class})
+@Import({InnovationSpaceApplication.class, WebProbeConfiguration.class, OwnedDataSourceConfiguration.class})
 public class BrowserSmokeApplication {
     public static void main(String[] args) throws Exception {
         var ready = Path.of("target/browser-smoke.json");

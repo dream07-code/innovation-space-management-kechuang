@@ -82,7 +82,7 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar
 
 ## 验证与浏览器联调
 
-测试覆盖凭据缺失、异常与校验、真实 MySQL/Mapper、UTC、分页、健康 `UP/DOWN`、默认/dev/prod 文档和真实静态资源、测试代码的 JAR 排除，以及正式 JAR 的各环境启动。
+测试覆盖凭据缺失、异常与校验、真实 MySQL/Mapper、UTC、分页、健康 `UP/DOWN`、默认/dev/prod 文档和真实静态资源、测试代码的 JAR 排除，以及正式 JAR 的各环境启动。集成上下文和浏览器探针使用仅测试的显式连接池，防止宿主机 Hikari 专用连接属性或初始化 SQL 接管测试库；双容器 decoy 回归验证非目标数据库不被修改，探针写入前也检查实际 JDBC URL。正式 JAR 验证仍使用真实的生产 Boot 数据源自动配置。
 
 如需复现测试探针下的 Knife4j 页面调试，另开终端，在本目录执行：
 
