@@ -14,7 +14,7 @@ import org.springframework.core.env.StandardEnvironment;
 
 /** Manual browser fixture. Never part of the executable production JAR. */
 @Configuration(proxyBeanMethods = false)
-@Import({InnovationSpaceApplication.class, WebProbeConfiguration.class, OwnedDataSourceConfiguration.class})
+@Import({InnovationSpaceApplication.class, WebProbeConfiguration.class, OwnedDataSourceConfiguration.class, BrowserAuthenticationConfiguration.class})
 public class BrowserSmokeApplication {
     public static void main(String[] args) throws Exception {
         var ready = Path.of("target/browser-smoke.json");
@@ -46,7 +46,7 @@ public class BrowserSmokeApplication {
                 application.setEnvironment(environment);
                 // We own context cleanup; avoid two concurrent shutdown hooks closing the same context.
                 application.setRegisterShutdownHook(false);
-                var context = application.run();
+                var context = application.run("--spring.autoconfigure.exclude=org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration");
                 running.set(context);
                 var port = context.getEnvironment().getRequiredProperty("local.server.port");
                 Files.createDirectories(ready.getParent());

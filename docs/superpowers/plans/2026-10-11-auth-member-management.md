@@ -56,22 +56,22 @@
 - `MigrationCommand`: non-HTTP `ApplicationRunner`/maintenance entry that runs Flyway only when `app.migration.mode=migrate`; it must not create an administrator.
 - Tables: `direction`, `member`, `app_user`, `leader_direction_scope`, `auth_session`, `api_idempotency`, `audit_log`, `bootstrap_lock`; all timestamps `DATETIME(6)` in UTC, optimistic `version` where specified, unique constraints described in the spec.
 
-- [ ] **Step 1: Write failing tests for dependency and migration behavior.** `MigrationConfigurationTest` asserts default mode does not auto-run Flyway, explicit migrate mode is recognized, unknown mode fails safely, and no default admin bean/data exists. `FlywayMigrationIT` starts pinned MySQL, runs the explicit migration path, asserts Flyway history, exactly seven directions, all required tables, no member/user/admin rows, and UTC connection semantics. `UnmigratedDatabaseIT` starts an empty owned database without migration and asserts health is not falsely UP and protected/business paths return 503 rather than 500/200.
-- [ ] **Step 2: Run the red tests.**
+- [x] **Step 1: Write failing tests for dependency and migration behavior.** `MigrationConfigurationTest` asserts default mode does not auto-run Flyway, explicit migrate mode is recognized, unknown mode fails safely, and no default admin bean/data exists. `FlywayMigrationIT` starts pinned MySQL, runs the explicit migration path, asserts Flyway history, exactly seven directions, all required tables, no member/user/admin rows, and UTC connection semantics. `UnmigratedDatabaseIT` starts an empty owned database without migration and asserts health is not falsely UP and protected/business paths return 503 rather than 500/200.
+- [x] **Step 2: Run the red tests.**
 
 Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dtest=MigrationConfigurationTest test'` and `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=FlywayMigrationIT,UnmigratedDatabaseIT verify'`
 
 Expected: compilation or assertions fail because migration dependencies, SQL, properties, and schema guard do not yet exist. Docker/image failures are recorded separately and do not count as behavior RED.
 
-- [ ] **Step 3: Add dependencies and exact SQL migrations.** Add Boot-managed `spring-boot-starter-security`, `flyway-core`, and `flyway-mysql`; keep `spring.sql.init.mode=never`. Write foreign keys, unique constraints, enum/string status checks, indexes for account/student number/session hash/direction scope/audit time, and no personal seed data. `V1` creates tables, `V2` inserts only the seven fixed directions, `V3` inserts one non-personal bootstrap lock row.
-- [ ] **Step 4: Implement explicit migration and schema guard.** Disable Boot auto-migration for normal Web mode. Make the maintenance mode run Flyway against the configured target and terminate with a nonzero failure without starting HTTP. Make normal application context verify the required schema version; before schema is current, health reports dependency failure and business services can return `SERVICE_UNAVAILABLE`. Do not log JDBC URL/password or migration SQL parameters.
-- [ ] **Step 5: Run Task 1 verification.**
+- [x] **Step 3: Add dependencies and exact SQL migrations.** Add Boot-managed `spring-boot-starter-security`, `flyway-core`, and `flyway-mysql`; keep `spring.sql.init.mode=never`. Write foreign keys, unique constraints, enum/string status checks, indexes for account/student number/session hash/direction scope/audit time, and no personal seed data. `V1` creates tables, `V2` inserts only the seven fixed directions, `V3` inserts one non-personal bootstrap lock row.
+- [x] **Step 4: Implement explicit migration and schema guard.** Disable Boot auto-migration for normal Web mode. Make the maintenance mode run Flyway against the configured target and terminate with a nonzero failure without starting HTTP. Make normal application context verify the required schema version; before schema is current, health reports dependency failure and business services can return `SERVICE_UNAVAILABLE`. Do not log JDBC URL/password or migration SQL parameters.
+- [x] **Step 5: Run Task 1 verification.**
 
 Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp verify'`
 
 Expected: existing 25 unit and 20 integration tests plus the migration tests pass, no skipped integration tests, and no production SQL outside the exact migration directory is packaged.
 
-- [ ] **Step 6: Commit.** `git add backend/pom.xml backend/src/main backend/src/test ... && git commit -m "feat: add controlled auth schema migrations"`
+- [x] **Step 6: Commit.** `git add backend/pom.xml backend/src/main backend/src/test ... && git commit -m "feat: add controlled auth schema migrations"`
 
 ## Task 2: Domain mappings、密码、Token、会话和幂等基础服务
 
@@ -92,12 +92,12 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - `IdempotencyService`: `IdempotencyDecision acquire(long actorUserId, String method, String normalizedPath, String key, String requestDigest)`, `void complete(...)`, `void releaseOnFailure(...)`; login/refresh/logout do not use it.
 - `SessionPrincipal` contains user ID, optional member ID, role, managed direction IDs, password-change flag, auth revision, and session ID; it never contains raw tokens or password hashes in a public DTO.
 
-- [ ] **Step 1: Write failing unit tests.** Pin PBKDF2 parameters through encoded format/matching and reject blank/short/long/current/shared-initial passwords. Pin token entropy/URL-safe syntax, digest non-reversibility, access expiry, refresh absolute family expiry, restricted session without refresh, and no raw token in `toString`. Pin refresh rotation, concurrent single-winner semantics, replay family revocation after transaction commit, user auth revision invalidation, logout/revoke-all, and idempotency same-key replay/conflict/failure release.
-- [ ] **Step 2: Run RED.** `backend/mvnw -B -ntp -Dtest=PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest test` should fail to compile or assert missing behavior.
-- [ ] **Step 3: Implement minimal domain mappings and services.** Use MyBatis-Plus mappers with parameterized SQL and `FOR UPDATE` where lock order requires it. Configure PBKDF2-HMAC-SHA256 with the exact spec values. Use `SecureRandom` 32-byte tokens, Base64 URL-safe no padding, SHA-256 digest, and no raw-secret logging. Keep refresh replay revocation in a committed transaction boundary; convert the post-commit failure result to 401 at the HTTP boundary.
-- [ ] **Step 4: Add persistence integration tests.** `AuthenticationPersistenceIT` runs migration, creates synthetic users/sessions, asserts only hashes are stored, unique constraints hold, token/session expiration and revocation survive a new service instance, and idempotency records do not store password/token data.
-- [ ] **Step 5: Run Task 2 green.** `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dtest=PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest -Dit.test=AuthenticationPersistenceIT verify'` expected all pass.
-- [ ] **Step 6: Commit.** `git commit -m "feat: add password token session and idempotency services"`
+- [x] **Step 1: Write failing unit tests.** Pin PBKDF2 parameters through encoded format/matching and reject blank/short/long/current/shared-initial passwords. Pin token entropy/URL-safe syntax, digest non-reversibility, access expiry, refresh absolute family expiry, restricted session without refresh, and no raw token in `toString`. Pin refresh rotation, concurrent single-winner semantics, replay family revocation after transaction commit, user auth revision invalidation, logout/revoke-all, and idempotency same-key replay/conflict/failure release.
+- [x] **Step 2: Run RED.** `backend/mvnw -B -ntp -Dtest=PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest test` should fail to compile or assert missing behavior.
+- [x] **Step 3: Implement minimal domain mappings and services.** Use MyBatis-Plus mappers with parameterized SQL and `FOR UPDATE` where lock order requires it. Configure PBKDF2-HMAC-SHA256 with the exact spec values. Use `SecureRandom` 32-byte tokens, Base64 URL-safe no padding, SHA-256 digest, and no raw-secret logging. Keep refresh replay revocation in a committed transaction boundary; convert the post-commit failure result to 401 at the HTTP boundary.
+- [x] **Step 4: Add persistence integration tests.** `AuthenticationPersistenceIT` runs migration, creates synthetic users/sessions, asserts only hashes are stored, unique constraints hold, token/session expiration and revocation survive a new service instance, and idempotency records do not store password/token data.
+- [x] **Step 5: Run Task 2 green.** `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dtest=PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest -Dit.test=AuthenticationPersistenceIT verify'` expected all pass.
+- [x] **Step 6: Commit.** `git commit -m "feat: add password token session and idempotency services"`
 
 ## Task 3: Spring Security HTTP boundary and authentication API
 
@@ -119,11 +119,11 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - `AuthController`: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, `PUT /api/v1/auth/password`; response DTOs match `Session`, `Me`, `EmptyResponse` and `Cache-Control: no-store` where specified.
 - `RateLimitService`: bounded in-process buckets for login by IP+account digest, refresh by IP+token digest, password change by user; returns retry-after seconds without trusting raw forwarded headers.
 
-- [ ] **Step 1: Write red MockMvc tests.** Assert no JSESSIONID/Cookie; login success/invalid credentials/cache-control; restricted first-login allowlist; unauthenticated 401, forbidden 403, `PASSWORD_CHANGE_REQUIRED` 403; refresh rotation/replay; logout; password change revokes old access; unknown path 404 and wrong method/content-type preserve 405/415; rate limit 429 with Retry-After; no raw credentials in body/log.
-- [ ] **Step 2: Run RED.** `backend/mvnw -B -ntp -Dtest=SecurityConfigurationTest,AuthenticationHttpIT test` expected missing security chain/controller/error code failures.
-- [ ] **Step 3: Implement security boundary.** Add stateless filter chain, explicit public routes, no cookie/session, security handlers returning `ApiResponse` with correct HTTP status, restricted-token allowlist, and bounded rate limiting. Ensure unknown routes are not converted into authentication failures.
-- [ ] **Step 4: Run HTTP green.** `backend/mvnw -B -ntp -Dtest=SecurityConfigurationTest,AuthenticationHttpIT test` expected all assertions pass; then run `verify` with Testcontainers.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add database session authentication APIs"`
+- [x] **Step 1: Write red MockMvc tests.** Assert no JSESSIONID/Cookie; login success/invalid credentials/cache-control; restricted first-login allowlist; unauthenticated 401, forbidden 403, `PASSWORD_CHANGE_REQUIRED` 403; refresh rotation/replay; logout; password change revokes old access; unknown path 404 and wrong method/content-type preserve 405/415; rate limit 429 with Retry-After; no raw credentials in body/log.
+- [x] **Step 2: Run RED.** `backend/mvnw -B -ntp -Dtest=SecurityConfigurationTest,AuthenticationHttpIT test` expected missing security chain/controller/error code failures.
+- [x] **Step 3: Implement security boundary.** Add stateless filter chain, explicit public routes, no cookie/session, security handlers returning `ApiResponse` with correct HTTP status, restricted-token allowlist, and bounded rate limiting. Ensure unknown routes are not converted into authentication failures.
+- [x] **Step 4: Run HTTP green.** `backend/mvnw -B -ntp -Dtest=SecurityConfigurationTest,AuthenticationHttpIT test` expected all assertions pass; then run `verify` with Testcontainers.
+- [x] **Step 5: Commit.** `git commit -m "feat: add database session authentication APIs"`
 
 ## Task 4: Direction catalog and student member management
 
@@ -140,11 +140,11 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - Update supports true PATCH semantics (`version` plus at least one mutable field), never accepts studentNo/role/password/points/managedDirectionIds; admin can change student direction, leader cannot.
 - SQL applies scope before `Page` count/data; student cannot list directory, query others, or submit arbitrary memberId.
 
-- [ ] **Step 1: Write red policy and HTTP tests.** Cover fixed seven directions; admin all-direction list/create; leader own direction create/list/update; cross-direction 403 or object-hiding 404; student no member list/create; duplicate student number/account 409; PATCH partial/null clear and forbidden fields 400; version conflict 409; idempotency replay; ranking/PII fields absent; SQL count reflects filtered rows.
-- [ ] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=DirectionAndMemberHttpIT verify'` expected missing controllers/mappers/services.
-- [ ] **Step 3: Implement directions and members.** Add DTO validation, service transaction order, SQL scope filters, row locks, optimistic versions, idempotency integration, initial password from `MEMBER_INITIAL_PASSWORD` without response/logging, and audit event hooks.
-- [ ] **Step 4: Run green and inspect response.** Repeat targeted verify; assert every response matches main OpenAPI schemas and excludes password hashes/tokens/contact for unauthorized callers.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add direction catalog and member management"`
+- [x] **Step 1: Write red policy and HTTP tests.** Cover fixed seven directions; admin all-direction list/create; leader own direction create/list/update; cross-direction 403 or object-hiding 404; student no member list/create; duplicate student number/account 409; PATCH partial/null clear and forbidden fields 400; version conflict 409; idempotency replay; ranking/PII fields absent; SQL count reflects filtered rows.
+- [x] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=DirectionAndMemberHttpIT verify'` expected missing controllers/mappers/services.
+- [x] **Step 3: Implement directions and members.** Add DTO validation, service transaction order, SQL scope filters, row locks, optimistic versions, idempotency integration, initial password from `MEMBER_INITIAL_PASSWORD` without response/logging, and audit event hooks.
+- [x] **Step 4: Run green and inspect response.** Repeat targeted verify; assert every response matches main OpenAPI schemas and excludes password hashes/tokens/contact for unauthorized callers.
+- [x] **Step 5: Commit.** `git commit -m "feat: add direction catalog and member management"`
 
 ## Task 5: Leader management, student-number correction, password reset and audit API
 
@@ -163,11 +163,11 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - Admin-only password reset reads `MEMBER_INITIAL_PASSWORD`, never accepts/returns a password, sets `mustChangePassword=true`, and revokes sessions.
 - `GET /api/v1/audits` returns paged sanitized summaries only; no audit detail, password, token, report text or unrestricted contact data.
 
-- [ ] **Step 1: Write red tests.** Cover promotion/revocation, empty scope rejection, leader cannot appoint/update/revoke, admin updates leader profile/scope/status, immediate old-token revocation, correction uniqueness/history/audit, reset behavior, audit visibility and PII redaction, concurrent admin operations and version conflicts.
-- [ ] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=LeaderAndAuditHttpIT verify'` expected missing implementation.
-- [ ] **Step 3: Implement service transactions and audit.** Enforce lock order actor/target by numeric ID, scope checks at transaction time, committed refresh-replay/security audit outcomes, and response mapping to the existing envelope/status contract.
-- [ ] **Step 4: Run green.** Targeted verify plus `git diff --check`; expected all leader/audit tests pass with no sensitive output.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add leader administration and audit APIs"`
+- [x] **Step 1: Write red tests.** Cover promotion/revocation, empty scope rejection, leader cannot appoint/update/revoke, admin updates leader profile/scope/status, immediate old-token revocation, correction uniqueness/history/audit, reset behavior, audit visibility and PII redaction, concurrent admin operations and version conflicts.
+- [x] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=LeaderAndAuditHttpIT verify'` expected missing implementation.
+- [x] **Step 3: Implement service transactions and audit.** Enforce lock order actor/target by numeric ID, scope checks at transaction time, committed refresh-replay/security audit outcomes, and response mapping to the existing envelope/status contract.
+- [x] **Step 4: Run green.** Targeted verify plus `git diff --check`; expected all leader/audit tests pass with no sensitive output.
+- [x] **Step 5: Commit.** `git commit -m "feat: add leader administration and audit APIs"`
 
 ## Task 6: Admin bootstrap, migration CLI, readiness and package boundaries
 
@@ -190,11 +190,11 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - `JarBoundaryIT` permits only `BOOT-INF/classes/db/migration/V*.sql` and production classes/resources; testsupport/browser/probe/test SQL/credentials remain forbidden.
 - Packaged tests cover migration-before-service and default/dev/prod docs plus implemented auth/member paths; no default account/member data appears.
 
-- [ ] **Step 1: Write red boundary tests.** Assert admin bootstrap missing/duplicate/concurrent cases, no password in output, migration mode no HTTP, unmigrated readiness failure, exact JAR migration whitelist, and no default admin/member rows.
-- [ ] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=AdminBootstrapIT,JarBoundaryIT,PackagedApplicationIT verify'` expected failures until command/readiness/package assertions are updated.
-- [ ] **Step 3: Implement maintenance/bootstrap boundary.** Keep normal Web start non-mutating, add explicit maintenance properties and safe exit status, use bootstrap lock transaction, and update package tests to the intended new SQL boundary. Never add real credentials to test fixtures.
-- [ ] **Step 4: Run green.** Targeted packaged verification and inspect JAR entries. Expected no test fixture leakage and no false UP on unmigrated databases.
-- [ ] **Step 5: Commit.** `git commit -m "feat: add controlled admin bootstrap and schema readiness"`
+- [x] **Step 1: Write red boundary tests.** Assert admin bootstrap missing/duplicate/concurrent cases, no password in output, migration mode no HTTP, unmigrated readiness failure, exact JAR migration whitelist, and no default admin/member rows.
+- [x] **Step 2: Run RED.** `newgrp docker -c 'backend/mvnw -B -ntp -Dit.test=AdminBootstrapIT,JarBoundaryIT,PackagedApplicationIT verify'` expected failures until command/readiness/package assertions are updated.
+- [x] **Step 3: Implement maintenance/bootstrap boundary.** Keep normal Web start non-mutating, add explicit maintenance properties and safe exit status, use bootstrap lock transaction, and update package tests to the intended new SQL boundary. Never add real credentials to test fixtures.
+- [x] **Step 4: Run green.** Targeted packaged verification and inspect JAR entries. Expected no test fixture leakage and no false UP on unmigrated databases.
+- [x] **Step 5: Commit.** `git commit -m "feat: add controlled admin bootstrap and schema readiness"`
 
 ## Task 7: Contract synchronization, full verification and delivery
 

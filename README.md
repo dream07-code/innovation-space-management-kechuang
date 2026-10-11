@@ -4,9 +4,9 @@
 
 ## 项目状态
 
-业务需求及后端基础工程已建立，代码位于 `backend/`。本轮范围是 Java 21 / Spring Boot / MyBatis-Plus / MySQL 8.0 的 Maven 基础工程、公共响应与异常处理、健康检查和仅开发环境开放的 Knife4j 文档，不代表业务管理系统已经完成。
+代码位于 `backend/`。基础工程已扩展数据库会话认证、首次改密、角色/方向权限、学生及负责人管理、学号更正/密码重置与脱敏审计，仍不是完整业务管理系统。真实账号资料没有写入数据库或Git。
 
-启动、环境变量、独立开发数据库及测试方式见 [后端说明](backend/README.md)。人员、日报周报、AI 评分、积分排行与自动移出仍待后续实现。
+启动、受控迁移、管理员初始化、环境变量和测试方式见 [后端说明](backend/README.md)。日报周报、AI评分、积分排行、月评及自动移出仍待后续实现。
 
 ## 需求范围
 
@@ -24,6 +24,9 @@
 - [后端基础工程技术设计，已确认](docs/superpowers/specs/2026-10-11-backend-bootstrap-design.md)
 - [后端基础工程实施计划及验收清单](docs/superpowers/plans/2026-10-11-backend-bootstrap.md)
 - [后端基础工程验收记录](docs/superpowers/reports/2026-10-11-backend-bootstrap-verification.md)
+- [认证与人员管理设计](docs/superpowers/specs/2026-10-11-auth-member-management-design.md)
+- [认证与人员管理实施计划](docs/superpowers/plans/2026-10-11-auth-member-management.md)
+- [前后端共用API契约](docs/api/README.md)
 
 需求文档区分了用户已明确要求、建议默认规则和待确认事项。建议默认规则不代表已经获得业务方确认。
 
