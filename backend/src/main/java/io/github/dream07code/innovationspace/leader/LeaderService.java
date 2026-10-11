@@ -66,7 +66,8 @@ public class LeaderService {
   public Map<String, Object> appoint(long id, Map<String, Object> request, SessionPrincipal actor) {
     MemberService.fields(request, Set.of("memberId", "version", "managedDirectionIds", "reason"));
     String reason = MemberService.required(request, "reason", 1000);
-    var row = members.row(id);
+    var row = members.lockedRow(id);
+    var previous = authorizationSnapshot(row);
     if (!"STUDENT".equals(row.get("role"))
         || !"ACTIVE".equals(row.get("membership_status"))
         || !"ENABLED".equals(row.get("account_status")))
@@ -83,6 +84,7 @@ public class LeaderService {
         id);
     members.revoke(user, "LEADER_APPOINTED");
     members.audit(actor, "LEADER_APPOINTED", id, reason, "Appointed direction leader");
+    recordAuthorizationDetail(previous, members.lockedRow(id));
     return members.map(members.row(id));
   }
 
@@ -107,7 +109,8 @@ public class LeaderService {
     return tx.execute(
         status -> {
           members.lockAndVersion(id, request, actor);
-          var row = members.row(id);
+          var row = members.lockedRow(id);
+          var previous = authorizationSnapshot(row);
           if (!"DIRECTION_LEADER".equals(row.get("role")))
             throw new ApiException(409, ErrorCode.INVALID_STATE);
           long user = ((Number) row.get("user_id")).longValue();
@@ -126,6 +129,7 @@ public class LeaderService {
             members.revoke(user, "LEADER_CHANGED");
           }
           members.audit(actor, "LEADER_UPDATED", id, reason, "Updated direction leader");
+          recordAuthorizationDetail(previous, members.lockedRow(id));
           return members.map(members.row(id));
         });
   }
@@ -133,7 +137,8 @@ public class LeaderService {
   public Map<String, Object> revoke(long id, Map<String, Object> request, SessionPrincipal actor) {
     MemberService.fields(request, Set.of("version", "reason"));
     String reason = MemberService.required(request, "reason", 1000);
-    var row = members.row(id);
+    var row = members.lockedRow(id);
+    var previous = authorizationSnapshot(row);
     if (!"DIRECTION_LEADER".equals(row.get("role")))
       throw new ApiException(409, ErrorCode.INVALID_STATE);
     long user = ((Number) row.get("user_id")).longValue();
@@ -146,6 +151,7 @@ public class LeaderService {
         id);
     members.revoke(user, "LEADER_REVOKED");
     members.audit(actor, "LEADER_REVOKED", id, reason, "Revoked direction leader");
+    recordAuthorizationDetail(previous, members.lockedRow(id));
     return members.map(members.row(id));
   }
 
@@ -161,6 +167,37 @@ public class LeaderService {
       ids.add(d);
     }
     return ids;
+  }
+
+  private Map<String, Object> authorizationSnapshot(Map<String, Object> row) {
+    var scopes =
+        jdbc.queryForList(
+            "SELECT direction_id FROM leader_direction_scope WHERE user_id=? ORDER BY direction_id"
+                + " FOR UPDATE",
+            Long.class,
+            row.get("user_id"));
+    return Map.of("role", row.get("role"), "status", row.get("account_status"), "scopes", scopes);
+  }
+
+  private void recordAuthorizationDetail(Map<String, Object> old, Map<String, Object> current) {
+    var next = authorizationSnapshot(current);
+    var detail =
+        Map.of(
+            "oldRole",
+            old.get("role"),
+            "newRole",
+            next.get("role"),
+            "oldStatus",
+            old.get("status"),
+            "newStatus",
+            next.get("status"),
+            "oldScopes",
+            old.get("scopes"),
+            "newScopes",
+            next.get("scopes"));
+    jdbc.update(
+        "UPDATE audit_log SET detail=? WHERE id=LAST_INSERT_ID()",
+        tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(detail));
   }
 
   private void grant(long user, List<Long> ids, SessionPrincipal actor) {

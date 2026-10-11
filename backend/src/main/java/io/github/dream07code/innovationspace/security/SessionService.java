@@ -227,6 +227,15 @@ public class SessionService {
     transaction.executeWithoutResult(
         s -> {
           lockUser(principal.userId());
+          var current =
+              jdbc.queryForMap(
+                  "SELECT revoked_at,rotated_at,access_expires_at FROM auth_session WHERE id=? FOR"
+                      + " UPDATE",
+                  principal.sessionId());
+          if (current.get("revoked_at") != null
+              || current.get("rotated_at") != null
+              || !instant(current.get("access_expires_at")).isAfter(clock.instant()))
+            throw unauthorized();
           jdbc.update(
               "UPDATE auth_session SET revoked_at=?,revoke_reason=? WHERE id=?",
               Timestamp.from(clock.instant()),

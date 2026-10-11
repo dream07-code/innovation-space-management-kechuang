@@ -41,4 +41,31 @@ class FlywayMigrationIT {
             assertFalse(output.contains(MYSQL.getPassword()));
         } finally { if(process.isAlive()) process.destroyForcibly(); }
     }
+    @Test void systemPropertyMaintenanceModeAndConflictingModesAreSafe()throws Exception {
+        for(boolean conflict:new boolean[]{false,true}) {
+            var log=java.nio.file.Path.of("target/maintenance-mode-"+conflict+".log");
+            var args=new java.util.ArrayList<String>();args.add(java.nio.file.Path.of(System.getProperty("java.home"),"bin","java").toString());
+            args.add("-Dapp.migration.mode=migrate");args.add("-jar");args.add("target/innovation-space-backend-0.1.0-SNAPSHOT.jar");
+            if(conflict)args.add("--app.bootstrap.mode=admin");
+            var builder=new ProcessBuilder(args);var e=builder.environment();e.clear();
+            e.put("DB_HOST",MYSQL.getHost());e.put("DB_PORT",MYSQL.getMappedPort(3306).toString());e.put("DB_NAME",MYSQL.getDatabaseName());e.put("DB_USERNAME",MYSQL.getUsername());e.put("DB_PASSWORD",MYSQL.getPassword());
+            e.put("ADMIN_ACCOUNT","synthetic-admin");e.put("ADMIN_PASSWORD","Synthetic-bootstrap12!");e.put("ADMIN_DISPLAY_NAME","Synthetic Admin");
+            var process=builder.redirectErrorStream(true).redirectOutput(log.toFile()).start();
+            try {
+                assertTrue(process.waitFor(20,java.util.concurrent.TimeUnit.SECONDS),"maintenance must exit without Web listener");
+                if(conflict)assertNotEquals(0,process.exitValue());else assertEquals(0,process.exitValue());
+                assertFalse(java.nio.file.Files.readString(log).contains("Tomcat started"));
+            }finally{if(process.isAlive())process.destroyForcibly();}
+        }
+    }
+    @Test void configurationFileMaintenanceAndCommandLineOverrideUseOneResolvedMode()throws Exception {
+        var config=java.nio.file.Path.of("target/maintenance-config.yaml").toAbsolutePath();
+        java.nio.file.Files.writeString(config,"app:\n  migration:\n    mode: migrate\n");
+        var log=java.nio.file.Path.of("target/maintenance-config.log");
+        var args=new java.util.ArrayList<String>();args.add(java.nio.file.Path.of(System.getProperty("java.home"),"bin","java").toString());args.add("-jar");args.add("target/innovation-space-backend-0.1.0-SNAPSHOT.jar");args.add("--spring.config.additional-location="+config.toUri());
+        var builder=new ProcessBuilder(args);var e=builder.environment();e.clear();e.put("DB_HOST",MYSQL.getHost());e.put("DB_PORT",MYSQL.getMappedPort(3306).toString());e.put("DB_NAME",MYSQL.getDatabaseName());e.put("DB_USERNAME",MYSQL.getUsername());e.put("DB_PASSWORD",MYSQL.getPassword());
+        var process=builder.redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try{assertTrue(process.waitFor(25,java.util.concurrent.TimeUnit.SECONDS));assertEquals(0,process.exitValue());assertFalse(java.nio.file.Files.readString(log).contains("Tomcat started"));}finally{if(process.isAlive())process.destroyForcibly();}
+        java.nio.file.Files.deleteIfExists(config);
+    }
 }

@@ -46,4 +46,33 @@ class LeaderAndAuditHttpIT {
   var revoke=send("POST","/api/v1/direction-leaders/"+member+"/revoke","{\"version\":4,\"reason\":\"调整负责人授权\"}",admin);assertEquals(200,revoke.statusCode());assertEquals("STUDENT",HttpTestSupport.json(revoke).path("data").path("role").asText());
   var audits=send("GET","/api/v1/audits",null,admin);assertEquals(200,audits.statusCode());assertTrue(HttpTestSupport.json(audits).path("data").path("total").asInt()>=4);assertFalse(audits.body().contains("synthetic-initial"));assertFalse(audits.body().contains("password_hash"));
  }
+ @Test void appointmentAndScopeReplacementKeepRestrictedAuthorizationHistory()throws Exception {
+  var appointed=send("POST","/api/v1/direction-leaders","{\"memberId\":\""+member+"\",\"version\":1,\"managedDirectionIds\":[\"1\",\"2\"],\"reason\":\"确认任命负责人\"}",admin);assertEquals(200,appointed.statusCode());
+  var changed=send("PATCH","/api/v1/direction-leaders/"+member,"{\"version\":2,\"managedDirectionIds\":[\"3\"],\"accountStatus\":\"DISABLED\",\"reason\":\"调整方向授权范围\"}",admin);assertEquals(200,changed.statusCode());
+  var detail=jdbc.queryForObject("SELECT detail FROM audit_log WHERE action='LEADER_UPDATED'",String.class);
+  assertNotNull(detail);assertTrue(detail.contains("oldScopes"));assertTrue(detail.contains("newScopes"));assertTrue(detail.contains("DISABLED"));
+  var output=send("GET","/api/v1/audits",null,admin);assertFalse(output.body().contains("oldScopes"));
+ }
+ @Test void staleRepeatableReadSnapshotCannotAuthorizeRevokedLeader()throws Exception {
+  send("POST","/api/v1/direction-leaders","{\"memberId\":\""+member+"\",\"version\":1,\"managedDirectionIds\":[\"1\"],\"reason\":\"确认任命负责人\"}",admin);
+  var created=send("POST","/api/v1/members","{\"studentNo\":\"MOCK004\",\"name\":\"目标同学\",\"directionId\":\"1\"}",admin);
+  long target=HttpTestSupport.json(created).path("data").path("id").asLong();
+  var leader=sessions.authenticateAccess(sessions.issue(user).accessToken());
+  var tx=new org.springframework.transaction.support.TransactionTemplate(manager);
+  assertThrows(RuntimeException.class,()->tx.executeWithoutResult(status->{
+   jdbc.queryForObject("SELECT name FROM member WHERE id=?",String.class,target);
+   try(var executor=java.util.concurrent.Executors.newSingleThreadExecutor()) {
+    executor.submit(()->{jdbc.update("UPDATE app_user SET status='DISABLED',auth_revision=auth_revision+1 WHERE id=?",user);}).get();
+   }catch(Exception ex){throw new RuntimeException(ex);}
+   memberService.update(target,java.util.Map.of("version",1,"name","Unauthorized update"),leader);
+  }));
+  assertEquals("目标同学",jdbc.queryForObject("SELECT name FROM member WHERE id=?",String.class,target));
+ }
+ @Test void correctedStudentNumberMustRespectTheSameIdentityPatternAsCreation()throws Exception {
+  var response=send("POST","/api/v1/members/"+member+"/account-corrections","{\"version\":1,\"newStudentNo\":\"bad account\",\"reason\":\"核对并更正学号\"}",admin);
+  assertEquals(400,response.statusCode());
+  assertEquals("MOCK001",jdbc.queryForObject("SELECT student_no FROM member WHERE id=?",String.class,Long.parseLong(member)));
+ }
+ @Autowired org.springframework.transaction.PlatformTransactionManager manager;
+ @Autowired io.github.dream07code.innovationspace.member.MemberService memberService;
 }

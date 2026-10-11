@@ -89,4 +89,20 @@ class AuthenticationPersistenceIT {
         var disabled=sessions.issue(1);jdbc.update("UPDATE app_user SET status='DISABLED' WHERE id=1");
         assertThrows(RuntimeException.class,()->sessions.authenticateAccess(disabled.accessToken()));
     }
+    @Test void logoutCannotSucceedAfterRotationWonTheUserLock(){
+        var first=sessions.issue(1);var successor=new java.util.concurrent.atomic.AtomicReference<SessionService.IssuedSession>();
+        var interleaved=new SessionService(jdbc,tokens,clock,manager,schema){
+            @Override public io.github.dream07code.innovationspace.security.SessionPrincipal authenticateAccess(String token){
+                var authenticated=super.authenticateAccess(token);
+                successor.set(sessions.rotateRefresh(first.refreshToken()).session());
+                return authenticated;
+            }
+        };
+        assertThrows(RuntimeException.class,()->interleaved.revokeSession(first.accessToken(),"LOGOUT"));
+        assertNotNull(successor.get());
+    }
+    @Autowired io.github.dream07code.innovationspace.security.TokenService tokens;
+    @Autowired java.time.Clock clock;
+    @Autowired org.springframework.transaction.PlatformTransactionManager manager;
+    @Autowired io.github.dream07code.innovationspace.config.DatabaseSchemaGuard schema;
 }

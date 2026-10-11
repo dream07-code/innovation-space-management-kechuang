@@ -17,8 +17,8 @@ public class SchemaReadinessInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(
       HttpServletRequest request, HttpServletResponse response, Object handler) {
-    if (request.getRequestURI().startsWith("/api/v1/") && handler instanceof HandlerMethod)
-      guard.requireCurrentSchema();
+    if (request.getRequestURI().substring(request.getContextPath().length()).startsWith("/api/v1/")
+        && handler instanceof HandlerMethod) guard.requireCurrentSchema();
     return true;
   }
 }

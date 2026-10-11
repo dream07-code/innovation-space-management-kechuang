@@ -9,13 +9,35 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class InnovationSpaceApplication {
   public static void main(String[] args) {
     var app = new SpringApplication(InnovationSpaceApplication.class);
-    boolean maintenance =
-        java.util.Arrays.asList(args).contains("--app.migration.mode=migrate")
-            || "migrate".equals(System.getenv("APP_MIGRATION_MODE"))
-            || java.util.Arrays.asList(args).contains("--app.bootstrap.mode=admin")
-            || "admin".equals(System.getenv("APP_BOOTSTRAP_MODE"));
-    if (maintenance) app.setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
+    var maintenance = new java.util.concurrent.atomic.AtomicBoolean();
+    app.addListeners(
+        (org.springframework.context.ApplicationListener<
+                org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent>)
+            event -> {
+              var environment = event.getEnvironment();
+              String migration = environment.getProperty("app.migration.mode", "disabled");
+              String bootstrap = environment.getProperty("app.bootstrap.mode", "disabled");
+              if (!java.util.Set.of("disabled", "migrate").contains(migration)
+                  || !java.util.Set.of("disabled", "admin").contains(bootstrap))
+                throw new IllegalStateException("Unsupported maintenance mode");
+              if ("migrate".equals(migration) && "admin".equals(bootstrap))
+                throw new IllegalStateException(
+                    "Migration and administrator initialization cannot run together");
+              boolean active = !"disabled".equals(migration) || !"disabled".equals(bootstrap);
+              maintenance.set(active);
+              if (active) {
+                event
+                    .getSpringApplication()
+                    .setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
+                environment
+                    .getPropertySources()
+                    .addFirst(
+                        new org.springframework.core.env.MapPropertySource(
+                            "controlled-maintenance",
+                            java.util.Map.of("spring.main.web-application-type", "none")));
+              }
+            });
     var context = app.run(args);
-    if (maintenance) context.close();
+    if (maintenance.get()) context.close();
   }
 }

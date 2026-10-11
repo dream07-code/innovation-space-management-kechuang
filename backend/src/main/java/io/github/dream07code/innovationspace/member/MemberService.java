@@ -197,7 +197,7 @@ public class MemberService {
     return tx.execute(
         s -> {
           lockAndVersion(id, request, actor);
-          var before = row(id);
+          var before = lockedRow(id);
           if (!"STUDENT".equals(before.get("role")))
             throw new ApiException(403, ErrorCode.FORBIDDEN);
           if (request.containsKey("directionId")) {
@@ -219,20 +219,24 @@ public class MemberService {
         targetUser);
     var current =
         jdbc.queryForMap(
-            "SELECT auth_revision,status,role FROM app_user WHERE id=?", actor.userId());
+            "SELECT auth_revision,status,role FROM app_user WHERE id=? FOR UPDATE", actor.userId());
     if (((Number) current.get("auth_revision")).longValue() != actor.authRevision()
         || !"ENABLED".equals(current.get("status"))
         || !actor.role().equals(current.get("role")))
       throw new ApiException(401, ErrorCode.UNAUTHORIZED);
-    var refreshed = row(id);
+    var refreshed =
+        jdbc.queryForMap(
+            "SELECT m.*,u.id user_id,u.role FROM member m JOIN app_user u ON u.member_id=m.id WHERE"
+                + " m.id=? FOR UPDATE",
+            id);
     if (!"COLLEGE_ADMIN".equals(actor.role())) {
       if (!"STUDENT".equals(refreshed.get("role"))
-          || jdbc.queryForObject(
-                  "SELECT COUNT(*) FROM leader_direction_scope WHERE user_id=? AND direction_id=?",
-                  Integer.class,
+          || jdbc.queryForList(
+                  "SELECT direction_id FROM leader_direction_scope WHERE user_id=? AND"
+                      + " direction_id=? FOR UPDATE",
                   actor.userId(),
                   refreshed.get("direction_id"))
-              != 1) throw new ApiException(403, ErrorCode.FORBIDDEN);
+              .isEmpty()) throw new ApiException(403, ErrorCode.FORBIDDEN);
     }
     var member = jdbc.queryForMap("SELECT version FROM member WHERE id=? FOR UPDATE", id);
     if (!(request.get("version") instanceof Number n)
@@ -240,6 +244,13 @@ public class MemberService {
         || n.longValue() < 1) throw bad();
     if (n.longValue() != ((Number) member.get("version")).longValue())
       throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
+  }
+
+  public Map<String, Object> lockedRow(long id) {
+    return jdbc.queryForMap(
+        "SELECT m.*,u.id user_id,u.role,u.status account_status,u.must_change_password FROM member"
+            + " m JOIN app_user u ON u.member_id=m.id WHERE m.id=? FOR UPDATE",
+        id);
   }
 
   public void patch(long id, Map<String, Object> request) {
@@ -358,6 +369,7 @@ public class MemberService {
     fields(request, Set.of("version", "newStudentNo", "reason"));
     String number = required(request, "newStudentNo", 32),
         reason = required(request, "reason", 1000);
+    if (!number.matches("[A-Za-z0-9_-]+")) throw bad();
     var before = row(id);
     long target = ((Number) before.get("user_id")).longValue();
     if (jdbc.queryForObject(
