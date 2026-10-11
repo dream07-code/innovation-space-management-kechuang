@@ -21,7 +21,12 @@ class FlywayMigrationIT {
             }
             try(var r=statement.executeQuery("SELECT COUNT(*) FROM direction")) { r.next();assertEquals(7,r.getInt(1)); }
             try(var r=statement.executeQuery("SELECT COUNT(*) FROM bootstrap_lock")) { r.next();assertEquals(1,r.getInt(1)); }
-            try(var r=statement.executeQuery("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")) { r.next();assertEquals(4,r.getInt(1)); }
+            for (var index : new String[]{"idx_report_member_activity","idx_member_auto_removal"}) {
+                try(var r=statement.executeQuery("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name='"+index+"'")) {
+                    r.next(); assertTrue(r.getInt(1)>0,index);
+                }
+            }
+            try(var r=statement.executeQuery("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")) { r.next();assertEquals(5,r.getInt(1)); }
         }
     }
 
