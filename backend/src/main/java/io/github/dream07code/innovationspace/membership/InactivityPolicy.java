@@ -2,7 +2,9 @@ package io.github.dream07code.innovationspace.membership;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import org.springframework.stereotype.Component;
 
+@Component
 public final class InactivityPolicy {
   public static final int THRESHOLD_DAYS = 14;
   public static final String RULE_VERSION = "INACTIVE_DAILY_REPORT_14_COMPLETE_DAYS_V1";

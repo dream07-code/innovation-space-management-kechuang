@@ -8,7 +8,7 @@ class MigrationConfigurationTest {
         var type = Class.forName("io.github.dream07code.innovationspace.config.MigrationProperties");
         var properties = type.getDeclaredConstructor().newInstance();
         assertEquals("disabled", type.getMethod("getMode").invoke(properties));
-        assertEquals("4", type.getMethod("getRequiredVersion").invoke(properties));
+        assertEquals("5", type.getMethod("getRequiredVersion").invoke(properties));
     }
 
     @Test void explicitMigrationAndUnknownModesHaveNoHiddenFallback() {

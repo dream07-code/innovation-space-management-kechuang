@@ -50,7 +50,7 @@ management:
 app:
   migration:
     mode: disabled
-    required-version: "4"
+    required-version: "5"
   auth:
     initial-password: ${MEMBER_INITIAL_PASSWORD:}
   report:
@@ -59,6 +59,10 @@ app:
     max-final-score: ${REPORT_MAX_FINAL_SCORE:3}
     daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
     weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
+  membership:
+    auto-removal-enabled: ${MEMBERSHIP_AUTO_REMOVAL_ENABLED:true}
+    removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
+    removal-batch-size: ${MEMBERSHIP_REMOVAL_BATCH_SIZE:500}
   ai:
     enabled: ${AI_SCORING_ENABLED:false}
     provider: ${AI_PROVIDER:disabled}
