@@ -205,12 +205,12 @@ Expected: existing 25 unit and 20 integration tests plus the migration tests pas
 - Create: `backend/README.md` authentication/migration/admin bootstrap sections.
 - Create: `docs/superpowers/reports/2026-10-11-auth-member-management-verification.md`.
 
-- [ ] **Step 1: Write contract smoke tests.** Verify implemented routes, schemas, HTTP statuses, restricted-token allowlist, no self-register route, and generated OpenAPI paths/responses. Verify all unimplemented downstream routes remain absent/404.
-- [ ] **Step 2: Run full verification.** Under poisoned `SPRING_PROFILES_ACTIVE=dev` and Hikari-specific properties run `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp clean verify'`; expected all unit/integration tests pass with zero failures/errors/skips and reports include migration/auth/member coverage.
-- [ ] **Step 3: Security/package scans.** `git diff --check`; inspect dependency tree for no duplicate security/Flyway version overrides, scan staged files for real credentials/private keys, inspect JAR exact migration whitelist and absence of testsupport/browser/secret files.
-- [ ] **Step 4: Update operational documentation.** Explain migrate-before-start, admin bootstrap inputs without values, session/token behavior, rate limits, initial password delivery risk, and that downstream report/points/monthly routes are not implemented.
-- [ ] **Step 5: Final review and commit.** Use one fresh whole-branch code review after all tasks; fix Critical/Important findings with RED→GREEN, record deferred minors/rulings, run full verify again, and commit `test: verify authentication and member management delivery`.
-- [ ] **Step 6: Finish.** Keep backend changes on `backend` unless user separately requests pushing/merging. Read back remote status only after explicit push authorization; do not shut down the computer.
+- [x] **Step 1: Write contract smoke tests.** Verify implemented routes, schemas, HTTP statuses, restricted-token allowlist, no self-register route, and generated OpenAPI paths/responses. Verify all unimplemented downstream routes remain absent/404.
+- [x] **Step 2: Run full verification.** Under poisoned `SPRING_PROFILES_ACTIVE=dev` and Hikari-specific properties run `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp clean verify'`; expected all unit/integration tests pass with zero failures/errors/skips and reports include migration/auth/member coverage.
+- [x] **Step 3: Security/package scans.** `git diff --check`; inspect dependency tree for no duplicate security/Flyway version overrides, scan staged files for real credentials/private keys, inspect JAR exact migration whitelist and absence of testsupport/browser/secret files.
+- [x] **Step 4: Update operational documentation.** Explain migrate-before-start, admin bootstrap inputs without values, session/token behavior, rate limits, initial password delivery risk, and that downstream report/points/monthly routes are not implemented.
+- [x] **Step 5: Final review and commit.** Use one fresh whole-branch code review after all tasks; fix Critical/Important findings with RED→GREEN, record deferred minors/rulings, run full verify again, and commit `test: verify authentication and member management delivery`.
+- [x] **Step 6: Finish.** Keep backend changes on `backend` unless user separately requests pushing/merging. Read back remote status only after explicit push authorization; do not shut down the computer.
 
 ## Acceptance Matrix
 

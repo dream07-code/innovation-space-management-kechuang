@@ -26,6 +26,7 @@
 - [后端基础工程验收记录](docs/superpowers/reports/2026-10-11-backend-bootstrap-verification.md)
 - [认证与人员管理设计](docs/superpowers/specs/2026-10-11-auth-member-management-design.md)
 - [认证与人员管理实施计划](docs/superpowers/plans/2026-10-11-auth-member-management.md)
+- [认证与人员管理验收及审查记录](docs/superpowers/reports/2026-10-11-auth-member-management-verification.md)
 - [前后端共用API契约](docs/api/README.md)
 
 需求文档区分了用户已明确要求、建议默认规则和待确认事项。建议默认规则不代表已经获得业务方确认。
