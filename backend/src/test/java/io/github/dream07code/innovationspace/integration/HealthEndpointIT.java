@@ -53,8 +53,9 @@ class HealthEndpointIT {
 
     @Test
     void managementAndUnimplementedBusinessEndpointsAreNotPublished() throws Exception {
-        for (var path : new String[]{"/actuator/env", "/actuator/info", "/actuator/beans", "/actuator/configprops", "/api/v1/register", "/api/v1/members"}) {
+        for (var path : new String[]{"/actuator/env", "/actuator/info", "/actuator/beans", "/actuator/configprops", "/api/v1/register"}) {
             assertEquals(404, HttpTestSupport.get(port, path).statusCode(), path);
         }
+        assertEquals(401,HttpTestSupport.get(port,"/api/v1/members").statusCode());
     }
 }

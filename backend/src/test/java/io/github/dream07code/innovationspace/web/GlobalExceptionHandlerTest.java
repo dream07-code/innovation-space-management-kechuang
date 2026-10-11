@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+@WebMvcTest(controllers=WebProbeConfiguration.ProbeController.class, excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
         type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
         classes = {io.github.dream07code.innovationspace.config.SchemaReadinessConfiguration.class,
                 io.github.dream07code.innovationspace.web.AuthController.class,
