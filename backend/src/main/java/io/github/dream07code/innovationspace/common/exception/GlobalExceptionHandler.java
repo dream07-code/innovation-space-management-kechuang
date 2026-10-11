@@ -29,6 +29,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if(exception.status()==429)builder.header("Retry-After","60");
         return builder.body(ApiResponse.failure(exception.code()));
     }
+    @ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
+    public ResponseEntity<ApiResponse<Void>> duplicateKey(){return ResponseEntity.status(409).body(ApiResponse.failure(ErrorCode.ACCOUNT_ALREADY_EXISTS));}
 
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body,

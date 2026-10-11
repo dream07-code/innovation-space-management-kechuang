@@ -40,7 +40,7 @@ public class MemberService {
  }
  public IdempotencyService.StoredResponse create(Map<String,Object> request,SessionPrincipal actor,String key){
   fields(request,Set.of("studentNo","name","major","className","grade","contact","directionId"));
-  String account=required(request,"studentNo",32),name=required(request,"name",64);long direction=parseId(required(request,"directionId",19));MemberScopePolicy.direction(actor,direction);ensureDirection(direction);
+  validateProfile(request);String account=required(request,"studentNo",32),name=required(request,"name",64);if(!account.matches("[A-Za-z0-9_-]+"))throw bad();long direction=parseId(required(request,"directionId",19));MemberScopePolicy.direction(actor,direction);ensureDirection(direction);
   if(initial.isBlank())throw new ApiException(503,ErrorCode.SERVICE_UNAVAILABLE);
   return idem.execute(actor,"POST","/api/v1/members",key,json.writeValueAsString(request),()->{
    if(jdbc.queryForObject("SELECT COUNT(*) FROM app_user WHERE account=?",Integer.class,account)>0||jdbc.queryForObject("SELECT COUNT(*) FROM member WHERE student_no=?",Integer.class,account)>0)throw new ApiException(409,ErrorCode.ACCOUNT_ALREADY_EXISTS);
@@ -53,7 +53,7 @@ public class MemberService {
   });
  }
  public Map<String,Object> update(long id,Map<String,Object> request,SessionPrincipal actor){
-  fields(request,Set.of("version","name","major","className","grade","contact","directionId"));if(request.size()<2)throw bad();get(id,actor);
+  fields(request,Set.of("version","name","major","className","grade","contact","directionId"));validateProfile(request);if(request.size()<2)throw bad();get(id,actor);
   return tx.execute(s->{lockAndVersion(id,request,actor);var before=row(id);if(!"STUDENT".equals(before.get("role")))throw new ApiException(403,ErrorCode.FORBIDDEN);
    if(request.containsKey("directionId")){MemberScopePolicy.admin(actor);ensureDirection(parseId(required(request,"directionId",19)));}
    patch(id,request);audit(actor,"MEMBER_UPDATED",id,null,"Updated member profile");return map(row(id));});
@@ -61,9 +61,13 @@ public class MemberService {
  public void lockAndVersion(long id,Map<String,Object> request,SessionPrincipal actor){
   var target=row(id);long targetUser=((Number)target.get("user_id")).longValue();
   jdbc.queryForList("SELECT id FROM app_user WHERE id IN (?,?) ORDER BY id FOR UPDATE",actor.userId(),targetUser);
-  var current=jdbc.queryForMap("SELECT auth_revision,status,role FROM app_user WHERE id=?",actor.userId());if(((Number)current.get("auth_revision")).longValue()!=actor.authRevision()||!"ENABLED".equals(current.get("status")))throw new ApiException(401,ErrorCode.UNAUTHORIZED);
+  var current=jdbc.queryForMap("SELECT auth_revision,status,role FROM app_user WHERE id=?",actor.userId());if(((Number)current.get("auth_revision")).longValue()!=actor.authRevision()||!"ENABLED".equals(current.get("status"))||!actor.role().equals(current.get("role")))throw new ApiException(401,ErrorCode.UNAUTHORIZED);
+  var refreshed=row(id);if(!"COLLEGE_ADMIN".equals(actor.role())){
+   if(!"STUDENT".equals(refreshed.get("role"))||jdbc.queryForObject("SELECT COUNT(*) FROM leader_direction_scope WHERE user_id=? AND direction_id=?",Integer.class,actor.userId(),refreshed.get("direction_id"))!=1)throw new ApiException(403,ErrorCode.FORBIDDEN);
+  }
   var member=jdbc.queryForMap("SELECT version FROM member WHERE id=? FOR UPDATE",id);
-  if(!(request.get("version") instanceof Number n)||n.longValue()!=((Number)member.get("version")).longValue())throw new ApiException(409,ErrorCode.VERSION_CONFLICT);
+  if(!(request.get("version") instanceof Number n)||n.doubleValue()!=n.longValue()||n.longValue()<1)throw bad();
+  if(n.longValue()!=((Number)member.get("version")).longValue())throw new ApiException(409,ErrorCode.VERSION_CONFLICT);
  }
  public void patch(long id,Map<String,Object> request){
   var sets=new ArrayList<String>();var args=new ArrayList<Object>();
@@ -81,6 +85,11 @@ public class MemberService {
  public static String required(Map<String,Object> body,String field,int max){Object v=body.get(field);if(!(v instanceof String text)||text.isBlank()||text.length()>max)throw bad();return text;}
  public static long parseId(String value){try{long id=Long.parseLong(value);if(id<=0)throw bad();return id;}catch(NumberFormatException e){throw bad();}}
  public static ApiException bad(){return new ApiException(400,ErrorCode.INVALID_REQUEST);}
+ public static void validateProfile(Map<String,Object> request){
+  for(String f:new String[]{"major","className","contact"})if(request.containsKey(f)&&request.get(f)!=null&&(!(request.get(f) instanceof String t)||t.length()>100))throw bad();
+  if(request.containsKey("grade")&&request.get("grade")!=null){if(!(request.get("grade") instanceof Number n)||n.doubleValue()!=n.intValue()||n.intValue()<1900||n.intValue()>2200)throw bad();}
+  if(request.containsKey("name"))required(request,"name",64);
+ }
  public IdempotencyService.StoredResponse adminAction(long member,Map<String,Object> request,SessionPrincipal actor,String key,String path,java.util.function.Supplier<Map<String,Object>> operation){
   MemberScopePolicy.admin(actor);
   return idem.execute(actor,"POST",path,key,json.writeValueAsString(request),()->{lockAndVersion(member,request,actor);return new IdempotencyService.StoredResponse(200,json.writeValueAsString(ApiResponse.success(operation.get())));});

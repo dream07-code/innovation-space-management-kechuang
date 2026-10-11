@@ -28,7 +28,7 @@ public class LeaderService {
  }
  public Map<String,Object> update(long id,Map<String,Object> request,SessionPrincipal actor){
   MemberScopePolicy.admin(actor);MemberService.fields(request,Set.of("version","reason","name","major","className","grade","contact","directionId","managedDirectionIds","accountStatus"));if(request.size()<3)throw MemberService.bad();
-  String reason=MemberService.required(request,"reason",1000);
+  String reason=MemberService.required(request,"reason",1000);MemberService.validateProfile(request);
   return tx.execute(status->{members.lockAndVersion(id,request,actor);var row=members.row(id);if(!"DIRECTION_LEADER".equals(row.get("role")))throw new ApiException(409,ErrorCode.INVALID_STATE);
    long user=((Number)row.get("user_id")).longValue();if(request.containsKey("directionId"))members.ensureDirection(MemberService.parseId(MemberService.required(request,"directionId",19)));
    if(request.containsKey("managedDirectionIds"))grant(user,scopes(request),actor);

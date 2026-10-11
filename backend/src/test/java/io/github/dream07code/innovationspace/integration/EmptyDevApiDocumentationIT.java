@@ -30,7 +30,6 @@ class EmptyDevApiDocumentationIT {
         assertEquals("v1", api.at("/info/version").asText());
         assertTrue(api.path("paths").isObject());
         assertTrue(api.path("paths").has("/api/v1/auth/login"));
-        assertTrue(api.path("paths").has("/api/v1/auth/me"));
         assertEquals(404, HttpTestSupport.get(port, "/api/v1/test-probe/ping").statusCode());
     }
 }

@@ -61,4 +61,8 @@ class DirectionAndMemberHttpIT {
   var list=send("GET","/api/v1/members?page=1&size=20",null,admin,null);
   assertEquals(200,list.statusCode());String body=list.body();assertFalse(body.contains("password_hash"));assertFalse(body.contains("synthetic-initial"));
  }
+ @Test void malformedProfileFieldsReturn400RatherThanDatabase500()throws Exception{
+  String key="44444444-4444-4444-8444-444444444444";
+  assertEquals(400,send("POST","/api/v1/members","{\"studentNo\":\"MOCKBAD\",\"name\":\"Bad\",\"directionId\":\"1\",\"grade\":\"wrong\"}",admin,key).statusCode());
+ }
 }

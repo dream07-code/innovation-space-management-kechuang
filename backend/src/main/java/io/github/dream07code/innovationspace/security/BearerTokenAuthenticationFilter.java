@@ -25,8 +25,9 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
             try { knownProtected=mappings.getObject().getHandler(request)!=null; }
             catch(Exception routeError) { chain.doFilter(request,response);return; }
         }
-        if(authEndpoint || !knownProtected) { chain.doFilter(request,response); return; }
+        if(!authEndpoint && !knownProtected) { chain.doFilter(request,response); return; }
         try{sessions.requireSchema();}catch(io.github.dream07code.innovationspace.config.SchemaUnavailableException ex){write(response,503,"SERVICE_UNAVAILABLE","Service unavailable");return;}
+        if(authEndpoint) { chain.doFilter(request,response); return; }
         String header=request.getHeader("Authorization");
         if(header!=null&&!header.startsWith("Bearer ")) { write(response,401,"UNAUTHORIZED","Authentication required"); return; }
         try {
