@@ -1,0 +1,1 @@
+package io.github.dream07code.innovationspace.scoring; public class MockReportScoringProvider implements ReportScoringProvider {public ProviderScore score(ScoringInput input){return new ProviderScore(1,"合成评分：完成有效学习记录。","mock","mock");}}
