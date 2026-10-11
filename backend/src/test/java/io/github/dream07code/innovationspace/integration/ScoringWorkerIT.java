@@ -12,6 +12,7 @@ import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import io.github.dream07code.innovationspace.membership.InactivityPolicy;
 import io.github.dream07code.innovationspace.points.PointsPolicyProperties;
 import java.time.Clock;
 import java.util.Map;
@@ -264,5 +265,19 @@ class ScoringWorkerIT {
     assertTrue(scoring.processOne());
     assertEquals(3, points.total(10));
     assertEquals(2, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE source='AI_ADJUSTMENT'", Integer.class));
+  }
+
+  @Test
+  void removedMemberLateScoreCannotAddPoints() {
+    SessionPrincipal principal = new SessionPrincipal(10, 10L, "STUDENT", List.of(), false, 1, 1);
+    reports.create(dailyRequest("移出后评分", "不应加分"), principal, "cdcdcdcd-cdcd-4cdd-8cdd-cdcdcdcdcdcd", ReportType.DAILY);
+    long id = jdbc.queryForObject("SELECT id FROM report", Long.class);
+    reports.submit(id, 1, principal, "dededede-dede-4dee-8dee-dededededede");
+    points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, java.time.Instant.now());
+    jdbc.update("UPDATE member SET membership_status='REMOVED',removed_at=UTC_TIMESTAMP(6),removal_reason='TWO_WEEKS_NO_DAILY_REPORT' WHERE id=10");
+    assertTrue(worker.processOne());
+    assertEquals("STALE", jdbc.queryForObject("SELECT status FROM report_scoring_task", String.class));
+    assertEquals(0, points.total(10));
+    assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source='AI_ADJUSTMENT'", Integer.class));
   }
 }

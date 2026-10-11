@@ -46,9 +46,10 @@ public class ScoringWorker {
         var task = jdbc.queryForMap("SELECT * FROM report_scoring_task WHERE id=? FOR UPDATE", id);
         if (!"PROCESSING".equals(task.get("status"))) return;
         var version = task.get("report_version_id");
-        var current = jdbc.queryForList("SELECT r.* FROM report r JOIN report_version v ON v.report_id=r.id WHERE v.id=? AND v.is_current=TRUE", version);
+        var current = jdbc.queryForList("SELECT r.*,m.membership_status FROM report r JOIN member m ON m.id=r.member_id JOIN report_version v ON v.report_id=r.id WHERE v.id=? AND v.is_current=TRUE", version);
         if (current.isEmpty()) { transition(id, "STALE", null, null, null); return; }
-        if ("MANUAL".equals(current.getFirst().get("score_status"))) {
+        if ("MANUAL".equals(current.getFirst().get("score_status"))
+            || !"ACTIVE".equals(current.getFirst().get("membership_status"))) {
           transition(id, "STALE", null, null, null);
           return;
         }
@@ -107,9 +108,11 @@ public class ScoringWorker {
       var task = jdbc.queryForMap("SELECT * FROM report_scoring_task WHERE id=? FOR UPDATE", id);
       if (!"PROCESSING".equals(task.get("status"))) return;
       var current = jdbc.queryForList(
-          "SELECT r.* FROM report r JOIN report_version v ON v.report_id=r.id WHERE v.id=? AND v.is_current=TRUE",
+          "SELECT r.*,m.membership_status FROM report r JOIN member m ON m.id=r.member_id JOIN report_version v ON v.report_id=r.id WHERE v.id=? AND v.is_current=TRUE",
           task.get("report_version_id"));
-      if (current.isEmpty() || "MANUAL".equals(current.getFirst().get("score_status"))) {
+      if (current.isEmpty()
+          || "MANUAL".equals(current.getFirst().get("score_status"))
+          || !"ACTIVE".equals(current.getFirst().get("membership_status"))) {
         transition(id, "STALE", null, null, null);
         return;
       }
