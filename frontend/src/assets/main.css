@@ -1,0 +1,39 @@
+/**
+ * 全局样式。
+ *
+ * 只做最小必要的重置与基础设定：
+ *   - 布局由各组件的 scoped 样式负责，这里不设置 #app 的宽度或网格，
+ *     否则会破坏全屏的侧边栏布局；
+ *   - Element Plus 自带样式在此之前已由 main.ts 引入。
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  background-color: var(--el-bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
