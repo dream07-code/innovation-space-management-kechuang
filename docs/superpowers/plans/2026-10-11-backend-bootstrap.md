@@ -237,7 +237,7 @@ ProdApiDocumentationIT 和 DefaultApiDocumentationIT 不导入探针，参数化
 - [x] **Step 5: 写可执行的启动说明。** README 说明 Java 21、Maven Wrapper、Docker 服务前提、独立 MySQL 8.0 和非 root 用户，环境变量如何注入、默认/dev/prod 的差异、health 和 doc.html 地址、test 与 verify 的区别。提供 Docker CLI 路径，不要求 Compose；明确 .env 不自动加载、基础工程没有认证或业务 API、MySQL 8.0 生命周期风险及上线前检查。不在命令示例放入真实凭据。
 - [x] **Step 6: 完整验收。** ./mvnw clean verify，必须记录 Surefire/Failsafe 实际测试数量与失败、跳过情况；检查缺失凭据、数据库不可用、分页上限、文档三种环境和 JarBoundaryIT。运行 git diff --check，检查依赖树无 Boot 3 Starter、H2 或重复 MyBatis，并检查暂存内容无真实密钥。完整 verify 和浏览器验收均通过后才宣称初始化完成。
 - [x] **Step 7: 统一代码审查与修复。** 按 requesting-code-review 流程复查整个 backend 分支，重点检查五项 Review Focus；独立审查仅在执行方式或适用技能明确授权时使用代理。修复发现的问题并重新跑相关测试，不仅依赖审查者结论。
-- [ ] **Step 8: 提交和推送。** 仅暂存已核对的代码、测试、示例和说明，提交：test: verify backend packaging and Knife4j browser workflow。推送 origin backend，并读回远程提交编号与本地比较；用户未要求时不合并 main。交付说明列出运行地址或启动方法、测试结果、未完成项及生命周期风险。
+- [x] **Step 8: 提交和推送。** 仅暂存已核对的代码、测试、示例和说明，提交：test: verify backend packaging and Knife4j browser workflow。推送 origin backend，并读回远程提交编号与本地比较；用户未要求时不合并 main。交付说明列出运行地址或启动方法、测试结果、未完成项及生命周期风险。
 
 ## 验收覆盖矩阵
 
