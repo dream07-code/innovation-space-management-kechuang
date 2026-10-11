@@ -53,3 +53,8 @@ app:
     required-version: "3"
   auth:
     initial-password: ${MEMBER_INITIAL_PASSWORD:}
+
+mybatis-plus:
+  configuration:
+    call-setters-on-nulls: true
+    local-cache-scope: STATEMENT

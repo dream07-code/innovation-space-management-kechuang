@@ -10,13 +10,20 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "app.migration.mode", havingValue = "migrate")
 public class MigrationCommand implements ApplicationRunner {
-    private final DataSource dataSource;
+  private final DataSource dataSource;
 
-    public MigrationCommand(DataSource dataSource) { this.dataSource = dataSource; }
+  public MigrationCommand(DataSource dataSource) {
+    this.dataSource = dataSource;
+  }
 
-    @Override
-    public void run(ApplicationArguments args) {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                .cleanDisabled(true).baselineOnMigrate(false).load().migrate();
-    }
+  @Override
+  public void run(ApplicationArguments args) {
+    Flyway.configure()
+        .dataSource(dataSource)
+        .locations("classpath:db/migration")
+        .cleanDisabled(true)
+        .baselineOnMigrate(false)
+        .load()
+        .migrate();
+  }
 }

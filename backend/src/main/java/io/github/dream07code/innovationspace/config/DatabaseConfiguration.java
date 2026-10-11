@@ -5,4 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({DatabaseCredentialsProperties.class, MigrationProperties.class})
-public class DatabaseConfiguration { }
+public class DatabaseConfiguration {}

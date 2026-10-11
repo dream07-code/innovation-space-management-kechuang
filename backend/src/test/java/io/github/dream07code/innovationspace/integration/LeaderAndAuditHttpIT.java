@@ -32,7 +32,7 @@ class LeaderAndAuditHttpIT {
   try(var c=HttpClient.newHttpClient()){
    var b=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path));if(token!=null)b.header("Authorization","Bearer "+token);if(body!=null)b.header("Content-Type","application/json");
    if(method.equals("POST"))b.header("Idempotency-Key",java.util.UUID.randomUUID().toString());
-   return c.send(b.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
+   var response=c.send(b.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());ContractAssertions.response(method,path,response);return response;
   }
  }
  @Test void promotionRevocationCorrectionAndResetPreserveIdentityAndRevokeSessions()throws Exception{

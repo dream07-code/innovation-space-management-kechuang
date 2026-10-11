@@ -32,7 +32,8 @@ class AuthenticationHttpIT {
             var b=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path));
             if(token!=null)b.header("Authorization","Bearer "+token);
             if(body!=null)b.header("Content-Type","application/json");
-            return client.send(b.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
+            var response=client.send(b.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
+            ContractAssertions.response(method,path,response);return response;
         }
     }
     @Test void firstLoginIsRestrictedAndChangingPasswordRequiresFreshLogin() throws Exception {
@@ -67,5 +68,10 @@ class AuthenticationHttpIT {
         assertEquals(401,send("GET","/api/v1/auth/me",null,first.path("accessToken").asText()).statusCode());
         assertEquals(401,send("POST","/api/v1/auth/refresh","{\"refreshToken\":\""+refresh+"\"}",null).statusCode());
         assertEquals(401,send("GET","/api/v1/auth/me",null,access).statusCode());
+    }
+    @Test void rateLimitIs429WithRetryAfterAndDoesNotEchoCredentials() throws Exception {
+        HttpResponse<String> response=null;
+        for(int i=0;i<11;i++)response=send("POST","/api/v1/auth/login","{\"account\":\"mock-rate-account\",\"password\":\"wrong-password\"}",null);
+        assertEquals(429,response.statusCode());assertTrue(response.headers().firstValue("Retry-After").isPresent());assertFalse(response.body().contains("wrong-password"));
     }
 }

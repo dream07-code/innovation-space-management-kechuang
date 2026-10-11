@@ -1,6 +1,6 @@
 # 后端基础工程
 
-本轮只初始化后端基础设施，**尚未实现登录、权限、人员 CRUD、日报周报、AI 评分、积分和自动移出**。学生不能自行注册，后续新增学生只能由方向负责人或学院管理员完成。
+已实现后端基础设施以及登录/首次改密、数据库Bearer会话、方向范围授权、人员和负责人管理、学号更正/密码重置与审计。**日报周报、AI评分、积分、排行榜和自动移出尚未实现**。学生不能自行注册，只能由方向负责人或学院管理员添加。
 
 ## 技术栈与边界
 
@@ -11,7 +11,7 @@
 - 业务时钟 `Asia/Shanghai`，JDBC 连接会话 `UTC`。
 - API 基础响应 `code/message/data`，安全异常映射保留 HTTP 状态码。
 - 分页全局上限 200 条，小于上限的请求级限制也生效；在总页数检查前规范化。
-- 不自动执行建表或初始化 SQL，没有业务表、默认管理员或学生数据。
+- 默认Web启动不执行DDL；明确迁移模式通过Flyway建本阶段表和七方向。没有默认管理员或学生数据。
 
 ## 环境变量
 
@@ -27,6 +27,7 @@
 | `SERVER_ADDRESS` | `127.0.0.1`，默认不开放公网访问 |
 | `SERVER_PORT` | `8080` |
 | `SPRING_PROFILES_ACTIVE` | 未设置时为默认环境，文档关闭；开发设为 `dev` |
+| `MEMBER_INITIAL_PASSWORD` | 创建/重置成员时必填的私密共享初始口令；不在仓库提供默认值 |
 
 没有凭据时应用启动失败；配置凭据但数据库不可用时，健康检查返回 `503`/`DOWN`，不返回虚假的 `UP`。不将密码放在 Java 命令行、提交文件或日志中。
 
@@ -78,7 +79,7 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar
 
 默认地址：健康检查 `http://127.0.0.1:8080/actuator/health`；开发文档 `http://127.0.0.1:8080/doc.html`。分组 `innovation-space` 的契约在 `/v3/api-docs/innovation-space`，配置在 `/v3/api-docs/swagger-config`。
 
-正式 JAR 当前没有业务 API，开发文档中的 `paths` 为空是预期行为，不是初始化失败。测试探针只用于集成/浏览器验证，**不会进入正式 JAR**，也不会为用户提供任何自注册接口。健康响应采用原生 JSON，不套业务响应，也不公开数据库细节或其他 Actuator 端点。
+正式JAR开发文档只显示已注册的业务API，描述/DTO依据已审阅的契约；实际HTTP响应另有契约断言。报告和月评等未实现路径不会显示为可用。测试探针不进入正式JAR，不提供自注册接口。健康原生JSON，不公开数据库细节或其他Actuator端点；数据库已连通但尚未迁移仍为DOWN/503。
 
 ## 验证与浏览器联调
 
@@ -98,6 +99,32 @@ java -cp "target/test-classes:target/classes:$(cat target/test-classpath.txt)" \
 
 ## 上线前必须补齐
 
-当前工程没有认证，不能当作已完成的业务管理系统部署。后续需实现角色及方向授权、管理员添加学生、业务数据模型、报告和积分事务、AI 评分失败回退、审计、移出复核、隐私保护与备份恢复。
+当前不是完整业务系统。上线前仍需补齐报告/积分/AI、移出复核、账号私密交付、隐私保护、限流部署策略与备份恢复，不能因为已有认证就声称全业务完成。
+
+## 认证与业务基础接口（backend 当前实现）
+
+当前 `backend` 已实现并通过真实 MySQL 集成测试的接口包括：
+
+- `POST /api/v1/auth/login`、`POST /api/v1/auth/refresh`、`POST /api/v1/auth/logout`、`GET /api/v1/auth/me`、`PUT /api/v1/auth/password`。
+- `GET /api/v1/directions`、`GET /api/v1/directions/{directionId}`。
+- 管理员/方向负责人范围内的 `GET/POST /api/v1/members`、`GET/PATCH /api/v1/members/{memberId}`。
+- 方向负责人任命、维护和撤销；管理员学号更正、密码重置和脱敏审计查询。
+
+业务接口必须先执行受控数据库迁移；普通 Web 启动不会自动改库：
+
+```bash
+# 先注入 DB_*，目标必须是明确的独立开发库或部署库。
+java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar --app.migration.mode=migrate
+```
+
+也可以直接使用可执行 JAR 加 `--app.migration.mode=migrate`；该模式只执行 Flyway、不启动 HTTP。迁移成功后再按普通方式启动服务。没有迁移的数据库健康为 `DOWN/503`，业务请求为 `503 SERVICE_UNAVAILABLE`，不会自动建表。
+
+管理员初始化是非 HTTP 维护模式，要求数据库已迁移。只在受控环境临时导出 `ADMIN_ACCOUNT`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME`，然后运行 `--app.bootstrap.mode=admin`；缺少变量会失败，已有管理员不会被覆盖，输出不会回显密码或哈希。不要把这些变量写入 `.env`、脚本或 Git。
+
+学生和负责人使用学号登录；学生不能自注册。当前尚未实现日报、周报、AI 评分、积分、排行榜、月度评定及自动移出。
+
+会话使用32字节随机不透明token，库内只存SHA-256摘要；密码采用Spring Security PBKDF2-HMAC-SHA256、16字节盐、600000迭代、256位输出。首次/重置后只发300秒受限access，不能refresh或调用业务，改密后重新登录。普通access900秒，refresh家族绝对7天，刷新轮换且旧token重放撤销家族；前端以响应expiresIn为准。改密/重置/学号更正/授权或状态变化立即撤销相关会话。
+
+登录/刷新/改密均为单进程有界固定窗口限流（60秒10次）；429含Retry-After，不信任未配置代理的X-Forwarded-For。当前无Cookie认证、默认管理员或JSESSIONID，跨域默认不开放。多实例需要另行设计全局限流；共享初始密码也不能替代身份交付核验。默认TLS由部署入口负责。
 
 用户指定的 MySQL 8.0 已于 2026 年 4 月进入 EOL 阶段，继续按已确认的版本完成开发验证，但上线前必须重新评估支持周期、安全修复和升级方案；参考已确认的技术设计及 MySQL 官方生命周期公告。默认及 `prod` 文档关闭不是认证方案，公网部署仍需要认证、TLS、受支持的数据库版本、最小权限和密钥管理。

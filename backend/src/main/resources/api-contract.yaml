@@ -1,0 +1,6364 @@
+openapi: 3.0.3
+info:
+  title: 学院科创空间管理系统 API 契约
+  version: 1.0.0-draft
+  description: 前后端并行开发的设计契约，不代表接口已实现。仅health已在backend@e16d7fc实现；其余planned/pending。登录身份规则已确认，其余政策看x-rule-status和README。示例均虚构，不含真实初始密码。
+servers:
+- url: /
+  description: 相对当前origin；导入Mock工具后替换为Mock/联调地址，勿重复/api/v1前缀。
+tags:
+- name: 认证
+- name: 方向
+- name: 成员
+- name: 负责人
+- name: 日报
+- name: 周报
+- name: 评分复核
+- name: 积分
+- name: 排行榜
+- name: 规则
+- name: 月度评定
+- name: 任务与审计
+- name: 运行状态
+security:
+- BearerAuth: []
+paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+      - 认证
+      operationId: login
+      summary: 账号密码登录
+      description: 管理员账号由项目负责人指定；学生/负责人用学号。无自注册或自动开户。错误账号/密码/被禁用账号登录统一401 INVALID_CREDENTIALS。待改密登录返回受限 access token、refreshToken=null、mustChangePassword=true；仅可访问
+        me/password/logout。
+      x-implementation-status: planned
+      x-roles: []
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              examples:
+                normal:
+                  summary: 正常登录（不可用的合成token）
+                  value:
+                    code: OK
+                    message: Success
+                    data:
+                      accessToken: mock-access-token-not-a-credential
+                      refreshToken: mock-refresh-token-not-a-credential
+                      tokenType: Bearer
+                      expiresIn: 900
+                      refreshExpiresIn: 604800
+                      mustChangePassword: false
+                      user:
+                        userId: '101'
+                        memberId: '201'
+                        account: MOCK20260001
+                        displayName: 示例同学
+                        role: STUDENT
+                        directionId: '1'
+                        managedDirectionIds: []
+                passwordChangeRequired:
+                  summary: 受限首次登录
+                  value:
+                    code: OK
+                    message: Success
+                    data:
+                      accessToken: mock-limited-token-not-a-credential
+                      refreshToken: null
+                      tokenType: Bearer
+                      expiresIn: 300
+                      refreshExpiresIn: null
+                      mustChangePassword: true
+                      user:
+                        userId: '101'
+                        memberId: '201'
+                        account: MOCK20260001
+                        displayName: 示例同学
+                        role: STUDENT
+                        directionId: '1'
+                        managedDirectionIds: []
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              account: MOCK20260001
+              password: Example-Only9!
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - 认证
+      operationId: refreshSession
+      summary: 轮换刷新令牌
+      description: 请求体携带 refresh token，不要求 access token。轮换旧 refresh token 并重新验证状态/权限；重放则撤销 session 并401。受限待改密 session
+        不发 refresh token；其状态不能绕过改密。
+      x-implementation-status: planned
+      x-roles: []
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  accessToken: mock-access-token-not-a-credential
+                  refreshToken: mock-refresh-token-not-a-credential
+                  tokenType: Bearer
+                  expiresIn: 900
+                  refreshExpiresIn: 604800
+                  mustChangePassword: false
+                  user:
+                    userId: '101'
+                    memberId: '201'
+                    account: MOCK20260001
+                    displayName: 示例同学
+                    role: STUDENT
+                    directionId: '1'
+                    managedDirectionIds: []
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refreshToken: mock-refresh-token-not-a-credential
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - 认证
+      operationId: logout
+      summary: 退出当前会话
+      description: 包括受限待改密 token；撤销当前 session 的 access/refresh。已失效 token 返回401，客户端仍清除本地状态。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+              example:
+                code: OK
+                message: Success
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - 认证
+      operationId: getMe
+      summary: 当前登录身份和本人资料
+      description: 待改密 token 可访问；身份和 managedDirectionIds 以服务端现状为准。管理员 memberId 和学生字段可为 null。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  user:
+                    userId: '101'
+                    memberId: '201'
+                    account: MOCK20260001
+                    displayName: 示例同学
+                    role: STUDENT
+                    directionId: '1'
+                    managedDirectionIds: []
+                  mustChangePassword: false
+                  accountStatus: ENABLED
+                  membershipStatus: ACTIVE
+                  profile:
+                    studentNo: MOCK20260001
+                    major: null
+                    className: null
+                    grade: null
+                    contact: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/auth/password:
+    put:
+      tags:
+      - 认证
+      operationId: changePassword
+      summary: 修改本人密码并撤销全部会话
+      description: 允许受限待改密 token；成功后必须重新登录，旧 access/refresh 全部失效。oldPassword错误400 OLD_PASSWORD_INVALID；不合新密码策略400
+        PASSWORD_POLICY_VIOLATION。不返回密码或新 token。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+              example:
+                code: OK
+                message: Success
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+            example:
+              oldPassword: Example-Only9!
+              newPassword: Changed-Example9!
+  /api/v1/directions:
+    get:
+      tags:
+      - 方向
+      operationId: listDirections
+      summary: 方向目录
+      description: 按固定目录顺序返回七个方向，不包括人数、负责人学号或联系方式。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectionListResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                - id: '1'
+                  code: AI_FULLSTACK
+                  name: AI 全栈
+                  enabled: true
+                - id: '2'
+                  code: HARMONY_OS
+                  name: 鸿蒙
+                  enabled: true
+                - id: '3'
+                  code: CYBER_SECURITY
+                  name: 网络安全
+                  enabled: true
+                - id: '4'
+                  code: CPP
+                  name: C++
+                  enabled: true
+                - id: '5'
+                  code: BIG_DATA
+                  name: 大数据
+                  enabled: true
+                - id: '6'
+                  code: ARTIFICIAL_INTELLIGENCE
+                  name: 人工智能
+                  enabled: true
+                - id: '7'
+                  code: PROJECT_DESIGN
+                  name: 项目创意设计
+                  enabled: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/directions/{directionId}:
+    get:
+      tags:
+      - 方向
+      operationId: getDirection
+      summary: 方向详情
+      description: ''
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectionResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '1'
+                  code: AI_FULLSTACK
+                  name: AI 全栈
+                  enabled: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: directionId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+  /api/v1/members:
+    get:
+      tags:
+      - 成员
+      operationId: listMembers
+      summary: 管理端成员列表
+      description: 学院管理员全方向；负责人只看所辖方向普通学生，不能查看其他负责人资料。先授权过滤再计算total。按 createdAt DESC,id数值 DESC。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: directionId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: keyword
+        in: query
+        required: false
+        description: 姓名/学号模糊搜索；禁止记录原始搜索值。
+        schema:
+          type: string
+          maxLength: 100
+      - name: status
+        in: query
+        required: false
+        description: 不传返回权限范围内全部状态。
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - REMOVED
+    post:
+      tags:
+      - 成员
+      operationId: createMember
+      summary: 添加学生并创建账号
+      description: 固定创建 STUDENT，初始积分0、mustChangePassword=true；密码从私密配置读取不返回。负责人仅可添加到其 managedDirectionIds。学号/统一account重复409
+        ACCOUNT_ALREADY_EXISTS；禁止提交role/password/points。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: true
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemberRequest'
+            example:
+              studentNo: MOCK20260001
+              name: 示例同学
+              directionId: '1'
+  /api/v1/members/{memberId}:
+    get:
+      tags:
+      - 成员
+      operationId: getMember
+      summary: 管理端成员详情
+      description: 管理员所有成员；负责人仅所辖普通学生。学生查看自己使用auth/me，不开放全量人员字段给排行榜。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+    patch:
+      tags:
+      - 成员
+      operationId: updateMember
+      summary: 更新学生资料
+      description: 仅STUDENT；负责人只改所辖普通学生资料，不能改directionId；学院管理员可改学生方向。学号/角色/积分不允许此接口写入，负责人资料走专用接口。version冲突409；方向调整保留历史报告/快照归属，活动月评期间拒绝调方向409
+        INVALID_STATE。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+            example:
+              version: 1
+              name: 示例同学
+  /api/v1/members/{memberId}/account-corrections:
+    post:
+      tags:
+      - 成员
+      operationId: correctStudentNumber
+      summary: 管理员更正学号
+      description: 适用于学生及负责人；不能处理学院管理员账号。校验新学号/统一account唯一，审计原/新学号及原因，内部memberId/userId不变、历史不变，撤销全部会话。旧学号不再登录，不复制账户；密码哈希和mustChangePassword保持不变。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260002
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCorrectionRequest'
+            example:
+              version: 1
+              newStudentNo: MOCK20260002
+              reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/password-reset:
+    post:
+      tags:
+      - 成员
+      operationId: resetMemberPassword
+      summary: 管理员重置学生或负责人密码
+      description: 重置为私密配置中的统一初始口令，不接收/返回密码；mustChangePassword=true，撤销全部会话，version递增。账号禁用/移出状态不因重置恢复。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: true
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/remove:
+    post:
+      tags:
+      - 成员
+      operationId: removeMember
+      summary: 移出学生并撤销会话
+      description: 不物理删除；保留报告积分审计。负责人仅可移出所辖普通学生。若对象是负责人须由学院管理员先撤销负责人授权，否则409 INVALID_STATE。重复已移出状态不得产生第二次资格变化。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: REMOVED
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: '2026-10-11T09:00:00+08:00'
+                  removalReason: 已核对本次操作原因
+                  totalPoints: 0
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/restore:
+    post:
+      tags:
+      - 成员
+      operationId: restoreMember
+      summary: 恢复在籍资格（规则待确认）
+      description: 仅REMOVED可恢复；启用前必须确认恢复与历史积分规则。建议新在籍周期且历史保留；不恢复旧token或先前负责人授权。缺规则503。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/direction-leaders:
+    get:
+      tags:
+      - 负责人
+      operationId: listLeaders
+      summary: 管理员查询负责人
+      description: 仅学院管理员；按memberId数值升序。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: directionId
+        in: query
+        required: false
+        description: 按负责方向过滤，不是成员归属方向。
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+    post:
+      tags:
+      - 负责人
+      operationId: appointLeader
+      summary: 任命现有学生为方向负责人
+      description: memberId必须是ACTIVE且ENABLED的STUDENT。若档案不存在先POST /members，不能重复开户。同一身份改role为DIRECTION_LEADER并赋予managedDirectionIds，保留现有密码/改密标记和历史，撤销旧会话。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: DIRECTION_LEADER
+                  directionId: '1'
+                  managedDirectionIds:
+                  - '1'
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointLeaderRequest'
+            example:
+              memberId: '201'
+              version: 1
+              managedDirectionIds:
+              - '1'
+              reason: 已核对本次操作原因
+  /api/v1/direction-leaders/{memberId}:
+    patch:
+      tags:
+      - 负责人
+      operationId: updateLeader
+      summary: 管理员修改负责人资料、授权和账号状态
+      description: 仅DIRECTION_LEADER；学号更正/密码重置走独立接口。变更授权或账号状态撤销全部会话。managedDirectionIds至少一项；清空授权使用revoke。禁用不等于移出，不影响历史。directionId变更同样保留历史且活动月评期间拒绝。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: DIRECTION_LEADER
+                  directionId: '1'
+                  managedDirectionIds:
+                  - '1'
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLeaderRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+              name: 示例同学
+  /api/v1/direction-leaders/{memberId}/revoke:
+    post:
+      tags:
+      - 负责人
+      operationId: revokeLeader
+      summary: 撤销任命并保留学生身份
+      description: 清空managedDirectionIds，role恢复STUDENT，立即撤销全部会话。不是删除账号或报告，不自动移出；非负责人返回409 INVALID_STATE。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  userId: '101'
+                  studentNo: MOCK20260001
+                  name: 示例同学
+                  major: null
+                  className: null
+                  grade: null
+                  contact: null
+                  role: STUDENT
+                  directionId: '1'
+                  managedDirectionIds: []
+                  membershipStatus: ACTIVE
+                  accountStatus: ENABLED
+                  mustChangePassword: false
+                  joinedAt: '2026-10-11T09:00:00+08:00'
+                  membershipStartedAt: '2026-10-11T09:00:00+08:00'
+                  removedAt: null
+                  removalReason: null
+                  totalPoints: 0
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/daily-reports:
+    get:
+      tags:
+      - 日报
+      operationId: listDailyReports
+      summary: 查询权限范围内报告
+      description: 学生只看本人；负责人本人全部+获授权提交方向正式报告；管理员只看正式报告，不读他人草稿。越权筛选403。按周期起点DESC,id数值DESC；未传日期不限日期。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: memberId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: directionId
+        in: query
+        required: false
+        description: 提交时方向；负责人受授权范围约束。
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: fromDate
+        in: query
+        required: false
+        description: 包含端点；日报reportDate，周报weekStart。
+        schema:
+          type: string
+          format: date
+          example: '2026-10-11'
+      - name: toDate
+        in: query
+        required: false
+        description: 包含端点，不能早于fromDate。
+        schema:
+          type: string
+          format: date
+          example: '2026-10-11'
+      - name: status
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+      - name: scoreStatus
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - NOT_REQUESTED
+          - QUEUED
+          - PROCESSING
+          - SCORED
+          - RETRYING
+          - REVIEW_REQUIRED
+          - MANUAL
+    post:
+      tags:
+      - 日报
+      operationId: createDailyReport
+      summary: 创建本人草稿
+      description: 身份从token取，不能传memberId。仅在籍且ENABLED成员；每成员每日期/自然周仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '201':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  reportDate: '2026-10-11'
+                  learningContent: 完成接口请求与参数校验练习。
+                  gains: 理解了参数校验与异常映射。
+                  problems: null
+                  nextPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDailyReportRequest'
+            example:
+              reportDate: '2026-10-11'
+  /api/v1/daily-reports/{reportId}:
+    get:
+      tags:
+      - 日报
+      operationId: getDailyReport
+      summary: 报告详情及异步评分结果
+      description: 沿用列表逐对象权限，不可用ID读取他人草稿；方向管理员权限按提交时方向。评分中的finalScore/scoreReason可空；awardedPoints是实际已入账分。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  reportDate: '2026-10-11'
+                  learningContent: 完成接口请求与参数校验练习。
+                  gains: 理解了参数校验与异常映射。
+                  problems: null
+                  nextPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+    patch:
+      tags:
+      - 日报
+      operationId: updateDailyReport
+      summary: 修改本人报告内容
+      description: 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。草稿允许不完整。SUBMITTED 必须先合并PATCH与现有正文，再验证两项必填内容均非空白；失败400
+        INVALID_REQUEST，报告/积分/任务均不变。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  reportDate: '2026-10-11'
+                  learningContent: 完成接口请求与参数校验练习。
+                  gains: 理解了参数校验与异常映射。
+                  problems: null
+                  nextPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDailyReportRequest'
+            example:
+              version: 1
+              learningContent: 完成接口请求与参数校验练习。
+  /api/v1/daily-reports/{reportId}/submit:
+    post:
+      tags:
+      - 日报
+      operationId: submitDailyReport
+      summary: 正式提交本人报告并异步评分
+      description: 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503
+        RULES_NOT_CONFIGURED。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: SUBMITTED
+                  version: 2
+                  scoreStatus: QUEUED
+                  awardedPoints: 1
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  reportDate: '2026-10-11'
+                  learningContent: 完成接口请求与参数校验练习。
+                  gains: 理解了参数校验与异常映射。
+                  problems: null
+                  nextPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+            example:
+              version: 1
+  /api/v1/weekly-reports:
+    get:
+      tags:
+      - 周报
+      operationId: listWeeklyReports
+      summary: 查询权限范围内报告
+      description: 学生只看本人；负责人本人全部+获授权提交方向正式报告；管理员只看正式报告，不读他人草稿。越权筛选403。按周期起点DESC,id数值DESC；未传日期不限日期。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyReportPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: memberId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: directionId
+        in: query
+        required: false
+        description: 提交时方向；负责人受授权范围约束。
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: fromDate
+        in: query
+        required: false
+        description: 包含端点；日报reportDate，周报weekStart。
+        schema:
+          type: string
+          format: date
+          example: '2026-10-11'
+      - name: toDate
+        in: query
+        required: false
+        description: 包含端点，不能早于fromDate。
+        schema:
+          type: string
+          format: date
+          example: '2026-10-11'
+      - name: status
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+      - name: scoreStatus
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - NOT_REQUESTED
+          - QUEUED
+          - PROCESSING
+          - SCORED
+          - RETRYING
+          - REVIEW_REQUIRED
+          - MANUAL
+    post:
+      tags:
+      - 周报
+      operationId: createWeeklyReport
+      summary: 创建本人草稿
+      description: 身份从token取，不能传memberId。仅在籍且ENABLED成员；每成员每日期/自然周仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '201':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  weekStart: '2026-10-05'
+                  weekEnd: '2026-10-11'
+                  summary: 本周完成基础 API 学习。
+                  achievements: 完成了独立练习和复盘。
+                  reflections: null
+                  nextWeekPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWeeklyReportRequest'
+            example:
+              weekStart: '2026-10-05'
+  /api/v1/weekly-reports/{reportId}:
+    get:
+      tags:
+      - 周报
+      operationId: getWeeklyReport
+      summary: 报告详情及异步评分结果
+      description: 沿用列表逐对象权限，不可用ID读取他人草稿；方向管理员权限按提交时方向。评分中的finalScore/scoreReason可空；awardedPoints是实际已入账分。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  weekStart: '2026-10-05'
+                  weekEnd: '2026-10-11'
+                  summary: 本周完成基础 API 学习。
+                  achievements: 完成了独立练习和复盘。
+                  reflections: null
+                  nextWeekPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+    patch:
+      tags:
+      - 周报
+      operationId: updateWeeklyReport
+      summary: 修改本人报告内容
+      description: 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。草稿允许不完整。SUBMITTED 必须先合并PATCH与现有正文，再验证两项必填内容均非空白；失败400
+        INVALID_REQUEST，报告/积分/任务均不变。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  scoreStatus: NOT_REQUESTED
+                  awardedPoints: 0
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: null
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  weekStart: '2026-10-05'
+                  weekEnd: '2026-10-11'
+                  summary: 本周完成基础 API 学习。
+                  achievements: 完成了独立练习和复盘。
+                  reflections: null
+                  nextWeekPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWeeklyReportRequest'
+            example:
+              version: 1
+              summary: 本周完成基础 API 学习。
+  /api/v1/weekly-reports/{reportId}/submit:
+    post:
+      tags:
+      - 周报
+      operationId: submitWeeklyReport
+      summary: 正式提交本人报告并异步评分
+      description: 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503
+        RULES_NOT_CONFIGURED。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyReportResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  memberId: '201'
+                  directionId: '1'
+                  status: SUBMITTED
+                  version: 2
+                  scoreStatus: QUEUED
+                  awardedPoints: 1
+                  finalScore: null
+                  scoreReason: null
+                  firstSubmittedAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  editable: true
+                  editableUntil: '2026-10-11T23:59:59+08:00'
+                  ruleVersion: mock-rule-1
+                  weekStart: '2026-10-05'
+                  weekEnd: '2026-10-11'
+                  summary: 本周完成基础 API 学习。
+                  achievements: 完成了独立练习和复盘。
+                  reflections: null
+                  nextWeekPlan: null
+                  links: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+            example:
+              version: 1
+  /api/v1/score-reviews:
+    get:
+      tags:
+      - 评分复核
+      operationId: listScoreReviews
+      summary: 复核列表
+      description: 学生/负责人仅本人申请，学院管理员全部；按createdAt DESC,id数值 DESC。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreReviewPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - STALE
+    post:
+      tags:
+      - 评分复核
+      operationId: requestScoreReview
+      summary: 为本人正式报告申请复核
+      description: 当前报告版本且已提交；评分已完成或REVIEW_REQUIRED可申请，每报告版本仅一条。不能用他人reportId/旧版本申请；重复409 INVALID_STATE。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '201':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreReviewResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  reportType: DAILY
+                  reportId: '201'
+                  reportVersion: 1
+                  memberId: '201'
+                  reason: 已核对本次操作原因
+                  status: PENDING
+                  resolvedScore: null
+                  resolutionReason: null
+                  version: 1
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  resolvedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScoreReviewRequest'
+            example:
+              reportType: DAILY
+              reportId: '201'
+              reportVersion: 1
+              reason: 已核对本次操作原因
+  /api/v1/score-reviews/{reviewId}/resolve:
+    post:
+      tags:
+      - 评分复核
+      operationId: resolveScoreReview
+      summary: 管理员人工确定最终评分
+      description: 校验review version/reportVersion及月份未关闭；1–3分，事务内更新MANUAL及积分差额，迟到AI不得覆盖。旧版本409 VERSION_CONFLICT，关闭月份409
+        MONTH_CLOSED。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreReviewResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  reportType: DAILY
+                  reportId: '201'
+                  reportVersion: 1
+                  memberId: '201'
+                  reason: 已核对本次操作原因
+                  status: RESOLVED
+                  resolvedScore: 1
+                  resolutionReason: 已人工核对评分理由
+                  version: 2
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  resolvedAt: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveScoreReviewRequest'
+            example:
+              version: 1
+              reportVersion: 1
+              score: 1
+              reason: 已核对本次操作原因
+  /api/v1/points/me:
+    get:
+      tags:
+      - 积分
+      operationId: getMyPoints
+      summary: 本人累计和本月积分
+      description: 只读，积分只由流水净和得到，不提供前端写入积分接口。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointsSummaryResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  memberId: '201'
+                  totalPoints: 3
+                  month: 2026-10
+                  monthlyPoints: 3
+                  asOf: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: month
+        in: query
+        required: false
+        description: 不传为业务时区当前月。
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+  /api/v1/points/ledger:
+    get:
+      tags:
+      - 积分
+      operationId: listPointEntries
+      summary: 积分流水
+      description: 学生不得指定他人；方向负责人不能看授权范围外成员。按recordedAt DESC,id数值DESC；不含原始报告/模型内容。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointEntryPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: memberId
+        in: query
+        required: false
+        description: 学生/负责人不传时默认本人；管理员必须传，缺失400。负责人指定他人时只能当前所辖成员。
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: month
+        in: query
+        required: false
+        description: 业务生效月份，不传不限月份。
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+  /api/v1/rankings/overall:
+    get:
+      tags:
+      - 排行榜
+      operationId: getOverallRanking
+      summary: 全空间排行榜
+      description: 仅ACTIVE成员的最小展示信息。按points DESC,memberId数值ASC，同分rank并列且下一名跳位(1,1,3)。榜单时间asOf，同一次分页可能变化，不能用于直接淘汰。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 1
+                  total: 0
+                  period: ALL_TIME
+                  month: null
+                  asOf: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: period
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - ALL_TIME
+          - MONTH
+          default: ALL_TIME
+      - name: month
+        in: query
+        required: false
+        description: period=MONTH 必须提供；ALL_TIME 不得提供。
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+  /api/v1/rankings/directions/{directionId}:
+    get:
+      tags:
+      - 排行榜
+      operationId: getDirectionRanking
+      summary: 方向内排行榜
+      description: 所有已登录用户可看方向的最小公开榜单；按成员当前方向归组，历史月评不因此改写。排序/同分同总榜，返回真实方向内rank。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 1
+                  total: 0
+                  period: ALL_TIME
+                  month: null
+                  asOf: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: directionId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: period
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - ALL_TIME
+          - MONTH
+          default: ALL_TIME
+      - name: month
+        in: query
+        required: false
+        description: period=MONTH 必须提供；ALL_TIME 不得提供。
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+  /api/v1/rankings/me:
+    get:
+      tags:
+      - 排行榜
+      operationId: getMyRanking
+      summary: 本人总榜与方向榜名次
+      description: 不在榜单时eligible=false，两种rank均null；不能用分页序号当全榜名次。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyRankingResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  memberId: '201'
+                  directionId: '201'
+                  period: ALL_TIME
+                  month: null
+                  points: 3
+                  overallRank: null
+                  directionRank: null
+                  overallCount: 0
+                  directionCount: 0
+                  eligible: false
+                  asOf: '2026-10-11T09:00:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: period
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - ALL_TIME
+          - MONTH
+          default: ALL_TIME
+      - name: month
+        in: query
+        required: false
+        description: period=MONTH 必须提供；ALL_TIME 不得提供。
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+  /api/v1/system/rules:
+    get:
+      tags:
+      - 规则
+      operationId: getSystemRules
+      summary: 读取前端所需业务规则和确认状态
+      description: 只暴露安全业务参数，无模型密钥、账号初始口令或基础设施配置。PENDING_CONFIRMATION 的功能不能因Mock示例默认启用。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemRulesResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  businessTimezone: Asia/Shanghai
+                  reportPolicy:
+                    configStatus: PENDING_CONFIRMATION
+                    version: null
+                    dailyBasePoints: null
+                    weeklyBasePoints: null
+                    maxFinalScore: null
+                    allowBackfill: null
+                    dailyEditPolicy: null
+                    weeklyEditPolicy: null
+                  monthlyAssessment:
+                    version: 1
+                    configStatus: PENDING_CONFIRMATION
+                    enabled: false
+                    scope: null
+                    eliminateCount: null
+                    minimumParticipants: null
+                    minimumRetained: null
+                    newMemberProtectionDays: null
+                    tiePolicy: null
+                    leaderParticipates: null
+                    executionMode: null
+                    effectiveFromMonth: 2026-10
+                  inactivityPolicy:
+                    configStatus: PENDING_CONFIRMATION
+                    enabled: false
+                    thresholdDays: null
+                    clockPolicy: null
+                  restorePolicy:
+                    configStatus: PENDING_CONFIRMATION
+                    retainHistoricalPoints: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/system/rules/monthly-assessment:
+    put:
+      tags:
+      - 规则
+      operationId: updateMonthlyRule
+      summary: 配置已确认的月度评定规则
+      description: 需学院明确政策后开放；version乐观锁，enabled=true时全部必要参数非null。只对未来月份生效，不修改既有快照或已关闭月份，审计规则差异和原因。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyRuleResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  version: 1
+                  configStatus: PENDING_CONFIRMATION
+                  enabled: false
+                  scope: null
+                  eliminateCount: null
+                  minimumParticipants: null
+                  minimumRetained: null
+                  newMemberProtectionDays: null
+                  tiePolicy: null
+                  leaderParticipates: null
+                  executionMode: null
+                  effectiveFromMonth: 2026-10
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMonthlyRuleRequest'
+            example:
+              version: 1
+              enabled: false
+              scope: null
+              eliminateCount: null
+              minimumParticipants: null
+              minimumRetained: null
+              newMemberProtectionDays: null
+              tiePolicy: null
+              leaderParticipates: null
+              executionMode: null
+              effectiveFromMonth: 2026-10
+              reason: 已核对本次操作原因
+  /api/v1/monthly-assessments:
+    get:
+      tags:
+      - 月度评定
+      operationId: listAssessments
+      summary: 月度评定列表
+      description: 按month DESC,createdAt DESC,id数值DESC；无规则时可返回空列表，不自动评定。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: month
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+    post:
+      tags:
+      - 月度评定
+      operationId: generateAssessment
+      summary: 生成月度候选快照
+      description: 仅生成DRAFT，不移出。规则不完整/未确认503，进行中的同月同范围快照409。范围内该业务月的正式报告必须全部SCORED/MANUAL且无会影响积分的PENDING复核；否则409
+        SCORING_PENDING，不生成可确认快照，不能按暂时保底分淘汰。scope须匹配rulesVersion，周报按首次提交月份归属。STALE/FAILED修订显式提供supersedesAssessmentId，保留历史。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '201':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  month: 2026-09
+                  scope: PER_DIRECTION
+                  directionId: '1'
+                  status: DRAFT
+                  version: 1
+                  rulesVersion: 1
+                  candidateCount: 0
+                  unresolvedTieCount: 0
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  taskId: null
+                  candidates: []
+                  snapshotAt: '2026-10-11T09:00:00+08:00'
+                  confirmedAt: null
+                  completedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAssessmentRequest'
+            example:
+              month: 2026-09
+              scope: PER_DIRECTION
+              directionId: '1'
+              rulesVersion: 1
+  /api/v1/monthly-assessments/{assessmentId}:
+    get:
+      tags:
+      - 月度评定
+      operationId: getAssessment
+      summary: 快照详情
+      description: ''
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  month: 2026-10
+                  scope: PER_DIRECTION
+                  directionId: null
+                  status: DRAFT
+                  version: 1
+                  rulesVersion: 1
+                  candidateCount: 0
+                  unresolvedTieCount: 0
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  taskId: null
+                  candidates: []
+                  snapshotAt: '2026-10-11T09:00:00+08:00'
+                  confirmedAt: null
+                  completedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+  /api/v1/monthly-assessments/{assessmentId}/confirm:
+    post:
+      tags:
+      - 月度评定
+      operationId: confirmAssessment
+      summary: 确认完整候选名单
+      description: 仅DRAFT且无未决同分，候选集合与快照完整一致。再次检查范围内该月正式报告全部SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。版本/规则/资格变化409，不接受额外成员ID。未决同分不靠数组顺序解决；本版无同分裁定接口，须另行补规则后修订快照。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  month: 2026-10
+                  scope: PER_DIRECTION
+                  directionId: null
+                  status: CONFIRMED
+                  version: 2
+                  rulesVersion: 1
+                  candidateCount: 0
+                  unresolvedTieCount: 0
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  taskId: null
+                  candidates: []
+                  snapshotAt: '2026-10-11T09:00:00+08:00'
+                  confirmedAt: '2026-10-11T09:00:00+08:00'
+                  completedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmAssessmentRequest'
+            example:
+              version: 1
+              rulesVersion: 1
+              candidateMemberIds: []
+              reason: 已核对本次操作原因
+  /api/v1/monthly-assessments/{assessmentId}/execute:
+    post:
+      tags:
+      - 月度评定
+      operationId: executeAssessment
+      summary: 异步执行已确认名单
+      description: 仅CONFIRMED；派任务前确认范围内当月正式报告全为SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。Worker每次移出前同样检查评分已结清和最新成员/报告/积分版本，有未结评分/复核或变化则置STALE并停止，不能只比较版本。检查与资格写入须并发安全。同key不重复派任务，按资格周期幂等移出。返回data.id用于GET
+        /tasks/{taskId}轮询。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '202':
+          description: 异步任务已接受，轮询任务状态；不是已执行成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  type: MONTHLY_ASSESSMENT
+                  status: QUEUED
+                  version: 1
+                  attempt: 0
+                  retryable: false
+                  relatedResourceId: '201'
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  failureCode: null
+                  failureMessage: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/tasks:
+    get:
+      tags:
+      - 任务与审计
+      operationId: listTasks
+      summary: 内部任务只读列表
+      description: 仅学院管理员；按createdAt DESC,id数值DESC。不得返回模型原文、数据库连接或执行脚本。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: type
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - AI_SCORING
+          - INACTIVITY_REMOVAL
+          - MONTHLY_ASSESSMENT
+      - name: status
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          enum:
+          - QUEUED
+          - RUNNING
+          - SUCCEEDED
+          - FAILED
+          - PAUSED
+  /api/v1/tasks/{taskId}:
+    get:
+      tags:
+      - 任务与审计
+      operationId: getTask
+      summary: 内部任务状态
+      description: ''
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  type: AI_SCORING
+                  status: QUEUED
+                  version: 1
+                  attempt: 0
+                  retryable: false
+                  relatedResourceId: null
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  failureCode: null
+                  failureMessage: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+  /api/v1/tasks/{taskId}/retry:
+    post:
+      tags:
+      - 任务与审计
+      operationId: retryTask
+      summary: 重试可重试的失败任务
+      description: 必须FAILED/retryable=true，version及业务资格/规则仍有效。仅重排服务端已登记任务，不接受任务类型替换、脚本、SQL、URL等参数；重复任务事件不再加分/移出。
+      x-implementation-status: pending
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '202':
+          description: 异步任务已接受，轮询任务状态；不是已执行成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  id: '201'
+                  type: AI_SCORING
+                  status: QUEUED
+                  version: 1
+                  attempt: 0
+                  retryable: false
+                  relatedResourceId: null
+                  createdAt: '2026-10-11T09:00:00+08:00'
+                  updatedAt: '2026-10-11T09:00:00+08:00'
+                  failureCode: null
+                  failureMessage: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      x-rule-status: requires-confirmation
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+  /api/v1/audits:
+    get:
+      tags:
+      - 任务与审计
+      operationId: listAudits
+      summary: 脱敏审计列表
+      description: 按occurredAt DESC,id数值DESC。审计完整敏感前后值由服务端受控保存，此API只给脱敏summary；无密码、token、联系方式、报告全文。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditPageResponse'
+              example:
+                code: OK
+                message: Success
+                data:
+                  items: []
+                  page: 1
+                  size: 20
+                  total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: resourceId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      - name: action
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          maxLength: 64
+  /actuator/health:
+    get:
+      tags:
+      - 运行状态
+      operationId: getHealth
+      summary: 健康检查（已实现）
+      description: 后端基线原生Actuator响应，不包ApiResponse，不公开details/components。数据库不可用503。
+      security: []
+      x-implementation-status: implemented
+      x-implemented-in: backend@e16d7fc
+      x-roles: []
+      responses:
+        '200':
+          description: 健康
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: 数据库等依赖不健康
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: access token；客户端视为不透明字符串。受限改密token不具备一般业务权限。
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。
+      schema:
+        type: string
+        format: uuid
+        example: 11111111-1111-4111-8111-111111111111
+  responses:
+    BadRequest:
+      description: HTTP 400；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_REQUEST
+            message: Request could not be completed
+            data: null
+    Unauthorized:
+      description: HTTP 401；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: Request could not be completed
+            data: null
+    Forbidden:
+      description: HTTP 403；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: FORBIDDEN
+            message: Request could not be completed
+            data: null
+    NotFound:
+      description: HTTP 404；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: NOT_FOUND
+            message: Request could not be completed
+            data: null
+    MethodNotAllowed:
+      description: HTTP 405；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: METHOD_NOT_ALLOWED
+            message: Request could not be completed
+            data: null
+      headers:
+        Allow:
+          schema:
+            type: string
+          description: 资源支持的 HTTP 方法。
+    Conflict:
+      description: HTTP 409；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: VERSION_CONFLICT
+            message: Request could not be completed
+            data: null
+    UnsupportedMediaType:
+      description: HTTP 415；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_REQUEST
+            message: Request could not be completed
+            data: null
+    TooManyRequests:
+      description: HTTP 429；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: RATE_LIMITED
+            message: Request could not be completed
+            data: null
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+          description: 建议等待秒数。
+    InternalError:
+      description: HTTP 500；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INTERNAL_ERROR
+            message: Request could not be completed
+            data: null
+    Unavailable:
+      description: HTTP 503；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: RULES_NOT_CONFIGURED
+            message: Request could not be completed
+            data: null
+  schemas:
+    Role:
+      type: string
+      enum:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+    ErrorResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - INVALID_REQUEST
+          - OLD_PASSWORD_INVALID
+          - PASSWORD_POLICY_VIOLATION
+          - UNAUTHORIZED
+          - TOKEN_EXPIRED
+          - INVALID_CREDENTIALS
+          - REFRESH_TOKEN_INVALID
+          - FORBIDDEN
+          - PASSWORD_CHANGE_REQUIRED
+          - ACCOUNT_DISABLED
+          - MEMBER_REMOVED
+          - NOT_FOUND
+          - METHOD_NOT_ALLOWED
+          - VERSION_CONFLICT
+          - ACCOUNT_ALREADY_EXISTS
+          - REPORT_ALREADY_EXISTS
+          - REPORT_NOT_EDITABLE
+          - INVALID_STATE
+          - IDEMPOTENCY_CONFLICT
+          - MONTH_CLOSED
+          - SCORING_PENDING
+          - RATE_LIMITED
+          - INTERNAL_ERROR
+          - RULES_NOT_CONFIGURED
+          - SERVICE_UNAVAILABLE
+        message:
+          type: string
+          example: Invalid request
+        data:
+          type: object
+          nullable: true
+          enum:
+          - null
+    EmptyResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          type: object
+          nullable: true
+          enum:
+          - null
+    Identity:
+      type: object
+      required:
+      - userId
+      - memberId
+      - account
+      - displayName
+      - role
+      - directionId
+      - managedDirectionIds
+      properties:
+        userId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        account:
+          type: string
+          example: MOCK20260001
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        role:
+          $ref: '#/components/schemas/Role'
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        managedDirectionIds:
+          type: array
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+          uniqueItems: true
+    Session:
+      type: object
+      required:
+      - accessToken
+      - refreshToken
+      - tokenType
+      - expiresIn
+      - refreshExpiresIn
+      - mustChangePassword
+      - user
+      properties:
+        accessToken:
+          type: string
+          description: 不透明 access token；示例不可使用。
+          example: mock-access-token-not-a-credential
+        refreshToken:
+          type: string
+          description: 仅正常会话返回；待改密时为 null。
+          nullable: true
+          example: null
+        tokenType:
+          type: string
+          enum:
+          - Bearer
+        expiresIn:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 300
+        refreshExpiresIn:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+          example: null
+        mustChangePassword:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/Identity'
+    Me:
+      type: object
+      required:
+      - user
+      - mustChangePassword
+      - accountStatus
+      - membershipStatus
+      - profile
+      properties:
+        user:
+          $ref: '#/components/schemas/Identity'
+        mustChangePassword:
+          type: boolean
+        accountStatus:
+          type: string
+          enum:
+          - ENABLED
+          - DISABLED
+        membershipStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - REMOVED
+          - null
+          nullable: true
+        profile:
+          type: object
+          required:
+          - studentNo
+          - major
+          - className
+          - grade
+          - contact
+          properties:
+            studentNo:
+              type: string
+              description: 学号，保留前导零；示例为虚构值。
+              minLength: 1
+              maxLength: 32
+              pattern: ^[A-Za-z0-9_-]+$
+              example: MOCK20260001
+              nullable: true
+            major:
+              type: string
+              nullable: true
+            className:
+              type: string
+              nullable: true
+            grade:
+              type: integer
+              format: int32
+              minimum: 1900
+              maximum: 2200
+              nullable: true
+            contact:
+              type: string
+              nullable: true
+    SessionResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Session'
+    MeResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Me'
+    LoginRequest:
+      type: object
+      required:
+      - account
+      - password
+      properties:
+        account:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: MOCK20260001
+        password:
+          type: string
+          description: 不 trim，不写日志。
+          minLength: 1
+          maxLength: 128
+          writeOnly: true
+          example: Example-Only9!
+      additionalProperties: false
+    RefreshRequest:
+      type: object
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+          example: mock-refresh-token-not-a-credential
+      additionalProperties: false
+    ChangePasswordRequest:
+      type: object
+      required:
+      - oldPassword
+      - newPassword
+      properties:
+        oldPassword:
+          type: string
+          minLength: 1
+          maxLength: 128
+          writeOnly: true
+          example: Example-Only9!
+        newPassword:
+          type: string
+          description: 12–64 字符，不能与旧密码/共享初始口令相同。
+          minLength: 12
+          maxLength: 64
+          writeOnly: true
+          example: Changed-Example9!
+      additionalProperties: false
+    Direction:
+      type: object
+      required:
+      - id
+      - code
+      - name
+      - enabled
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        code:
+          type: string
+          enum:
+          - AI_FULLSTACK
+          - HARMONY_OS
+          - CYBER_SECURITY
+          - CPP
+          - BIG_DATA
+          - ARTIFICIAL_INTELLIGENCE
+          - PROJECT_DESIGN
+        name:
+          type: string
+          example: AI 全栈
+        enabled:
+          type: boolean
+          example: true
+    DirectionResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Direction'
+    DirectionListResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Direction'
+    Member:
+      type: object
+      required:
+      - id
+      - userId
+      - studentNo
+      - name
+      - major
+      - className
+      - grade
+      - contact
+      - role
+      - directionId
+      - managedDirectionIds
+      - membershipStatus
+      - accountStatus
+      - mustChangePassword
+      - joinedAt
+      - membershipStartedAt
+      - removedAt
+      - removalReason
+      - totalPoints
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        userId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        studentNo:
+          type: string
+          description: 学号，保留前导零；示例为虚构值。
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Za-z0-9_-]+$
+          example: MOCK20260001
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        major:
+          type: string
+          maxLength: 100
+          nullable: true
+        className:
+          type: string
+          maxLength: 100
+          nullable: true
+        grade:
+          type: integer
+          format: int32
+          minimum: 1900
+          maximum: 2200
+          nullable: true
+        contact:
+          type: string
+          description: 仅本人及有权限的管理人员可见。
+          maxLength: 100
+          nullable: true
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - DIRECTION_LEADER
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        managedDirectionIds:
+          type: array
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+          uniqueItems: true
+        membershipStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - REMOVED
+        accountStatus:
+          type: string
+          enum:
+          - ENABLED
+          - DISABLED
+        mustChangePassword:
+          type: boolean
+        joinedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        membershipStartedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        removedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        removalReason:
+          type: string
+          nullable: true
+        totalPoints:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+    MemberResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Member'
+    MemberPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    MemberPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/MemberPage'
+    CreateMemberRequest:
+      type: object
+      required:
+      - studentNo
+      - name
+      - directionId
+      properties:
+        studentNo:
+          type: string
+          description: 学号，保留前导零；示例为虚构值。
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Za-z0-9_-]+$
+          example: MOCK20260001
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        major:
+          type: string
+          maxLength: 100
+          nullable: true
+        className:
+          type: string
+          maxLength: 100
+          nullable: true
+        grade:
+          type: integer
+          format: int32
+          minimum: 1900
+          maximum: 2200
+          nullable: true
+        contact:
+          type: string
+          description: 仅本人及有权限的管理人员可见。
+          maxLength: 100
+          nullable: true
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      additionalProperties: false
+    UpdateMemberRequest:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        major:
+          type: string
+          maxLength: 100
+          nullable: true
+        className:
+          type: string
+          maxLength: 100
+          nullable: true
+        grade:
+          type: integer
+          format: int32
+          minimum: 1900
+          maximum: 2200
+          nullable: true
+        contact:
+          type: string
+          description: 仅本人及有权限的管理人员可见。
+          maxLength: 100
+          nullable: true
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+      additionalProperties: false
+      minProperties: 2
+      description: 不接受学号、角色、密码、积分或 managedDirectionIds。负责人不能改方向；学院管理员可调整学生方向。
+    ReasonVersionRequest:
+      type: object
+      required:
+      - version
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    AccountCorrectionRequest:
+      type: object
+      required:
+      - version
+      - newStudentNo
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        newStudentNo:
+          type: string
+          description: 学号，保留前导零；示例为虚构值。
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Za-z0-9_-]+$
+          example: MOCK20260002
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    AppointLeaderRequest:
+      type: object
+      required:
+      - memberId
+      - version
+      - managedDirectionIds
+      - reason
+      properties:
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        managedDirectionIds:
+          type: array
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+          minItems: 1
+          uniqueItems: true
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    UpdateLeaderRequest:
+      type: object
+      required:
+      - version
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        major:
+          type: string
+          maxLength: 100
+          nullable: true
+        className:
+          type: string
+          maxLength: 100
+          nullable: true
+        grade:
+          type: integer
+          format: int32
+          minimum: 1900
+          maximum: 2200
+          nullable: true
+        contact:
+          type: string
+          description: 仅本人及有权限的管理人员可见。
+          maxLength: 100
+          nullable: true
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        managedDirectionIds:
+          type: array
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+          minItems: 1
+          uniqueItems: true
+        accountStatus:
+          type: string
+          enum:
+          - ENABLED
+          - DISABLED
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+      minProperties: 3
+    DailyReport:
+      type: object
+      required:
+      - id
+      - memberId
+      - directionId
+      - status
+      - version
+      - scoreStatus
+      - awardedPoints
+      - finalScore
+      - scoreReason
+      - firstSubmittedAt
+      - updatedAt
+      - editable
+      - editableUntil
+      - ruleVersion
+      - reportDate
+      - learningContent
+      - gains
+      - problems
+      - nextPlan
+      - links
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        directionId:
+          type: string
+          description: 草稿为当前方向；正式提交后固定为提交时方向。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        scoreStatus:
+          type: string
+          enum:
+          - NOT_REQUESTED
+          - QUEUED
+          - PROCESSING
+          - SCORED
+          - RETRYING
+          - REVIEW_REQUIRED
+          - MANUAL
+        awardedPoints:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 3
+        finalScore:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3
+          nullable: true
+          example: null
+        scoreReason:
+          type: string
+          maxLength: 1000
+          nullable: true
+        firstSubmittedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        editable:
+          type: boolean
+        editableUntil:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        ruleVersion:
+          type: string
+          nullable: true
+          example: mock-rule-1
+        reportDate:
+          type: string
+          format: date
+          example: '2026-10-11'
+        learningContent:
+          type: string
+          maxLength: 10000
+          example: 完成接口请求与参数校验练习。
+        gains:
+          type: string
+          maxLength: 10000
+          example: 理解了参数校验与异常映射。
+        problems:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+    DailyReportResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/DailyReport'
+    DailyReportPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyReport'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    DailyReportPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/DailyReportPage'
+    CreateDailyReportRequest:
+      type: object
+      required:
+      - reportDate
+      properties:
+        reportDate:
+          type: string
+          format: date
+          example: '2026-10-11'
+        learningContent:
+          type: string
+          maxLength: 10000
+          example: 完成接口请求与参数校验练习。
+        gains:
+          type: string
+          maxLength: 10000
+          example: 理解了参数校验与异常映射。
+        problems:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+      additionalProperties: false
+      description: 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。
+    UpdateDailyReportRequest:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        learningContent:
+          type: string
+          maxLength: 10000
+          example: 完成接口请求与参数校验练习。
+        gains:
+          type: string
+          maxLength: 10000
+          example: 理解了参数校验与异常映射。
+        problems:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+      additionalProperties: false
+      minProperties: 2
+      description: 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。
+    WeeklyReport:
+      type: object
+      required:
+      - id
+      - memberId
+      - directionId
+      - status
+      - version
+      - scoreStatus
+      - awardedPoints
+      - finalScore
+      - scoreReason
+      - firstSubmittedAt
+      - updatedAt
+      - editable
+      - editableUntil
+      - ruleVersion
+      - weekStart
+      - weekEnd
+      - summary
+      - achievements
+      - reflections
+      - nextWeekPlan
+      - links
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        directionId:
+          type: string
+          description: 草稿为当前方向；正式提交后固定为提交时方向。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        scoreStatus:
+          type: string
+          enum:
+          - NOT_REQUESTED
+          - QUEUED
+          - PROCESSING
+          - SCORED
+          - RETRYING
+          - REVIEW_REQUIRED
+          - MANUAL
+        awardedPoints:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 3
+        finalScore:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3
+          nullable: true
+          example: null
+        scoreReason:
+          type: string
+          maxLength: 1000
+          nullable: true
+        firstSubmittedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        editable:
+          type: boolean
+        editableUntil:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        ruleVersion:
+          type: string
+          nullable: true
+          example: mock-rule-1
+        weekStart:
+          type: string
+          format: date
+          example: '2026-10-05'
+        weekEnd:
+          type: string
+          format: date
+          example: '2026-10-11'
+        summary:
+          type: string
+          maxLength: 10000
+          example: 本周完成基础 API 学习。
+        achievements:
+          type: string
+          maxLength: 10000
+          example: 完成了独立练习和复盘。
+        reflections:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextWeekPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+    WeeklyReportResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/WeeklyReport'
+    WeeklyReportPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyReport'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    WeeklyReportPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/WeeklyReportPage'
+    CreateWeeklyReportRequest:
+      type: object
+      required:
+      - weekStart
+      properties:
+        weekStart:
+          type: string
+          format: date
+          example: '2026-10-05'
+        summary:
+          type: string
+          maxLength: 10000
+          example: 本周完成基础 API 学习。
+        achievements:
+          type: string
+          maxLength: 10000
+          example: 完成了独立练习和复盘。
+        reflections:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextWeekPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+      additionalProperties: false
+      description: 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。
+    UpdateWeeklyReportRequest:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        summary:
+          type: string
+          maxLength: 10000
+          example: 本周完成基础 API 学习。
+        achievements:
+          type: string
+          maxLength: 10000
+          example: 完成了独立练习和复盘。
+        reflections:
+          type: string
+          maxLength: 5000
+          nullable: true
+        nextWeekPlan:
+          type: string
+          maxLength: 5000
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            pattern: ^https?://
+          maxItems: 10
+      additionalProperties: false
+      minProperties: 2
+      description: 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。
+    VersionRequest:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+      additionalProperties: false
+    ScoreReview:
+      type: object
+      required:
+      - id
+      - reportType
+      - reportId
+      - reportVersion
+      - memberId
+      - reason
+      - status
+      - resolvedScore
+      - resolutionReason
+      - version
+      - createdAt
+      - resolvedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reportType:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+        reportId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reportVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - STALE
+        resolvedScore:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3
+          nullable: true
+          example: null
+        resolutionReason:
+          type: string
+          nullable: true
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        resolvedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+    ScoreReviewResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/ScoreReview'
+    ScoreReviewPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoreReview'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    ScoreReviewPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/ScoreReviewPage'
+    CreateScoreReviewRequest:
+      type: object
+      required:
+      - reportType
+      - reportId
+      - reportVersion
+      - reason
+      properties:
+        reportType:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+        reportId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reportVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    ResolveScoreReviewRequest:
+      type: object
+      required:
+      - version
+      - reportVersion
+      - score
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        reportVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        score:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    PointsSummary:
+      type: object
+      required:
+      - memberId
+      - totalPoints
+      - month
+      - monthlyPoints
+      - asOf
+      properties:
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        totalPoints:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+        monthlyPoints:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        asOf:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+    PointsSummaryResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/PointsSummary'
+    PointEntry:
+      type: object
+      required:
+      - id
+      - memberId
+      - reportType
+      - reportId
+      - reportVersion
+      - delta
+      - source
+      - reason
+      - effectiveAt
+      - recordedAt
+      - ruleVersion
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reportType:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+        reportId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reportVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        delta:
+          type: integer
+          format: int32
+          minimum: -3
+          maximum: 3
+          example: 1
+        source:
+          type: string
+          enum:
+          - SUBMISSION_BASE
+          - AI_ADJUSTMENT
+          - MANUAL_ADJUSTMENT
+          - REVERSAL
+        reason:
+          type: string
+          example: 报告正式提交保底积分
+        effectiveAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        recordedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        ruleVersion:
+          type: string
+          example: mock-rule-1
+    PointEntryPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PointEntry'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    PointEntryPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/PointEntryPage'
+    RankingEntry:
+      type: object
+      required:
+      - memberId
+      - displayName
+      - directionId
+      - directionName
+      - points
+      - rank
+      properties:
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        directionName:
+          type: string
+          example: AI 全栈
+        points:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        rank:
+          type: integer
+          format: int32
+          minimum: 1
+    RankingPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      - period
+      - month
+      - asOf
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankingEntry'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+        period:
+          type: string
+          enum:
+          - ALL_TIME
+          - MONTH
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+          nullable: true
+        asOf:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+    RankingPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/RankingPage'
+    MyRanking:
+      type: object
+      required:
+      - memberId
+      - directionId
+      - period
+      - month
+      - points
+      - overallRank
+      - directionRank
+      - overallCount
+      - directionCount
+      - eligible
+      - asOf
+      properties:
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        period:
+          type: string
+          enum:
+          - ALL_TIME
+          - MONTH
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+          nullable: true
+        points:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        overallRank:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        directionRank:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        overallCount:
+          type: integer
+          format: int32
+          minimum: 0
+        directionCount:
+          type: integer
+          format: int32
+          minimum: 0
+        eligible:
+          type: boolean
+        asOf:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+    MyRankingResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/MyRanking'
+    MonthlyRule:
+      type: object
+      required:
+      - version
+      - configStatus
+      - enabled
+      - scope
+      - eliminateCount
+      - minimumParticipants
+      - minimumRetained
+      - newMemberProtectionDays
+      - tiePolicy
+      - leaderParticipates
+      - executionMode
+      - effectiveFromMonth
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        configStatus:
+          type: string
+          enum:
+          - PENDING_CONFIRMATION
+          - READY
+        enabled:
+          type: boolean
+          example: false
+        scope:
+          type: string
+          enum:
+          - PER_DIRECTION
+          - OVERALL
+          - null
+          nullable: true
+        eliminateCount:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1000
+          nullable: true
+        minimumParticipants:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        minimumRetained:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        newMemberProtectionDays:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 365
+          nullable: true
+        tiePolicy:
+          type: string
+          enum:
+          - MANUAL_REVIEW
+          - null
+          nullable: true
+        leaderParticipates:
+          type: boolean
+          nullable: true
+        executionMode:
+          type: string
+          enum:
+          - ADMIN_CONFIRM
+          - null
+          nullable: true
+        effectiveFromMonth:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+          nullable: true
+    SystemRules:
+      type: object
+      required:
+      - businessTimezone
+      - reportPolicy
+      - monthlyAssessment
+      - inactivityPolicy
+      - restorePolicy
+      properties:
+        businessTimezone:
+          type: string
+          enum:
+          - Asia/Shanghai
+        reportPolicy:
+          type: object
+          required:
+          - configStatus
+          - version
+          - dailyBasePoints
+          - weeklyBasePoints
+          - maxFinalScore
+          - allowBackfill
+          - dailyEditPolicy
+          - weeklyEditPolicy
+          properties:
+            configStatus:
+              type: string
+              enum:
+              - PENDING_CONFIRMATION
+              - READY
+            version:
+              type: string
+              nullable: true
+            dailyBasePoints:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 1
+              nullable: true
+            weeklyBasePoints:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 1
+              nullable: true
+            maxFinalScore:
+              type: integer
+              format: int32
+              minimum: 3
+              maximum: 3
+              nullable: true
+            allowBackfill:
+              type: boolean
+              nullable: true
+            dailyEditPolicy:
+              type: string
+              enum:
+              - SAME_DAY
+              - null
+              nullable: true
+            weeklyEditPolicy:
+              type: string
+              enum:
+              - SAME_WEEK
+              - null
+              nullable: true
+        monthlyAssessment:
+          $ref: '#/components/schemas/MonthlyRule'
+        inactivityPolicy:
+          type: object
+          required:
+          - configStatus
+          - enabled
+          - thresholdDays
+          - clockPolicy
+          properties:
+            configStatus:
+              type: string
+              enum:
+              - PENDING_CONFIRMATION
+              - READY
+            enabled:
+              type: boolean
+              example: false
+            thresholdDays:
+              type: integer
+              format: int32
+              minimum: 14
+              maximum: 14
+              nullable: true
+            clockPolicy:
+              type: string
+              enum:
+              - FULL_CALENDAR_DAYS
+              - null
+              nullable: true
+        restorePolicy:
+          type: object
+          required:
+          - configStatus
+          - retainHistoricalPoints
+          properties:
+            configStatus:
+              type: string
+              enum:
+              - PENDING_CONFIRMATION
+              - READY
+            retainHistoricalPoints:
+              type: boolean
+              nullable: true
+    SystemRulesResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/SystemRules'
+    MonthlyRuleResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/MonthlyRule'
+    UpdateMonthlyRuleRequest:
+      type: object
+      required:
+      - version
+      - enabled
+      - scope
+      - eliminateCount
+      - minimumParticipants
+      - minimumRetained
+      - newMemberProtectionDays
+      - tiePolicy
+      - leaderParticipates
+      - executionMode
+      - effectiveFromMonth
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        enabled:
+          type: boolean
+          example: false
+        scope:
+          type: string
+          enum:
+          - PER_DIRECTION
+          - OVERALL
+          - null
+          nullable: true
+        eliminateCount:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1000
+          nullable: true
+        minimumParticipants:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        minimumRetained:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        newMemberProtectionDays:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 365
+          nullable: true
+        tiePolicy:
+          type: string
+          enum:
+          - MANUAL_REVIEW
+          - null
+          nullable: true
+        leaderParticipates:
+          type: boolean
+          nullable: true
+        executionMode:
+          type: string
+          enum:
+          - ADMIN_CONFIRM
+          - null
+          nullable: true
+        effectiveFromMonth:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+          nullable: true
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+      description: 完整替换；enabled=true 时 nullable 项必须全部已确认且非 null。minimumRetained>=1，禁止配置清空全部成员；仅未来月份生效。
+    AssessmentCandidate:
+      type: object
+      required:
+      - memberId
+      - displayName
+      - directionId
+      - points
+      - rank
+      - tieUnresolved
+      - reason
+      properties:
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 示例同学
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        points:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 3
+        rank:
+          type: integer
+          format: int32
+          minimum: 1
+        tieUnresolved:
+          type: boolean
+        reason:
+          type: string
+          example: 月度候选，尚未执行
+    AssessmentSummary:
+      type: object
+      required:
+      - id
+      - month
+      - scope
+      - directionId
+      - status
+      - version
+      - rulesVersion
+      - candidateCount
+      - unresolvedTieCount
+      - createdAt
+      - taskId
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+        scope:
+          type: string
+          enum:
+          - PER_DIRECTION
+          - OVERALL
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - CONFIRMED
+          - EXECUTING
+          - COMPLETED
+          - FAILED
+          - STALE
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        rulesVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        candidateCount:
+          type: integer
+          format: int32
+          minimum: 0
+        unresolvedTieCount:
+          type: integer
+          format: int32
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        taskId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+    Assessment:
+      type: object
+      required:
+      - id
+      - month
+      - scope
+      - directionId
+      - status
+      - version
+      - rulesVersion
+      - candidateCount
+      - unresolvedTieCount
+      - createdAt
+      - taskId
+      - candidates
+      - snapshotAt
+      - confirmedAt
+      - completedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+        scope:
+          type: string
+          enum:
+          - PER_DIRECTION
+          - OVERALL
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - CONFIRMED
+          - EXECUTING
+          - COMPLETED
+          - FAILED
+          - STALE
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        rulesVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        candidateCount:
+          type: integer
+          format: int32
+          minimum: 0
+        unresolvedTieCount:
+          type: integer
+          format: int32
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        taskId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentCandidate'
+        snapshotAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        confirmedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+          nullable: true
+    AssessmentResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Assessment'
+    AssessmentPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentSummary'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    AssessmentPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/AssessmentPage'
+    GenerateAssessmentRequest:
+      type: object
+      required:
+      - month
+      - scope
+      - directionId
+      - rulesVersion
+      properties:
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          example: 2026-10
+        scope:
+          type: string
+          enum:
+          - PER_DIRECTION
+          - OVERALL
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        rulesVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        supersedesAssessmentId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+      additionalProperties: false
+      description: 只评估已结束自然月；PER_DIRECTION 必填方向，OVERALL 方向为 null；scope 必须与规则一致。重建只能明确替代 STALE/FAILED 快照，不重复执行已完成的资格变更。
+    ConfirmAssessmentRequest:
+      type: object
+      required:
+      - version
+      - rulesVersion
+      - candidateMemberIds
+      - reason
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        rulesVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        candidateMemberIds:
+          type: array
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+          uniqueItems: true
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
+      additionalProperties: false
+    Task:
+      type: object
+      required:
+      - id
+      - type
+      - status
+      - version
+      - attempt
+      - retryable
+      - relatedResourceId
+      - createdAt
+      - updatedAt
+      - failureCode
+      - failureMessage
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        type:
+          type: string
+          enum:
+          - AI_SCORING
+          - INACTIVITY_REMOVAL
+          - MONTHLY_ASSESSMENT
+        status:
+          type: string
+          enum:
+          - QUEUED
+          - RUNNING
+          - SUCCEEDED
+          - FAILED
+          - PAUSED
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        attempt:
+          type: integer
+          format: int32
+          minimum: 0
+        retryable:
+          type: boolean
+        relatedResourceId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        failureCode:
+          type: string
+          nullable: true
+        failureMessage:
+          type: string
+          description: 仅安全摘要，无 SQL/密码/报告正文/模型原文。
+          nullable: true
+    TaskResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/Task'
+    TaskPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    TaskPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/TaskPage'
+    AuditEntry:
+      type: object
+      required:
+      - id
+      - actorUserId
+      - action
+      - resourceType
+      - resourceId
+      - reason
+      - occurredAt
+      - summary
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        actorUserId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        action:
+          type: string
+          example: MEMBER_CREATED
+        resourceType:
+          type: string
+          example: MEMBER
+        resourceId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: null
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+          example: '2026-10-11T09:00:00+08:00'
+        summary:
+          type: string
+          description: 脱敏摘要，不返回密码/token/报告全文/原始模型响应。
+          example: 创建示例成员
+    AuditPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          example: 20
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 0
+    AuditPageResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/AuditPage'
+    Health:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - UP
+          - DOWN
