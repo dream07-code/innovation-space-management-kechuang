@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class DevApiDocumentationIT {
     @Container static final MySQLContainer MYSQL = MysqlTestSupport.newMysqlContainer();
-    @DynamicPropertySource static void dataSource(DynamicPropertyRegistry registry) { MysqlTestSupport.registerDataSource(registry, MYSQL); }
+    @DynamicPropertySource static void dataSource(DynamicPropertyRegistry registry) { MysqlTestSupport.registerMigratedDataSource(registry, MYSQL); }
     @Value("${local.server.port}") private int port;
 
     @Test void knife4jPageAndEveryReferencedResourceAreAccessible() throws Exception {

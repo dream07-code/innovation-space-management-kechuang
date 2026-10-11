@@ -24,6 +24,7 @@ class PackagedApplicationIT {
     @ParameterizedTest
     @ValueSource(strings = {"default", "dev", "prod", "prod,dev", "dev,prod"})
     void artifactHasNoProbeAndHonorsProfileIsolation(String profile) throws Exception {
+        MysqlTestSupport.migrate(MYSQL);
         Files.createDirectories(Path.of("target/verification"));
         var log = Path.of("target/verification/jar-" + profile.replace(',', '-') + ".log");
         var builder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),

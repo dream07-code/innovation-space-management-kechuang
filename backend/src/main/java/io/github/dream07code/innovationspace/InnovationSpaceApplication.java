@@ -6,6 +6,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class InnovationSpaceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(InnovationSpaceApplication.class, args);
+        var app = new SpringApplication(InnovationSpaceApplication.class);
+        boolean maintenance = java.util.Arrays.asList(args).contains("--app.migration.mode=migrate")
+                || "migrate".equals(System.getenv("APP_MIGRATION_MODE"));
+        if (maintenance) app.setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
+        var context = app.run(args);
+        if (maintenance) context.close();
     }
 }

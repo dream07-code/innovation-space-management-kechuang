@@ -31,6 +31,7 @@ public class BrowserSmokeApplication {
             Runtime.getRuntime().addShutdownHook(hook);
             try {
                 mysql.start();
+                MysqlTestSupport.migrate(mysql);
                 var environment = new StandardEnvironment();
                 environment.setActiveProfiles("dev");
                 environment.getPropertySources().addFirst(new MapPropertySource("owned-smoke", Map.of(

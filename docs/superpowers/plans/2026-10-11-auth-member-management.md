@@ -58,32 +58,32 @@
 
 - [ ] **Step 1: Write failing tests for dependency and migration behavior.** `MigrationConfigurationTest` asserts default mode does not auto-run Flyway, explicit migrate mode is recognized, unknown mode fails safely, and no default admin bean/data exists. `FlywayMigrationIT` starts pinned MySQL, runs the explicit migration path, asserts Flyway history, exactly seven directions, all required tables, no member/user/admin rows, and UTC connection semantics. `UnmigratedDatabaseIT` starts an empty owned database without migration and asserts health is not falsely UP and protected/business paths return 503 rather than 500/200.
 - [ ] **Step 2: Run the red tests.**
-+
-+Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dtest=MigrationConfigurationTest test'` and `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=FlywayMigrationIT,UnmigratedDatabaseIT verify'`
-+
-+Expected: compilation or assertions fail because migration dependencies, SQL, properties, and schema guard do not yet exist. Docker/image failures are recorded separately and do not count as behavior RED.
-+
-+- [ ] **Step 3: Add dependencies and exact SQL migrations.** Add Boot-managed `spring-boot-starter-security`, `flyway-core`, and `flyway-mysql`; keep `spring.sql.init.mode=never`. Write foreign keys, unique constraints, enum/string status checks, indexes for account/student number/session hash/direction scope/audit time, and no personal seed data. `V1` creates tables, `V2` inserts only the seven fixed directions, `V3` inserts one non-personal bootstrap lock row.
-+- [ ] **Step 4: Implement explicit migration and schema guard.** Disable Boot auto-migration for normal Web mode. Make the maintenance mode run Flyway against the configured target and terminate with a nonzero failure without starting HTTP. Make normal application context verify the required schema version; before schema is current, health reports dependency failure and business services can return `SERVICE_UNAVAILABLE`. Do not log JDBC URL/password or migration SQL parameters.
-+- [ ] **Step 5: Run Task 1 verification.**
-+
-+Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp verify'`
-+
-+Expected: existing 25 unit and 20 integration tests plus the migration tests pass, no skipped integration tests, and no production SQL outside the exact migration directory is packaged.
-+
-+- [ ] **Step 6: Commit.** `git add backend/pom.xml backend/src/main backend/src/test ... && git commit -m "feat: add controlled auth schema migrations"`
-+
-+## Task 2: Domain mappings、密码、Token、会话和幂等基础服务
-+
-+**Files:**
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/domain/{direction,member,user,auth,audit}/...`（实体/枚举/Mapper/DTO 映射，按职责拆分）
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/PasswordConfiguration.java`
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/PasswordService.java`
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/TokenService.java`
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/SessionService.java`
-+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/IdempotencyService.java`
-+- Test: `backend/src/test/java/io/github/dream07code/innovationspace/security/{PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest}.java`
-+- Test: `backend/src/test/java/io/github/dream07code/innovationspace/integration/AuthenticationPersistenceIT.java`
+
+Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dtest=MigrationConfigurationTest test'` and `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=FlywayMigrationIT,UnmigratedDatabaseIT verify'`
+
+Expected: compilation or assertions fail because migration dependencies, SQL, properties, and schema guard do not yet exist. Docker/image failures are recorded separately and do not count as behavior RED.
+
+- [ ] **Step 3: Add dependencies and exact SQL migrations.** Add Boot-managed `spring-boot-starter-security`, `flyway-core`, and `flyway-mysql`; keep `spring.sql.init.mode=never`. Write foreign keys, unique constraints, enum/string status checks, indexes for account/student number/session hash/direction scope/audit time, and no personal seed data. `V1` creates tables, `V2` inserts only the seven fixed directions, `V3` inserts one non-personal bootstrap lock row.
+- [ ] **Step 4: Implement explicit migration and schema guard.** Disable Boot auto-migration for normal Web mode. Make the maintenance mode run Flyway against the configured target and terminate with a nonzero failure without starting HTTP. Make normal application context verify the required schema version; before schema is current, health reports dependency failure and business services can return `SERVICE_UNAVAILABLE`. Do not log JDBC URL/password or migration SQL parameters.
+- [ ] **Step 5: Run Task 1 verification.**
+
+Run: `newgrp docker -c 'backend/mvnw -f backend/pom.xml -B -ntp verify'`
+
+Expected: existing 25 unit and 20 integration tests plus the migration tests pass, no skipped integration tests, and no production SQL outside the exact migration directory is packaged.
+
+- [ ] **Step 6: Commit.** `git add backend/pom.xml backend/src/main backend/src/test ... && git commit -m "feat: add controlled auth schema migrations"`
+
+## Task 2: Domain mappings、密码、Token、会话和幂等基础服务
+
+**Files:**
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/domain/{direction,member,user,auth,audit}/...`（实体/枚举/Mapper/DTO 映射，按职责拆分）
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/PasswordConfiguration.java`
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/PasswordService.java`
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/TokenService.java`
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/SessionService.java`
+- Create: `backend/src/main/java/io/github/dream07code/innovationspace/security/IdempotencyService.java`
+- Test: `backend/src/test/java/io/github/dream07code/innovationspace/security/{PasswordServiceTest,TokenServiceTest,SessionServiceTest,IdempotencyServiceTest}.java`
+- Test: `backend/src/test/java/io/github/dream07code/innovationspace/integration/AuthenticationPersistenceIT.java`
 
 **Interfaces:**
 - `PasswordService`: `String encode(CharSequence raw)`, `boolean matches(CharSequence raw, String encoded)`, `void validateNewPassword(String raw, String currentHash, String initialPassword)`; no raw password logging.

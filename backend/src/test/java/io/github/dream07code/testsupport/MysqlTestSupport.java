@@ -2,6 +2,7 @@ package io.github.dream07code.testsupport;
 
 import java.time.Duration;
 import java.util.UUID;
+import org.flywaydb.core.Flyway;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -25,5 +26,15 @@ public final class MysqlTestSupport {
         registry.add("spring.datasource.url", container::getJdbcUrl);
         registry.add("spring.datasource.username", container::getUsername);
         registry.add("spring.datasource.password", container::getPassword);
+    }
+
+    public static void migrate(MySQLContainer container) {
+        Flyway.configure().dataSource(container.getJdbcUrl(), container.getUsername(), container.getPassword())
+                .locations("classpath:db/migration").load().migrate();
+    }
+
+    public static void registerMigratedDataSource(DynamicPropertyRegistry registry, MySQLContainer container) {
+        migrate(container);
+        registerDataSource(registry, container);
     }
 }

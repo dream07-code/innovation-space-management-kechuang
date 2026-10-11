@@ -27,7 +27,7 @@ class HealthEndpointIT {
 
     @DynamicPropertySource
     static void dataSource(DynamicPropertyRegistry registry) {
-        MysqlTestSupport.registerDataSource(registry, MYSQL);
+        MysqlTestSupport.registerMigratedDataSource(registry, MYSQL);
     }
 
     @Value("${local.server.port}") private int port;
@@ -46,8 +46,9 @@ class HealthEndpointIT {
     }
 
     @Test
-    void applicationDoesNotCreateBusinessTablesOnStartup() {
-        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()", Integer.class));
+    void migratedDatabaseHasNoDefaultAccountsOrMembers() {
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM app_user", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM member", Integer.class));
     }
 
     @Test

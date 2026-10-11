@@ -22,7 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest
+@WebMvcTest(excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+        type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+        classes = {io.github.dream07code.innovationspace.config.SchemaReadinessConfiguration.class,
+                io.github.dream07code.innovationspace.config.SchemaReadinessInterceptor.class}))
 @Import({WebProbeConfiguration.class, GlobalExceptionHandler.class})
 @ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {

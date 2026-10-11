@@ -34,7 +34,7 @@ class MysqlPersistenceIT {
 
     @DynamicPropertySource
     static void dataSource(DynamicPropertyRegistry registry) {
-        MysqlTestSupport.registerDataSource(registry, MYSQL);
+        MysqlTestSupport.registerMigratedDataSource(registry, MYSQL);
     }
 
     @Autowired private JdbcTemplate jdbc;

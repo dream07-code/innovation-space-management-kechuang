@@ -4,6 +4,7 @@ public enum ErrorCode {
     INVALID_REQUEST("Invalid request"),
     NOT_FOUND("Resource not found"),
     METHOD_NOT_ALLOWED("Method not allowed"),
+    SERVICE_UNAVAILABLE("Service unavailable"),
     INTERNAL_ERROR("Internal server error");
 
     private final String message;
