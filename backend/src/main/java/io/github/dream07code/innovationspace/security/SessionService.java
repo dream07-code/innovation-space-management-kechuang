@@ -28,6 +28,8 @@ public class SessionService {
         this.jdbc=jdbc;this.tokens=tokens;this.clock=clock;this.transaction=new TransactionTemplate(manager);this.schema=schema;
     }
     public IssuedSession issue(long userId){schema.requireCurrentSchema();return transaction.execute(s->issueLocked(lockUser(userId),UUID.randomUUID().toString(),clock.instant().plusSeconds(604800)));}
+    public IssuedSession issueForUser(long userId){ return issue(userId); }
+    public void requireSchema(){schema.requireCurrentSchema();}
     private Map<String,Object> lockUser(long userId){
         var rows=jdbc.queryForList("SELECT * FROM app_user WHERE id=? FOR UPDATE",userId);
         if(rows.isEmpty())throw unauthorized();return rows.getFirst();

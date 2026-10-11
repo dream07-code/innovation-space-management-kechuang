@@ -52,7 +52,7 @@ class PackagedApplicationIT {
                 var api = HttpTestSupport.json(response);
                 assertEquals("学院科创空间管理系统 API", api.at("/info/title").asText());
                 assertTrue(api.path("paths").isObject());
-                assertEquals(0, api.path("paths").size());
+                assertTrue(api.path("paths").has("/api/v1/auth/login"));
             } else {
                 DocumentationTestSupport.assertDocumentationDisabled(port);
             }

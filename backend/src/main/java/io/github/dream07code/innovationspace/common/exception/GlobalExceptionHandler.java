@@ -23,6 +23,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiResponse.failure(ErrorCode.SERVICE_UNAVAILABLE));
     }
 
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiResponse<Void>> apiException(ApiException exception) {
+        var builder=ResponseEntity.status(exception.status()).cacheControl(org.springframework.http.CacheControl.noStore());
+        if(exception.status()==429)builder.header("Retry-After","60");
+        return builder.body(ApiResponse.failure(exception.code()));
+    }
+
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body,
             HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {

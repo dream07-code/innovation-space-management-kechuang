@@ -51,3 +51,5 @@ app:
   migration:
     mode: disabled
     required-version: "3"
+  auth:
+    initial-password: ${MEMBER_INITIAL_PASSWORD:}
