@@ -3020,7 +3020,7 @@ paths:
       operationId: getAdminDashboard
       summary: 学院管理员数据看板
       description: 返回全院人员、报告、评分、积分和OJ安全聚合。默认range=30d，只读接口。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       parameters:
@@ -3058,7 +3058,7 @@ paths:
       operationId: getLeaderDashboard
       summary: 方向负责人数据看板
       description: 只返回当前用户获授权方向的人员、报告、评分、积分、OJ和排行榜摘要。默认range=7d，只读接口。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - DIRECTION_LEADER
       parameters:
@@ -3096,7 +3096,7 @@ paths:
       operationId: getStudentDashboard
       summary: 学生个人数据看板
       description: 只返回当前学生本人的积分、排名、报告、OJ考核、积分流水和进度摘要。默认range=7d，只读接口。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - STUDENT
       parameters:

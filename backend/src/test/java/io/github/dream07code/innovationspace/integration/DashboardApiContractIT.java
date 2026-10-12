@@ -27,7 +27,7 @@ class DashboardApiContractIT {
       assertNotNull(item, entry.getKey());
       var operation = item.getGet();
       assertNotNull(operation, entry.getKey());
-      assertEquals("planned", operation.getExtensions().get("x-implementation-status"));
+      assertEquals("implemented", operation.getExtensions().get("x-implementation-status"));
       assertEquals(entry.getValue(), Set.copyOf((java.util.Collection<?>) operation.getExtensions().get("x-roles")));
       assertTrue(operation.getParameters().stream().anyMatch(parameter ->
           "range".equals(parameter.getName())
