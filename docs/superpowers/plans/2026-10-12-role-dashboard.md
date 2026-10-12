@@ -83,7 +83,7 @@
 - `AttentionItem` 不含 `studentNo/contact/content/code`。
 - `docs/api/openapi.yaml` 与 `backend/src/main/resources/api-contract.yaml` 字节一致。
 
-Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=DashboardApiContractIT verify`  
+Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=DashboardApiContractIT verify`
 Expected: missing dashboard paths/DTOs.
 
 - [ ] **Step 2: 实现契约与前端交接**
@@ -92,7 +92,7 @@ Expected: missing dashboard paths/DTOs.
 
 - [ ] **Step 3: 运行 GREEN**
 
-Run: `DashboardApiContractIT verify`  
+Run: `DashboardApiContractIT verify`
 Expected: PASS；两份 YAML `Files.mismatch == -1`。
 
 - [ ] **Step 4: Commit**
@@ -139,7 +139,7 @@ git commit -m "docs: freeze role dashboard API contract"
 - `adminDashboardDateBucketUsesBusinessCalendar`：跨 UTC 午夜 fixture 落入 `Asia/Shanghai` 正确日期。
 - `adminAttentionListIsBoundedAndSafe`：超过10条风险时只返回10条，响应无 `studentNo/contact/content/code`。
 
-Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=AdminDashboardHttpIT verify`  
+Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=AdminDashboardHttpIT verify`
 Expected: 404/无路由或缺少 service 行为。
 
 - [ ] **Step 2: 实现 range、查询支持和管理员服务**
@@ -154,7 +154,7 @@ Expected: 404/无路由或缺少 service 行为。
 
 - [ ] **Step 3: 运行 GREEN**
 
-Run: `AdminDashboardHttpIT verify`  
+Run: `AdminDashboardHttpIT verify`
 Expected: PASS；现有管理/报告/积分测试无回归。
 
 - [ ] **Step 4: Commit**
@@ -196,7 +196,7 @@ git commit -m "feat: add admin role dashboard"
 - `range=30d` 和非法 range 分别正确。
 - admin/student 调用 leader 路由为403。
 
-Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=LeaderDashboardHttpIT verify`  
+Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=LeaderDashboardHttpIT verify`
 Expected: 无 leader 路由。
 
 - [ ] **Step 2: 实现负责人聚合**
@@ -205,7 +205,7 @@ Expected: 无 leader 路由。
 
 - [ ] **Step 3: 运行 GREEN**
 
-Run: `LeaderDashboardHttpIT verify`  
+Run: `LeaderDashboardHttpIT verify`
 Expected: PASS；负责人既有报告/积分/权限测试无回归。
 
 - [ ] **Step 4: Commit**
@@ -246,7 +246,7 @@ git commit -m "feat: add leader role dashboard"
 - 响应不含 `studentNo/contact/content/code/privateTestData/rawProviderResponse`。
 - 看板请求前后 `point_ledger`、报告状态和成员状态不变。
 
-Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=StudentDashboardHttpIT verify`  
+Run: `backend/mvnw -f backend/pom.xml -B -ntp -Dit.test=StudentDashboardHttpIT verify`
 Expected: 无 student 路由。
 
 - [ ] **Step 2: 实现学生聚合**
@@ -255,7 +255,7 @@ Expected: 无 student 路由。
 
 - [ ] **Step 3: 运行 GREEN**
 
-Run: `StudentDashboardHttpIT verify`  
+Run: `StudentDashboardHttpIT verify`
 Expected: PASS；学生报告、积分、排名测试无回归。
 
 - [ ] **Step 4: Commit**
@@ -297,7 +297,7 @@ git commit -m "feat: add student role dashboard"
 
 - [ ] **Step 3: 运行 GREEN**
 
-Run: `DashboardPrivacyIT,DashboardApiContractIT,ImplementedApiContractIT verify`  
+Run: `DashboardPrivacyIT,DashboardApiContractIT,ImplementedApiContractIT verify`
 Expected: PASS，两份 YAML 字节一致。
 
 - [ ] **Step 4: Commit**
@@ -321,7 +321,7 @@ git commit -m "test: secure role dashboard contracts"
 
 - [ ] **Step 1: 全量验证**
 
-Run：`backend/mvnw -f backend/pom.xml -B -ntp clean verify`。  
+Run：`backend/mvnw -f backend/pom.xml -B -ntp clean verify`。
 同时执行 OpenAPI 规范/示例校验、两份契约副本比较、依赖树、tracked 文件密钥扫描、Knife4j 浏览器冒烟和 `git diff --check`。记录真实测试计数和产物。
 
 - [ ] **Step 2: 独立审查**
