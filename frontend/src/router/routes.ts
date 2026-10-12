@@ -116,6 +116,92 @@ export const routes: RouteRecordRaw[] = [
     ],
   },
 
+  // -- OJ 考核（独立领域，不写入现有积分） ------------------------------------
+  {
+    path: '/oj',
+    component: () => import('@/layouts/DefaultLayout.vue'),
+    children: [
+      {
+        path: 'assessments',
+        name: 'oj-assessments',
+        component: () => import('@/views/oj/AssessmentListView.vue'),
+        meta: { title: 'OJ 考核' },
+      },
+      {
+        path: 'assessments/new',
+        name: 'oj-assessment-new',
+        component: () => import('@/views/oj/AssessmentEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '创建 OJ 考核' },
+      },
+      {
+        path: 'assessments/:assessmentId',
+        name: 'oj-assessment-detail',
+        component: () => import('@/views/oj/AssessmentDetailView.vue'),
+        meta: { title: 'OJ 考核详情' },
+      },
+      {
+        path: 'assessments/:assessmentId/edit',
+        name: 'oj-assessment-edit',
+        component: () => import('@/views/oj/AssessmentEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '编辑 OJ 考核' },
+      },
+      {
+        path: 'assessments/:assessmentId/results',
+        name: 'oj-assessment-results',
+        component: () => import('@/views/oj/AssessmentResultsView.vue'),
+        meta: { title: 'OJ 考核结果' },
+      },
+      {
+        path: 'problems',
+        name: 'oj-problems',
+        component: () => import('@/views/oj/ProblemListView.vue'),
+        meta: { title: 'OJ 题库' },
+      },
+      {
+        path: 'problems/new',
+        name: 'oj-problem-new',
+        component: () => import('@/views/oj/ProblemEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '创建 OJ 题目' },
+      },
+      {
+        path: 'problems/:problemId',
+        name: 'oj-problem-detail',
+        component: () => import('@/views/oj/ProblemDetailView.vue'),
+        meta: { title: 'OJ 题目详情' },
+      },
+      {
+        path: 'problems/:problemId/edit',
+        name: 'oj-problem-edit',
+        component: () => import('@/views/oj/ProblemEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '编辑 OJ 题目' },
+      },
+      {
+        path: 'assessments/:assessmentId/problems/:problemId/solve',
+        name: 'oj-submit-code',
+        component: () => import('@/views/oj/CodeSubmitView.vue'),
+        meta: { roles: ['STUDENT'], title: 'OJ 代码提交' },
+      },
+      {
+        path: 'submissions',
+        name: 'oj-submissions',
+        component: () => import('@/views/oj/SubmissionListView.vue'),
+        meta: { title: 'OJ 提交记录' },
+      },
+      {
+        path: 'submissions/:submissionId',
+        name: 'oj-submission-detail',
+        component: () => import('@/views/oj/SubmissionDetailView.vue'),
+        meta: { title: 'OJ 提交详情' },
+      },
+      {
+        path: 'submissions/:submissionId/review',
+        name: 'oj-submission-review',
+        component: () => import('@/views/oj/ReviewSubmissionView.vue'),
+        meta: { roles: STAFF_ROLES, title: 'OJ 人工批阅' },
+      },
+    ],
+  },
+
   // -- 排行榜（三种角色都可看，但展示字段受限） --------------------------------
   {
     path: '/rankings',

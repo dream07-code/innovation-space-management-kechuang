@@ -109,6 +109,36 @@ export type RankingPeriod = NonNullable<MyRanking['period']>
 export type AuditEntry = Schemas['AuditEntry']
 
 // ---------------------------------------------------------------------------
+// OJ 考核（第二阶段）
+// ---------------------------------------------------------------------------
+
+export type ProblemExample = Schemas['ProblemExample']
+export type Assessment = Schemas['Assessment']
+export type AssessmentProblem = Schemas['AssessmentProblem']
+export type AssessmentSubmission = Schemas['AssessmentSubmission']
+export type OjJudgeResult = Schemas['OjJudgeResult']
+export type AiEvaluation = Schemas['AiEvaluation']
+export type AssessmentReview = Schemas['AssessmentReview']
+export type AssessmentResult = Schemas['AssessmentResult']
+export type CreateAssessmentRequest = Schemas['CreateAssessmentRequest']
+export type UpdateAssessmentRequest = Schemas['UpdateAssessmentRequest']
+export type AssessmentCommandRequest = Schemas['AssessmentCommandRequest']
+export type CreateAssessmentProblemRequest = Schemas['CreateAssessmentProblemRequest']
+export type UpdateAssessmentProblemRequest = Schemas['UpdateAssessmentProblemRequest']
+export type CreateAssessmentSubmissionRequest = Schemas['CreateAssessmentSubmissionRequest']
+export type CreateAssessmentReviewRequest = Schemas['CreateAssessmentReviewRequest']
+
+export type AssessmentLanguage = Assessment['allowedLanguages'][number]
+export type AssessmentStatus = Assessment['status']
+export type AssessmentProblemStatus = AssessmentProblem['status']
+export type AssessmentSubmissionStatus = AssessmentSubmission['status']
+export type OjVerdict = OjJudgeResult['verdict']
+export type AiEvaluationStatus = AiEvaluation['status']
+export type AssessmentReviewStatus = AssessmentReview['status']
+export type AssessmentScoreSource = AssessmentResult['scoreSource']
+export type AssessmentResultStatus = AssessmentResult['resultStatus']
+
+// ---------------------------------------------------------------------------
 // 枚举（供 UI 映射与筛选使用）
 // ---------------------------------------------------------------------------
 

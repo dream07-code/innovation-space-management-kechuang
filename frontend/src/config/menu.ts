@@ -34,6 +34,24 @@ export interface MenuGroup {
   items: MenuItem[]
 }
 
+const OJ_MEMBER_GROUP: MenuGroup = {
+  title: 'OJ 考核',
+  items: [
+    { label: '考核列表', path: '/oj/assessments', icon: 'medal' },
+    { label: '题库', path: '/oj/problems', icon: 'list' },
+    { label: '提交记录', path: '/oj/submissions', icon: 'document' },
+  ],
+}
+
+const OJ_STAFF_GROUP: MenuGroup = {
+  title: 'OJ 管理',
+  items: [
+    { label: '考核管理', path: '/oj/assessments', icon: 'medal' },
+    { label: '题库管理', path: '/oj/problems', icon: 'list' },
+    { label: '提交记录', path: '/oj/submissions', icon: 'document' },
+  ],
+}
+
 const MEMBER_GROUPS: MenuGroup[] = [
   {
     title: '我的',
@@ -93,15 +111,16 @@ export function menuForRole(role: Role | null): MenuGroup[] {
       },
       ...STAFF_GROUPS,
       ...ADMIN_ONLY_GROUPS,
+      OJ_STAFF_GROUP,
       RANKING_GROUP,
     ]
   }
 
   if (role === 'DIRECTION_LEADER') {
-    return [...MEMBER_GROUPS, ...STAFF_GROUPS, RANKING_GROUP]
+    return [...MEMBER_GROUPS, OJ_STAFF_GROUP, ...STAFF_GROUPS, RANKING_GROUP]
   }
 
-  return [...MEMBER_GROUPS, RANKING_GROUP]
+  return [...MEMBER_GROUPS, OJ_MEMBER_GROUP, RANKING_GROUP]
 }
 
 /** 角色中文名，用于界面展示。 */
