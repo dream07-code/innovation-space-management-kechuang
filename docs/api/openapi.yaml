@@ -2,7 +2,27 @@ openapi: 3.0.3
 info:
   title: 学院科创空间管理系统 API 契约
   version: 1.0.0-draft
-  description: 前后端并行开发的设计契约，不代表接口已实现。仅health已在backend@e16d7fc实现；其余planned/pending。登录身份规则已确认，其余政策看x-rule-status和README。示例均虚构，不含真实初始密码。
+  description: 前后端并行开发的设计契约。以每条路径的x-implementation-status为准；OJ考核路径可先用planned DTO和Mock开发，真实OJ私有字段不进入前端。登录身份规则已确认，其余政策看x-rule-status和README。示例均虚构，不含真实初始密码。
+x-frontend-contract:
+  baseline: backend
+  mockWorkflow:
+    enabled: true
+    rule: 前端按 planned DTO 建 Mock；真实 OJ、AI 和数据库联调前不猜测私有字段。
+    assessmentStates: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]
+    submissionStates: [RECEIVED, JUDGING, JUDGED, FAILED, NEEDS_REVIEW]
+    evaluationStates: [PENDING, COMPLETE, FAILED, NEEDS_REVIEW]
+    resultStates: [PENDING, COMPLETE, NEEDS_REVIEW]
+  roleMatrix:
+    COLLEGE_ADMIN: [assessment.manage, problem.manage, submission.read, evaluation.read, review.manage, result.read]
+    DIRECTION_LEADER: [assessment.manage.scope, problem.manage, submission.read.scope, evaluation.read.scope, review.manage.scope, result.read.scope]
+    STUDENT: [assessment.read.published, problem.read.published, submission.create.own, submission.read.own, evaluation.read.own, result.read.own]
+  errorCodes: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, INVALID_STATE, VERSION_CONFLICT, IDEMPOTENCY_CONFLICT, SERVICE_UNAVAILABLE]
+  privacy:
+    neverExpose: [code, codeText, codeLocator, privateTestData, rawProviderResponse, apiToken, password]
+    idFormat: 十进制字符串；前端不得转换为 JavaScript Number。
+  idempotency:
+    requiredFor: [assessment.create, assessment.publish, assessment.close, submission.create, review.create]
+    header: Idempotency-Key
 servers:
 - url: /
   description: 相对当前origin；导入Mock工具后替换为Mock/联调地址，勿重复/api/v1前缀。
@@ -16,6 +36,10 @@ tags:
 - name: 评分复核
 - name: 积分
 - name: 排行榜
+- name: OJ考核
+- name: OJ题目
+- name: OJ提交
+- name: OJ评分
 - name: 规则
 - name: 审计
 - name: 运行状态
@@ -461,6 +485,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
   /api/v1/members:
     get:
       tags:
@@ -517,6 +542,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: keyword
         in: query
         required: false
@@ -680,6 +706,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
     patch:
       tags:
       - 成员
@@ -753,6 +780,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       requestBody:
         required: true
         content:
@@ -834,6 +862,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -917,6 +946,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1001,6 +1031,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1055,6 +1086,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       requestBody:
         required: true
         content:
@@ -1135,6 +1167,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1200,6 +1233,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
     post:
       tags:
       - 负责人
@@ -1350,6 +1384,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       requestBody:
         required: true
         content:
@@ -1432,6 +1467,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1499,6 +1535,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: directionId
         in: query
         required: false
@@ -1508,6 +1545,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: fromDate
         in: query
         required: false
@@ -1689,6 +1727,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
     patch:
       tags:
       - 日报
@@ -1761,6 +1800,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       requestBody:
         required: true
         content:
@@ -1843,6 +1883,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1909,6 +1950,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: directionId
         in: query
         required: false
@@ -1918,6 +1960,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: fromDate
         in: query
         required: false
@@ -2101,6 +2144,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
     patch:
       tags:
       - 周报
@@ -2174,6 +2218,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       requestBody:
         required: true
         content:
@@ -2257,6 +2302,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -2266,6 +2312,706 @@ paths:
               $ref: '#/components/schemas/VersionRequest'
             example:
               version: 1
+  /api/v1/assessments:
+    get:
+      tags:
+      - OJ考核
+      summary: 查询考核
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - OJ考核
+      summary: 创建考核
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentRequest'
+
+  /api/v1/assessments/{assessmentId}:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    get:
+      tags:
+      - OJ考核
+      summary: 获取考核详情
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      tags:
+      - OJ考核
+      summary: 修改考核
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssessmentRequest'
+
+  /api/v1/assessments/{assessmentId}/publish:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    post:
+      tags:
+      - OJ考核
+      summary: 发布考核
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentCommandRequest'
+
+  /api/v1/assessments/{assessmentId}/close:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    post:
+      tags:
+      - OJ考核
+      summary: 关闭考核
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentCommandRequest'
+
+  /api/v1/assessment-problems:
+    get:
+      tags:
+      - OJ题目
+      summary: 查询题库
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - OJ题目
+      summary: 创建题目
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentProblemRequest'
+
+  /api/v1/assessment-problems/{problemId}:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags:
+      - OJ题目
+      summary: 获取题目
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      tags:
+      - OJ题目
+      summary: 修改题目
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssessmentProblemRequest'
+
+  /api/v1/assessment-problems/{problemId}/retire:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags:
+      - OJ题目
+      summary: 退役题目
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentCommandRequest'
+
+  /api/v1/assessments/{assessmentId}/submissions:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    post:
+      tags:
+      - OJ提交
+      summary: 提交代码
+      x-implementation-status: planned
+      x-roles:
+      - STUDENT
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSubmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentSubmissionRequest'
+
+  /api/v1/assessment-submissions:
+    get:
+      tags:
+      - OJ提交
+      summary: 查询提交记录
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSubmissionPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/assessment-submissions/{submissionId}:
+    parameters:
+    - $ref: '#/components/parameters/SubmissionId'
+    get:
+      tags:
+      - OJ提交
+      summary: 获取提交与OJ结果
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSubmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/assessment-submissions/{submissionId}/ai-evaluation:
+    parameters:
+    - $ref: '#/components/parameters/SubmissionId'
+    get:
+      tags:
+      - OJ评分
+      summary: 获取AI评分
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiEvaluationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/assessment-submissions/{submissionId}/reviews:
+    parameters:
+    - $ref: '#/components/parameters/SubmissionId'
+    get:
+      tags:
+      - OJ评分
+      summary: 查询人工批阅
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentReviewPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - OJ评分
+      summary: 提交人工批阅
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentReviewRequest'
+
+  /api/v1/assessments/{assessmentId}/results:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    get:
+      tags:
+      - OJ评分
+      summary: 查询考核结果
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResultPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/v1/score-reviews:
     get:
       tags:
@@ -2455,6 +3201,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -2578,6 +3325,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: month
         in: query
         required: false
@@ -2714,6 +3462,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
       - name: period
@@ -2920,6 +3669,7 @@ paths:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+
       - name: action
         in: query
         required: false
@@ -2962,6 +3712,27 @@ components:
       scheme: bearer
       description: access token；客户端视为不透明字符串。受限改密token不具备一般业务权限。
   parameters:
+    AssessmentId:
+      name: assessmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+    ProblemId:
+      name: problemId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+    SubmissionId:
+      name: submissionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
     Page:
       name: page
       in: query
@@ -3472,6 +4243,658 @@ components:
           minimum: 1
           maximum: 2147483647
       additionalProperties: false
+    ProblemExample:
+      type: object
+      required:
+      - input
+      - output
+      properties:
+        input:
+          type: string
+        output:
+          type: string
+        explanation:
+          type: string
+          nullable: true
+      additionalProperties: false
+    Assessment:
+      type: object
+      required:
+      - id
+      - title
+      - description
+      - directionId
+      - directionName
+      - status
+      - startAt
+      - endAt
+      - allowedLanguages
+      - problemIds
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 10000
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        directionName:
+          type: string
+          maxLength: 128
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        allowedLanguages:
+          type: array
+          items:
+            type: string
+            enum: [java, python, cpp, javascript, go, rust]
+          minItems: 1
+        problemIds:
+          type: array
+          items:
+            type: string
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AssessmentProblem:
+      type: object
+      required:
+      - id
+      - title
+      - summary
+      - description
+      - inputFormat
+      - outputFormat
+      - examples
+      - difficulty
+      - tags
+      - timeLimitMs
+      - memoryLimitKb
+      - allowedLanguages
+      - status
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        summary:
+          type: string
+          maxLength: 300
+        description:
+          type: string
+          maxLength: 20000
+        inputFormat:
+          type: string
+          maxLength: 5000
+        outputFormat:
+          type: string
+          maxLength: 5000
+        examples:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemExample'
+          maxItems: 20
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          maxItems: 20
+        timeLimitMs:
+          type: integer
+          minimum: 100
+          maximum: 30000
+        memoryLimitKb:
+          type: integer
+          minimum: 1024
+          maximum: 1048576
+        allowedLanguages:
+          type: array
+          items:
+            type: string
+            enum: [java, python, cpp, javascript, go, rust]
+          minItems: 1
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, RETIRED]
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    OjJudgeResult:
+      type: object
+      required:
+      - verdict
+      - passedTestCases
+      - totalTestCases
+      - timeMs
+      - memoryKb
+      - safeError
+      properties:
+        verdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        passedTestCases:
+          type: integer
+          minimum: 0
+        totalTestCases:
+          type: integer
+          minimum: 0
+        timeMs:
+          type: integer
+          minimum: 0
+        memoryKb:
+          type: integer
+          minimum: 0
+        safeError:
+          type: string
+          nullable: true
+          maxLength: 500
+      additionalProperties: false
+    AssessmentSubmission:
+      type: object
+      required:
+      - id
+      - assessmentId
+      - problemId
+      - memberId
+      - language
+      - status
+      - version
+      - submittedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        assessmentId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        problemId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        language:
+          type: string
+          enum: [java, python, cpp, javascript, go, rust]
+        status:
+          type: string
+          enum: [RECEIVED, JUDGING, JUDGED, FAILED, NEEDS_REVIEW]
+        judgeResult:
+          $ref: '#/components/schemas/OjJudgeResult'
+        codeHash:
+          type: string
+          maxLength: 128
+        version:
+          type: integer
+          minimum: 1
+        submittedAt:
+          type: string
+          format: date-time
+        judgedAt:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+    AiEvaluation:
+      type: object
+      required:
+      - id
+      - submissionId
+      - status
+      - score
+      - reason
+      - model
+      - rubricVersion
+      - createdAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        submissionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        status:
+          type: string
+          enum: [PENDING, COMPLETE, FAILED, NEEDS_REVIEW]
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        reason:
+          type: string
+          maxLength: 1000
+          nullable: true
+        model:
+          type: string
+          maxLength: 128
+          nullable: true
+        rubricVersion:
+          type: string
+          maxLength: 64
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AssessmentReview:
+      type: object
+      required:
+      - id
+      - submissionId
+      - memberId
+      - reviewerId
+      - score
+      - comment
+      - status
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        submissionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        reviewerId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        status:
+          type: string
+          enum: [ACTIVE, SUPERSEDED]
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AssessmentResult:
+      type: object
+      required:
+      - assessmentId
+      - submissionId
+      - problemId
+      - memberId
+      - technicalVerdict
+      - passedTestCases
+      - totalTestCases
+      - timeMs
+      - memoryKb
+      - aiScore
+      - humanScore
+      - finalScore
+      - scoreSource
+      - resultStatus
+      - publishedAt
+      properties:
+        assessmentId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        submissionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        problemId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        memberId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+        technicalVerdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        passedTestCases:
+          type: integer
+          minimum: 0
+        totalTestCases:
+          type: integer
+          minimum: 0
+        timeMs:
+          type: integer
+          minimum: 0
+        memoryKb:
+          type: integer
+          minimum: 0
+        aiScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        humanScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        finalScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        scoreSource:
+          type: string
+          enum: [HUMAN, AI, PENDING, UNAVAILABLE]
+        resultStatus:
+          type: string
+          enum: [PENDING, COMPLETE, NEEDS_REVIEW]
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+    CreateAssessmentRequest:
+      type: object
+      required: [title, description, directionId, startAt, endAt, allowedLanguages, problemIds]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120}
+        description: {type: string, maxLength: 10000}
+        directionId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        allowedLanguages:
+          type: array
+          items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+          minItems: 1
+        problemIds:
+          type: array
+          items: {type: string}
+      additionalProperties: false
+    UpdateAssessmentRequest:
+      type: object
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1}
+        title: {type: string, minLength: 1, maxLength: 120}
+        description: {type: string, maxLength: 10000}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        allowedLanguages:
+          type: array
+          items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+        problemIds:
+          type: array
+          items: {type: string}
+      minProperties: 2
+      additionalProperties: false
+    AssessmentCommandRequest:
+      type: object
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1}
+      additionalProperties: false
+    CreateAssessmentProblemRequest:
+      type: object
+      required: [title, summary, description, inputFormat, outputFormat, examples, difficulty, tags, timeLimitMs, memoryLimitKb, allowedLanguages]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120}
+        summary: {type: string, maxLength: 300}
+        description: {type: string, maxLength: 20000}
+        inputFormat: {type: string, maxLength: 5000}
+        outputFormat: {type: string, maxLength: 5000}
+        examples:
+          type: array
+          items: {$ref: '#/components/schemas/ProblemExample'}
+          maxItems: 20
+        difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+        tags:
+          type: array
+          items: {type: string, maxLength: 40}
+          maxItems: 20
+        timeLimitMs: {type: integer, minimum: 100, maximum: 30000}
+        memoryLimitKb: {type: integer, minimum: 1024, maximum: 1048576}
+        allowedLanguages:
+          type: array
+          items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+          minItems: 1
+      additionalProperties: false
+    UpdateAssessmentProblemRequest:
+      type: object
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1}
+        title: {type: string, minLength: 1, maxLength: 120}
+        summary: {type: string, maxLength: 300}
+        description: {type: string, maxLength: 20000}
+        inputFormat: {type: string, maxLength: 5000}
+        outputFormat: {type: string, maxLength: 5000}
+        examples:
+          type: array
+          items: {$ref: '#/components/schemas/ProblemExample'}
+        difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+        tags:
+          type: array
+          items: {type: string, maxLength: 40}
+        timeLimitMs: {type: integer, minimum: 100, maximum: 30000}
+        memoryLimitKb: {type: integer, minimum: 1024, maximum: 1048576}
+        allowedLanguages:
+          type: array
+          items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+      minProperties: 2
+      additionalProperties: false
+    CreateAssessmentSubmissionRequest:
+      type: object
+      required: [problemId, language, code]
+      properties:
+        problemId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        language: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+        code: {type: string, minLength: 1, maxLength: 200000}
+      additionalProperties: false
+    CreateAssessmentReviewRequest:
+      type: object
+      required: [submissionVersion, reviewVersion, score, comment]
+      properties:
+        submissionVersion: {type: integer, minimum: 1}
+        reviewVersion: {type: integer, minimum: 1}
+        score: {type: integer, minimum: 0, maximum: 100}
+        comment: {type: string, minLength: 1, maxLength: 2000}
+      additionalProperties: false
+    AssessmentResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/Assessment'}
+    AssessmentPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Assessment'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentPage'}
+    AssessmentProblemResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentProblem'}
+    AssessmentProblemPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblem'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentProblemPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentProblemPage'}
+    AssessmentSubmissionResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentSubmission'}
+    AssessmentSubmissionPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentSubmission'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentSubmissionPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentSubmissionPage'}
+    AiEvaluationResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AiEvaluation'}
+    AssessmentReviewResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentReview'}
+    AssessmentReviewPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentReview'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentReviewPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentReviewPage'}
+    AssessmentResultPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentResult'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentResultPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentResultPage'}
     Member:
       type: object
       required:
@@ -3549,6 +4972,12 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+            uniqueItems: true
         managedDirectionIds:
           type: array
           items:
@@ -3556,7 +4985,7 @@ components:
             description: 十进制字符串 ID，不转换为 JavaScript Number。
             pattern: ^[1-9][0-9]{0,18}$
             example: '201'
-          uniqueItems: true
+            uniqueItems: true
         membershipStatus:
           type: string
           enum:
@@ -3682,6 +5111,11 @@ components:
           minLength: 1
           maxLength: 64
           example: 示例同学
+        directionId:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
         major:
           type: string
           maxLength: 100
@@ -3701,11 +5135,6 @@ components:
           description: 仅本人及有权限的管理人员可见。
           maxLength: 100
           nullable: true
-        directionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
       additionalProperties: false
     UpdateMemberRequest:
       type: object
@@ -3804,6 +5233,13 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+            minItems: 1
+            uniqueItems: true
         version:
           type: integer
           format: int32
@@ -3816,8 +5252,8 @@ components:
             description: 十进制字符串 ID，不转换为 JavaScript Number。
             pattern: ^[1-9][0-9]{0,18}$
             example: '201'
-          minItems: 1
-          uniqueItems: true
+            minItems: 1
+            uniqueItems: true
         reason:
           type: string
           minLength: 5
@@ -3835,6 +5271,11 @@ components:
           format: int32
           minimum: 1
           example: 1
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 1000
+          example: 已核对本次操作原因
         name:
           type: string
           minLength: 1
@@ -3864,6 +5305,13 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+          items:
+            type: string
+            description: 十进制字符串 ID，不转换为 JavaScript Number。
+            pattern: ^[1-9][0-9]{0,18}$
+            example: '201'
+            minItems: 1
+            uniqueItems: true
         managedDirectionIds:
           type: array
           items:
@@ -3871,18 +5319,13 @@ components:
             description: 十进制字符串 ID，不转换为 JavaScript Number。
             pattern: ^[1-9][0-9]{0,18}$
             example: '201'
-          minItems: 1
-          uniqueItems: true
+            minItems: 1
+            uniqueItems: true
         accountStatus:
           type: string
           enum:
           - ENABLED
           - DISABLED
-        reason:
-          type: string
-          minLength: 5
-          maxLength: 1000
-          example: 已核对本次操作原因
       additionalProperties: false
       minProperties: 3
     DailyReport:
