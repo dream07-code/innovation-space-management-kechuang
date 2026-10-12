@@ -59,6 +59,15 @@ app:
     max-final-score: ${REPORT_MAX_FINAL_SCORE:3}
     daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
     weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
+  oj:
+    provider: ${OJ_PROVIDER:mock}
+    base-url: ${OJ_BASE_URL:}
+    api-token: ${OJ_API_TOKEN:}
+    connect-timeout-ms: ${OJ_CONNECT_TIMEOUT_MS:3000}
+    request-timeout-ms: ${OJ_REQUEST_TIMEOUT_MS:30000}
+    cpu-time-limit-seconds: ${OJ_CPU_TIME_LIMIT_SECONDS:2}
+    memory-limit-kb: ${OJ_MEMORY_LIMIT_KB:128000}
+    max-response-bytes: ${OJ_MAX_RESPONSE_BYTES:1048576}
   membership:
     auto-removal-enabled: ${MEMBERSHIP_AUTO_REMOVAL_ENABLED:true}
     removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
