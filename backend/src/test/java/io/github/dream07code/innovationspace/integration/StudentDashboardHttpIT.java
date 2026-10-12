@@ -102,6 +102,25 @@ class StudentDashboardHttpIT {
   }
 
   @Test
+  void studentRankingUsesCompetitionRankForTiedStudents() throws Exception {
+    Timestamp now = businessNow();
+    seedMember(13, "STUDENT", 1);
+    points(10, 3, now);
+    points(11, 3, now);
+    points(13, 3, now);
+    var response = send(studentToken, "GET", "/api/v1/dashboard/student", null);
+    assertEquals(200, response.statusCode());
+    assertEquals(1, HttpTestSupport.json(response).at("/data/rankingPreview/overallRank").asInt());
+    assertEquals(3, HttpTestSupport.json(response).at("/data/rankingPreview/overallCount").asInt());
+    assertEquals(1, HttpTestSupport.json(response).at("/data/rankingPreview/directionRank").asInt());
+    String thirdToken = sessions.issue(13).accessToken();
+    var third = send(thirdToken, "GET", "/api/v1/dashboard/student", null);
+    assertEquals(200, third.statusCode());
+    assertEquals(1, HttpTestSupport.json(third).at("/data/rankingPreview/overallRank").asInt());
+    assertEquals(1, HttpTestSupport.json(third).at("/data/rankingPreview/directionRank").asInt());
+  }
+
+  @Test
   void studentRoleMatrixRangeAndMutationRulesAreEnforced() throws Exception {
     report(10, 1, "DAILY", businessNow(), "SUBMITTED", "QUEUED");
     Map<String, Object> before = counts();

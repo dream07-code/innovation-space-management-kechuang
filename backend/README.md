@@ -172,3 +172,13 @@ OJ 考核接口先以 `planned` OpenAPI 契约发布，前端可开发考核/题
 当前默认 `OJ_PROVIDER=mock`。选型报告见 `docs/superpowers/reports/2026-10-12-open-source-oj-selection.md`：Judge0 适配器已实现并用本地 fake HTTP contract tests 验证，但真实启用前必须部署隔离的 Judge0 服务、提供受控私有测试用例加载器，并完成 GPL-3.0 合规审查。`OJ_PROVIDER=judge0` 时仅服务端访问 `OJ_BASE_URL`/`OJ_API_TOKEN`，浏览器不能调用 OJ 私有 API。
 
 AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。积分排行榜及排名人数仅统计 `ACTIVE` 学生；方向负责人保留报告积分和流水，但不进入总榜、方向榜或个人排名，前端隐藏负责人的“我的排名”。
+
+## 角色化数据看板
+
+首页数据看板按角色提供独立的只读聚合接口：
+
+- `GET /api/v1/dashboard/admin?range=7d|30d`：学院管理员，管理员默认 `30d`，包含人员、报告、评分、积分、方向对比、OJ 和脱敏待办。
+- `GET /api/v1/dashboard/leader?range=7d|30d`：方向负责人，默认 `7d`，只统计获授权方向；负责人不进入学生排行榜。
+- `GET /api/v1/dashboard/student?range=7d|30d`：学生，默认 `7d`，只返回本人积分、排名、报告、OJ、积分流水和进度。
+
+三个接口都只读，不修改积分、报告、成员或 OJ 状态；响应不包含学号、联系方式、报告全文、代码、私有测试数据、模型原始输出或 Token。前端布局和响应式/可访问性要求见 `docs/frontend/2026-10-12-role-dashboard-handoff.md`。

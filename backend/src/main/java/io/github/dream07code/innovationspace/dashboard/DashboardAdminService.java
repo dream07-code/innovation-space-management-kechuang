@@ -142,7 +142,7 @@ public class DashboardAdminService {
         "SELECT d.id,d.name,COUNT(DISTINCT CASE WHEN u.role='STUDENT' AND m.membership_status='ACTIVE' THEN m.id END) activeStudents,"
             + " COUNT(DISTINCT CASE WHEN r.report_type='DAILY' AND r.status='SUBMITTED' THEN r.id END) dailySubmitted,"
             + " COUNT(DISTINCT CASE WHEN r.report_type='WEEKLY' AND r.status='SUBMITTED' THEN r.id END) weeklySubmitted,"
-            + " COALESCE(SUM(CASE WHEN p.delta>0 THEN p.delta ELSE 0 END),0) pointsTotal,"
+            + " COALESCE((SELECT SUM(CASE WHEN lp.delta>0 THEN lp.delta ELSE 0 END) FROM point_ledger lp JOIN member lm ON lm.id=lp.member_id JOIN app_user lu ON lu.member_id=lm.id WHERE lm.direction_id=d.id AND lu.role='STUDENT' AND lm.membership_status='ACTIVE'),0) pointsTotal,"
             + " COUNT(DISTINCT CASE WHEN t.status='FAILED' THEN t.id END) failedAi,"
             + " COUNT(DISTINCT CASE WHEN rv.status='PENDING' THEN rv.id END) pendingReview,"
             + " COUNT(DISTINCT CASE WHEN s.status IN ('RECEIVED','JUDGING') THEN s.id END) pendingOj"
@@ -152,10 +152,9 @@ public class DashboardAdminService {
             + " LEFT JOIN report r ON r.member_id=m.id AND r.first_submitted_at>=? AND r.first_submitted_at<?"
             + " LEFT JOIN report_scoring_task t ON t.report_id=r.id AND t.status='FAILED'"
             + " LEFT JOIN report_review rv ON rv.report_id=r.id AND rv.status='PENDING'"
-            + " LEFT JOIN point_ledger p ON p.member_id=m.id AND p.business_effective_at>=? AND p.business_effective_at<?"
             + " LEFT JOIN assessment_submission s ON s.member_id=m.id AND s.status IN ('RECEIVED','JUDGING')"
             + " GROUP BY d.id,d.name ORDER BY activeStudents DESC,d.id ASC",
-        start, end, start, end);
+        start, end);
     var result = new ArrayList<Map<String, Object>>();
     for (var row : rows) {
       long active = longValue(row.get("activeStudents"));

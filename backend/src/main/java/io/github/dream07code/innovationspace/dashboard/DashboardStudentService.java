@@ -48,7 +48,6 @@ public class DashboardStudentService {
         "SELECT m.direction_id,m.membership_status FROM member m JOIN app_user u ON u.member_id=m.id"
             + " WHERE m.id=? AND u.role='STUDENT'",
         memberId);
-    boolean eligible = "ACTIVE".equals(member.get("membership_status"));
     var ranks = ranking(memberId);
     var last = jdbc.queryForMap(
         "SELECT MAX(CASE WHEN report_type='DAILY' AND status='SUBMITTED' THEN first_submitted_at END) lastDaily,"
@@ -170,20 +169,34 @@ public class DashboardStudentService {
         ((Number) row.get("direction_id")).longValue() == currentDirection).count());
     out.put("eligible", jdbc.queryForObject(
         "SELECT membership_status='ACTIVE' FROM member WHERE id=?", Boolean.class, memberId));
+    int previousRank = 0;
+    long previousPoints = Long.MIN_VALUE;
     for (int i = 0; i < ranked.size(); i++) {
+      long points = ((Number) ranked.get(i).get("points")).longValue();
+      int rank = points == previousPoints ? previousRank : i + 1;
+      previousPoints = points;
+      previousRank = rank;
       if (((Number) ranked.get(i).get("id")).longValue() != memberId) continue;
-      int rank = i + 1;
-      if (i > 0 && ((Number) ranked.get(i).get("points")).longValue()
-          == ((Number) ranked.get(i - 1).get("points")).longValue()) rank = i;
       out.put("overallRank", rank);
-      long directionRank = ranked.stream()
+      var directionRanked = ranked.stream()
           .filter(row -> ((Number) row.get("direction_id")).longValue() == currentDirection)
           .sorted(Comparator.comparing((Map<String, Object> row) -> ((Number) row.get("points")).longValue()).reversed()
               .thenComparing(row -> ((Number) row.get("id")).longValue()))
-          .map(row -> ((Number) row.get("id")).longValue())
-          .toList()
-          .indexOf(memberId) + 1;
-      out.put("directionRank", directionRank > 0 ? directionRank : null);
+          .toList();
+      int previousDirectionRank = 0;
+      long previousDirectionPoints = Long.MIN_VALUE;
+      Integer directionRank = null;
+      for (int j = 0; j < directionRanked.size(); j++) {
+        long directionPoints = ((Number) directionRanked.get(j).get("points")).longValue();
+        int directionRankValue = directionPoints == previousDirectionPoints ? previousDirectionRank : j + 1;
+        previousDirectionPoints = directionPoints;
+        previousDirectionRank = directionRankValue;
+        if (((Number) directionRanked.get(j).get("id")).longValue() == memberId) {
+          directionRank = directionRankValue;
+          break;
+        }
+      }
+      out.put("directionRank", directionRank);
       break;
     }
     return out;

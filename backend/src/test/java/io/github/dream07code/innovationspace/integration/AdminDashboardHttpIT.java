@@ -104,6 +104,7 @@ class AdminDashboardHttpIT {
     assertEquals(2, data.at("/trends/29/dailySubmitted").asInt());
     assertEquals(3, data.at("/trends/29/pointsAdded").asInt());
     assertEquals(7, data.at("/directions").size());
+    assertEquals(1.5D, data.at("/directions/0/averagePoints").asDouble(), 0.01D);
     assertTrue(data.at("/attention").size() >= 3);
     assertFalse(response.body().contains("MOCK10"));
     assertFalse(response.body().contains("contact"));

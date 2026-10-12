@@ -102,6 +102,20 @@ class LeaderDashboardHttpIT {
   }
 
   @Test
+  void leaderRankingUsesCompetitionRankForTiedStudents() throws Exception {
+    Timestamp now = businessNow();
+    seedMember(13, "STUDENT", 1);
+    points(10, 3, now);
+    points(11, 3, now);
+    points(13, 3, now);
+    var response = send(leaderOneToken, "GET", "/api/v1/dashboard/leader", null);
+    assertEquals(200, response.statusCode());
+    var preview = HttpTestSupport.json(response).at("/data/rankingPreview");
+    assertEquals(3, preview.size());
+    for (var row : preview) assertEquals(1, row.at("/rank").asInt());
+  }
+
+  @Test
   void leaderScopeAndRoleMatrixAreEnforced() throws Exception {
     var other = send(leaderTwoToken, "GET", "/api/v1/dashboard/leader", null);
     assertEquals(200, other.statusCode());
