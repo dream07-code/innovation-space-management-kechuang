@@ -171,4 +171,4 @@ OJ 考核接口先以 `planned` OpenAPI 契约发布，前端可开发考核/题
 
 当前默认 `OJ_PROVIDER=mock`。选型报告见 `docs/superpowers/reports/2026-10-12-open-source-oj-selection.md`：Judge0 适配器已实现并用本地 fake HTTP contract tests 验证，但真实启用前必须部署隔离的 Judge0 服务、提供受控私有测试用例加载器，并完成 GPL-3.0 合规审查。`OJ_PROVIDER=judge0` 时仅服务端访问 `OJ_BASE_URL`/`OJ_API_TOKEN`，浏览器不能调用 OJ 私有 API。
 
-AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。
+AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。积分排行榜及排名人数仅统计 `ACTIVE` 学生；方向负责人保留报告积分和流水，但不进入总榜、方向榜或个人排名，前端隐藏负责人的“我的排名”。
