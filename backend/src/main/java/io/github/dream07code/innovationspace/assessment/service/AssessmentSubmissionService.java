@@ -84,6 +84,11 @@ public class AssessmentSubmissionService {
                           code,
                           Timestamp.from(now));
                       jdbc.update(
+                          "INSERT INTO ai_evaluation(submission_id,version,status,score,reason,model,rubric_version,created_at)"
+                              + " VALUES(?,1,'PENDING',NULL,NULL,NULL,'assessment-rubric-v1',?)",
+                          id,
+                          Timestamp.from(now));
+                      jdbc.update(
                           "UPDATE assessment_submission SET code_locator=? WHERE id=?",
                           "controlled-db-code:" + id,
                           id);

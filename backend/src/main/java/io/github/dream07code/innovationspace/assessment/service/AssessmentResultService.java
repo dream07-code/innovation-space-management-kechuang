@@ -18,9 +18,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class AssessmentResultService {
   private final JdbcTemplate jdbc;
+  private final AssessmentEvaluationService evaluations;
 
-  public AssessmentResultService(JdbcTemplate jdbc) {
+  public AssessmentResultService(JdbcTemplate jdbc, AssessmentEvaluationService evaluations) {
     this.jdbc = jdbc;
+    this.evaluations = evaluations;
   }
 
   public Map<String, Object> list(long assessmentId, SessionPrincipal actor, int page, int size) {
@@ -58,6 +60,7 @@ public class AssessmentResultService {
   }
 
   private Map<String, Object> result(long submissionId) {
+    evaluations.refreshResult(submissionId);
     var rows =
         jdbc.queryForList(
             "SELECT r.*,s.assessment_id,s.problem_id,s.member_id FROM assessment_result r"

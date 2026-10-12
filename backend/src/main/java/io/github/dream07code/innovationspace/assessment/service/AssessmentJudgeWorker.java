@@ -18,12 +18,15 @@ public class AssessmentJudgeWorker {
   private final JdbcTemplate jdbc;
   private final OjAdapter adapter;
   private final Clock clock;
+  private final AssessmentEvaluationService evaluations;
   private final ThreadPoolExecutor executor;
 
-  public AssessmentJudgeWorker(JdbcTemplate jdbc, OjAdapter adapter, Clock clock) {
+  public AssessmentJudgeWorker(
+      JdbcTemplate jdbc, OjAdapter adapter, Clock clock, AssessmentEvaluationService evaluations) {
     this.jdbc = jdbc;
     this.adapter = adapter;
     this.clock = clock;
+    this.evaluations = evaluations;
     this.executor =
         new ThreadPoolExecutor(
             2,
@@ -71,6 +74,7 @@ public class AssessmentJudgeWorker {
               OjVerdict.INTERNAL_ERROR, 0, 0, 0, 0, "synthetic internal judge failure");
     }
     persist(submissionId, result);
+    evaluations.evaluateAfterJudge(submissionId);
   }
 
   private void persist(long submissionId, OjJudgeResult result) {
