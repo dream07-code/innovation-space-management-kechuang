@@ -9,7 +9,9 @@ describe('BrandLogo', () => {
 
     expect(wrapper.text()).toContain('科创空间')
     expect(wrapper.text()).not.toContain('学院')
-    expect(wrapper.find('svg').attributes('aria-label')).toBe('科创空间标志')
-    expect(wrapper.findAll('path')).toHaveLength(3)
+    const image = wrapper.find('img')
+    expect(image.attributes('alt')).toBe('科创空间标志')
+    expect(image.attributes('src')).toContain('brand-icon.png')
+    expect(wrapper.find('svg').exists()).toBe(false)
   })
 })

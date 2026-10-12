@@ -2,9 +2,10 @@
 /**
  * 科创空间品牌标志。
  *
- * 图形由“创新星芒 + 空间窗口”组成：中央星芒表达创造，
- * 两侧窗口轮廓表达开放的科创空间。标志为项目原生矢量，不依赖图标库。
+ * 使用项目提供的原创品牌图，背景已做透明化处理；
+ * 组件只负责尺寸、文字和无障碍语义，不修改图形本身。
  */
+import brandIcon from '@/assets/brand-icon.png'
 withDefaults(
   defineProps<{
     size?: number
@@ -19,37 +20,13 @@ withDefaults(
 
 <template>
   <div class="brand-logo">
-    <svg
+    <img
       class="brand-logo__mark"
+      :src="brandIcon"
       :width="size"
       :height="size"
-      viewBox="0 0 48 48"
-      role="img"
-      aria-label="科创空间标志"
+      alt="科创空间标志"
     >
-      <rect width="48" height="48" rx="10" fill="#c58a2a" />
-      <path
-        d="M15 13.5H11.5V34.5H15"
-        fill="none"
-        stroke="#172f4f"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <path
-        d="M33 13.5H36.5V34.5H33"
-        fill="none"
-        stroke="#172f4f"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <path
-        d="M24 10L26.8 20.8L38 24L26.8 27.2L24 38L21.2 27.2L10 24L21.2 20.8Z"
-        fill="#172f4f"
-      />
-      <circle cx="24" cy="24" r="3.2" fill="#fff8e8" />
-    </svg>
 
     <span v-if="showText" class="brand-copy">
       <strong>科创空间</strong>
