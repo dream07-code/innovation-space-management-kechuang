@@ -161,8 +161,8 @@ onMounted(async () => {
   color: #eef8f5;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: var(--app-sidebar);
-  box-shadow: 0 18px 42px rgba(23, 47, 79, 0.16);
+  background: var(--app-brand);
+  box-shadow: 0 18px 42px rgba(37, 99, 235, 0.18);
 }
 
 .dashboard-hero__eyebrow,

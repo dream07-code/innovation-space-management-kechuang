@@ -184,7 +184,7 @@ async function handleSubmit(): Promise<void> {
   justify-content: space-between;
   padding: 42px 48px;
   color: #edf8f5;
-  background: var(--app-sidebar);
+  background: var(--app-brand);
 }
 
 .login-brand {

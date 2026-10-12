@@ -44,11 +44,11 @@ withDefaults(
   flex: 0 0 auto;
   place-items: center;
   padding: 3px;
-  border: 1px solid rgba(23, 47, 79, 0.12);
+  border: 1px solid rgba(230, 106, 76, 0.22);
   border-radius: 10px;
-  background: #fffaf2;
+  background: #fff1ec;
   box-shadow:
-    0 8px 18px rgba(5, 18, 32, 0.22),
+    0 8px 18px rgba(37, 99, 235, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.72);
 }
 

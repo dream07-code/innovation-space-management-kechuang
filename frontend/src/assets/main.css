@@ -7,42 +7,42 @@
  */
 
 :root {
-  --app-brand: #1e3a5f;
-  --app-brand-strong: #152d4a;
-  --app-brand-soft: #e7edf5;
-  --app-sidebar: #202b38;
-  --app-accent: #c58a2a;
-  --app-accent-soft: #fff4dd;
-  --app-ink: #17263b;
-  --app-muted: #68758a;
-  --app-bg: #f3f5f8;
+  --app-brand: #2563eb;
+  --app-brand-strong: #1d4ed8;
+  --app-brand-soft: #eaf2ff;
+  --app-sidebar: #ffffff;
+  --app-accent: #e66a4c;
+  --app-accent-soft: #fff0eb;
+  --app-ink: #1f2937;
+  --app-muted: #667085;
+  --app-bg: #f5f7fb;
   --app-surface: #ffffff;
-  --app-surface-soft: #f7f9fc;
-  --app-border: #d9e0e8;
-  --app-border-strong: #b9c5d2;
-  --app-shadow: 0 10px 28px rgba(30, 58, 95, 0.08);
+  --app-surface-soft: #f8fafc;
+  --app-border: #e1e7ef;
+  --app-border-strong: #c5ceda;
+  --app-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
   --app-radius: 8px;
   --app-control-radius: 6px;
   --app-transition: 160ms ease;
 
-  --el-color-primary: #1e3a5f;
-  --el-color-primary-light-3: #557195;
-  --el-color-primary-light-5: #879bb6;
-  --el-color-primary-light-7: #b6c3d3;
-  --el-color-primary-light-8: #ccd5e0;
-  --el-color-primary-light-9: #e8edf3;
-  --el-color-primary-dark-2: #152d4a;
-  --el-color-success: #2f8f62;
-  --el-color-warning: #c57c22;
-  --el-color-danger: #c94d4d;
-  --el-color-error: #c94d4d;
-  --el-color-info: #6b7f7b;
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #5b8df2;
+  --el-color-primary-light-5: #8db1f7;
+  --el-color-primary-light-7: #bdd2fb;
+  --el-color-primary-light-8: #d7e4fe;
+  --el-color-primary-light-9: #eef4ff;
+  --el-color-primary-dark-2: #1d4ed8;
+  --el-color-success: #16a34a;
+  --el-color-warning: #d97706;
+  --el-color-danger: #dc4c4c;
+  --el-color-error: #dc4c4c;
+  --el-color-info: #64748b;
   --el-bg-color: #ffffff;
-  --el-fill-color-light: #f3f6f9;
+  --el-fill-color-light: #f4f7fb;
   --el-fill-color-lighter: #f8fafc;
-  --el-border-color: #d6dee7;
-  --el-border-color-light: #e2e8ef;
-  --el-border-color-lighter: #edf1f5;
+  --el-border-color: #dce4ee;
+  --el-border-color-light: #e5ebf3;
+  --el-border-color-lighter: #eff3f8;
   --el-text-color-primary: var(--app-ink);
   --el-text-color-regular: #405451;
   --el-text-color-secondary: var(--app-muted);
@@ -94,7 +94,7 @@ a:hover {
 }
 
 :focus-visible {
-  outline: 3px solid rgba(30, 58, 95, 0.28);
+  outline: 3px solid rgba(37, 99, 235, 0.28);
   outline-offset: 2px;
 }
 
@@ -135,7 +135,7 @@ a:hover {
 }
 
 .el-button--primary {
-  box-shadow: 0 5px 12px rgba(30, 58, 95, 0.18);
+  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.18);
 }
 
 .el-input__wrapper,
@@ -159,7 +159,7 @@ a:hover {
 .el-textarea__inner:focus {
   box-shadow:
     0 0 0 1px var(--app-brand) inset,
-    0 0 0 3px rgba(30, 58, 95, 0.12) !important;
+    0 0 0 3px rgba(37, 99, 235, 0.12) !important;
 }
 
 .el-form-item__label {
@@ -179,7 +179,7 @@ a:hover {
   color: #49605c;
   font-size: 12px;
   font-weight: 750;
-  background: #f0f3f7;
+  background: #f5f8ff;
 }
 
 .el-table th.el-table__cell > .cell {
@@ -191,7 +191,7 @@ a:hover {
 }
 
 .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
-  background: #f1f5f9;
+  background: #f2f7ff;
 }
 
 .el-table .cell {
@@ -234,7 +234,7 @@ a:hover {
 .el-drawer {
   --el-dialog-border-radius: var(--app-radius);
   border: 1px solid var(--app-border);
-  box-shadow: 0 22px 60px rgba(30, 58, 95, 0.16);
+  box-shadow: 0 22px 60px rgba(37, 99, 235, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {

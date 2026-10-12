@@ -198,9 +198,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  color: #eef8f5;
+  color: #24324a;
   background: var(--app-sidebar);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid var(--app-border);
 }
 
 .app-brand {
@@ -209,7 +209,7 @@ onMounted(() => {
   gap: 12px;
   min-height: 82px;
   padding: 18px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .app-nav-scroll {
@@ -219,16 +219,16 @@ onMounted(() => {
 
 .app-nav {
   --el-menu-bg-color: transparent;
-  --el-menu-text-color: rgba(238, 248, 245, 0.72);
-  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.08);
-  --el-menu-active-color: #fff;
+  --el-menu-text-color: rgba(36, 50, 74, 0.72);
+  --el-menu-hover-bg-color: rgba(37, 99, 235, 0.08);
+  --el-menu-active-color: #1d4ed8;
   border-right: none;
   background: transparent;
 }
 
 .app-nav :deep(.el-menu-item-group__title) {
   padding: 14px 12px 7px;
-  color: rgba(238, 248, 245, 0.38);
+  color: #8794a8;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
@@ -253,7 +253,7 @@ onMounted(() => {
 .app-nav :deep(.el-menu-item.is-active) {
   color: #fff;
   font-weight: 650;
-  background: rgba(255, 255, 255, 0.13);
+  background: #eaf2ff;
   box-shadow: inset 3px 0 0 var(--app-accent);
 }
 
@@ -267,9 +267,9 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 15px 20px 18px;
-  color: rgba(238, 248, 245, 0.46);
+  color: #8794a8;
   font-size: 11px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--app-border);
 }
 
 .status-dot {
@@ -277,8 +277,8 @@ onMounted(() => {
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
-  background: #7fb2e8;
-  box-shadow: 0 0 0 4px rgba(127, 178, 232, 0.14);
+  background: var(--app-brand);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
 }
 
 .app-content {
