@@ -15,6 +15,7 @@ import { getDirectionRanking, getMyRanking, getOverallRanking } from '@/api/modu
 import { describeError, toApiError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
+import { shouldShowPersonalRankings } from '@/views/shared/rankingVisibility'
 import type { MyRanking, RankingPage } from '@/api/types'
 
 const auth = useAuthStore()
@@ -33,6 +34,7 @@ const page = ref(1)
 const size = ref(20)
 
 const isAdmin = computed(() => auth.isAdmin)
+const showPersonalRankings = computed(() => shouldShowPersonalRankings(auth.role))
 
 async function loadOverall(): Promise<void> {
   loading.value = true
@@ -72,7 +74,7 @@ async function loadMonthly(): Promise<void> {
 }
 
 async function loadMyRankings(): Promise<void> {
-  if (isAdmin.value) return
+  if (!showPersonalRankings.value) return
   try {
     const [o, m] = await Promise.all([getMyRanking({ period: 'ALL_TIME' }), getMyRanking({ period: 'MONTH' })])
     myOverall.value = o
@@ -104,7 +106,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <el-row v-if="!isAdmin" :gutter="16" class="rankings__me">
+    <el-row v-if="showPersonalRankings" :gutter="16" class="rankings__me">
       <el-col :span="12">
         <el-card shadow="never">
           <el-statistic title="我的总排名" :value="myOverall?.overallRank ?? '未上榜'" :suffix="`/ ${myOverall?.overallCount ?? 0}`" />

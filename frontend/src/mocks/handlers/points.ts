@@ -30,7 +30,10 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
 /** 组装榜单条目：仅契约允许的六个字段，绝不补学号。 */
 function buildRanking(directionId: string | null, month: string | null): RankingEntry[] {
   const active = MEMBERS.filter(
-    (m) => m.membershipStatus === 'ACTIVE' && (directionId === null || m.directionId === directionId),
+    (m) =>
+      m.role === 'STUDENT' &&
+      m.membershipStatus === 'ACTIVE' &&
+      (directionId === null || m.directionId === directionId),
   )
   const rows = active.map((m) => {
     const direction = DIRECTIONS.find((d) => d.id === m.directionId)
@@ -169,7 +172,7 @@ export const rankingHandlers = [
 
     const memberId = account.user.memberId
     const member = MEMBERS.find((m) => m.id === memberId)
-    const eligible = member?.membershipStatus === 'ACTIVE'
+    const eligible = member?.role === 'STUDENT' && member?.membershipStatus === 'ACTIVE'
     const points = parsed.month ? monthlyPointsOf(memberId, parsed.month) : netPointsOf(memberId)
 
     const overall = buildRanking(null, parsed.month)

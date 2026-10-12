@@ -22,6 +22,7 @@ import { getMyRanking } from '@/api/modules/rankings'
 import { describeError, toApiError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
+import { shouldShowPersonalRankings } from '@/views/shared/rankingVisibility'
 import type { MyRanking, PointsSummary } from '@/api/types'
 
 const auth = useAuthStore()
@@ -34,17 +35,21 @@ const monthly = ref<MyRanking | null>(null)
 const loading = ref(false)
 
 const directionName = computed(() => directions.nameOf(auth.user?.directionId))
+const showPersonalRankings = computed(() => shouldShowPersonalRankings(auth.role))
 const rankLabel = (rank: number | null): string => (rank === null ? '未上榜' : `第 ${rank} 名`)
 
 onMounted(async () => {
   loading.value = true
   try {
     await directions.ensureLoaded()
-    const [p, o, m] = await Promise.all([
-      getMyPoints(),
-      getMyRanking({ period: 'ALL_TIME' }),
-      getMyRanking({ period: 'MONTH' }),
-    ])
+    const rankingPromise = showPersonalRankings.value
+      ? Promise.all([
+          getMyRanking({ period: 'ALL_TIME' }),
+          getMyRanking({ period: 'MONTH' }),
+        ])
+      : Promise.resolve([null, null] as [MyRanking | null, MyRanking | null])
+
+    const [p, [o, m]] = await Promise.all([getMyPoints(), rankingPromise])
     points.value = p
     overall.value = o
     monthly.value = m
@@ -73,7 +78,7 @@ onMounted(async () => {
       </button>
     </section>
 
-    <section class="overview-grid" aria-label="积分与排名">
+    <section :class="{ 'overview-grid': true, 'overview-grid--personal': showPersonalRankings }" aria-label="积分与排名">
       <article class="overview-card overview-card--points">
         <div class="overview-card__icon"><el-icon><Medal /></el-icon></div>
         <div>
@@ -82,17 +87,17 @@ onMounted(async () => {
           <small>{{ points?.month ?? '本月' }} 新增 {{ points?.monthlyPoints ?? 0 }} 分</small>
         </div>
       </article>
-      <article class="overview-card">
+      <article v-if="showPersonalRankings" class="overview-card">
         <div class="overview-card__top"><span>总榜排名</span><el-icon><Trophy /></el-icon></div>
         <strong>{{ rankLabel(overall?.overallRank ?? null) }}</strong>
         <small>共有 {{ overall?.overallCount ?? 0 }} 人参与排名</small>
       </article>
-      <article class="overview-card">
+      <article v-if="showPersonalRankings" class="overview-card">
         <div class="overview-card__top"><span>方向排名</span><el-icon><Trophy /></el-icon></div>
         <strong>{{ rankLabel(overall?.directionRank ?? null) }}</strong>
         <small>{{ directionName }} · 共 {{ overall?.directionCount ?? 0 }} 人</small>
       </article>
-      <article class="overview-card overview-card--accent">
+      <article v-if="showPersonalRankings" class="overview-card overview-card--accent">
         <div class="overview-card__top"><span>本月排名</span><el-icon><Calendar /></el-icon></div>
         <strong>{{ rankLabel(monthly?.overallRank ?? null) }}</strong>
         <small>{{ monthly?.month ?? points?.month ?? '当前月份' }}</small>
@@ -253,8 +258,12 @@ onMounted(async () => {
 .overview-grid {
   display: grid;
   margin-top: 16px;
-  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1.35fr;
   gap: 14px;
+}
+
+.overview-grid--personal {
+  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
 }
 
 .overview-card {
@@ -451,7 +460,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 1100px) {
-  .overview-grid {
+  .overview-grid--personal {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -484,7 +493,7 @@ onMounted(async () => {
     align-items: flex-start;
   }
 
-  .overview-grid {
+  .overview-grid--personal {
     grid-template-columns: 1fr;
   }
 
