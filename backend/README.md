@@ -164,3 +164,11 @@ MEMBERSHIP_REMOVAL_BATCH_SIZE=500` 且评分开启时才启动有界并发的调
 登录/刷新/改密均为单进程有界固定窗口限流（60秒10次）；429含Retry-After，不信任未配置代理的X-Forwarded-For。当前无Cookie认证、默认管理员或JSESSIONID，跨域默认不开放。多实例需要另行设计全局限流；共享初始密码也不能替代身份交付核验。默认TLS由部署入口负责。
 
 用户指定的 MySQL 8.0 已于 2026 年 4 月进入 EOL 阶段，继续按已确认的版本完成开发验证，但上线前必须重新评估支持周期、安全修复和升级方案；参考已确认的技术设计及 MySQL 官方生命周期公告。默认及 `prod` 文档关闭不是认证方案，公网部署仍需要认证、TLS、受支持的数据库版本、最小权限和密钥管理。
+
+## OJ 考核与前端并行联调
+
+OJ 考核接口先以 `planned` OpenAPI 契约发布，前端可开发考核/题库/代码编辑器/提交状态/AI 与人工评分/独立结果页面，并按 `x-frontend-contract` 的 Mock 工作流和角色矩阵处理状态与错误码。契约中的 ID 均为十进制字符串；`code` 只在创建提交请求中出现，普通提交、结果、AI 评估和人工批阅响应不返回代码正文、私有测试数据、OJ 原始 stdout/stderr 或模型原始输出。
+
+当前默认 `OJ_PROVIDER=mock`。选型报告见 `docs/superpowers/reports/2026-10-12-open-source-oj-selection.md`：Judge0 适配器已实现并用本地 fake HTTP contract tests 验证，但真实启用前必须部署隔离的 Judge0 服务、提供受控私有测试用例加载器，并完成 GPL-3.0 合规审查。`OJ_PROVIDER=judge0` 时仅服务端访问 `OJ_BASE_URL`/`OJ_API_TOKEN`，浏览器不能调用 OJ 私有 API。
+
+AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。
