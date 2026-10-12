@@ -6,7 +6,9 @@
  *   1. 把深层的 components['schemas'][...] 索引收成有名字的类型，便于业务代码引用；
  *   2. 集中所有「契约约定」的类型，使约定在编译期可被检查。
  *
- * 对应契约版本：1.0.0-draft（docs/api/openapi.yaml）
+ * 对应契约版本：backend@74cd50c（docs/api/openapi.yaml）。
+ * 月度评定/任务相关类型已随契约删除；/score-reviews 与 /system/rules
+ * 仍为规划状态，这里只保留类型，不做运行时调用。
  */
 import type { components } from './types.gen'
 
@@ -53,25 +55,65 @@ export type RefreshRequest = Schemas['RefreshRequest']
 export type ChangePasswordRequest = Schemas['ChangePasswordRequest']
 
 // ---------------------------------------------------------------------------
-// 方向与规则
+// 方向
 // ---------------------------------------------------------------------------
 
 export type Direction = Schemas['Direction']
 export type DirectionCode = Direction['code']
-export type SystemRules = Schemas['SystemRules']
 
-/** 规则确认状态。PENDING_CONFIRMATION 时相关功能只能做骨架，不得启用真实执行。 */
-export type ConfigStatus = SystemRules['reportPolicy']['configStatus']
+// ---------------------------------------------------------------------------
+// 成员与负责人
+// ---------------------------------------------------------------------------
+
+export type Member = Schemas['Member']
+export type MemberPage = PageData<Member>
+export type CreateMemberRequest = Schemas['CreateMemberRequest']
+export type UpdateMemberRequest = Schemas['UpdateMemberRequest']
+export type ReasonVersionRequest = Schemas['ReasonVersionRequest']
+export type AccountCorrectionRequest = Schemas['AccountCorrectionRequest']
+export type AppointLeaderRequest = Schemas['AppointLeaderRequest']
+export type UpdateLeaderRequest = Schemas['UpdateLeaderRequest']
+export type AddMemberPointsRequest = Schemas['AddMemberPointsRequest']
+
+// ---------------------------------------------------------------------------
+// 报告（日报/周报）
+// ---------------------------------------------------------------------------
+
+export type DailyReport = Schemas['DailyReport']
+export type WeeklyReport = Schemas['WeeklyReport']
+export type CreateDailyReportRequest = Schemas['CreateDailyReportRequest']
+export type UpdateDailyReportRequest = Schemas['UpdateDailyReportRequest']
+export type CreateWeeklyReportRequest = Schemas['CreateWeeklyReportRequest']
+export type UpdateWeeklyReportRequest = Schemas['UpdateWeeklyReportRequest']
+export type VersionRequest = Schemas['VersionRequest']
+
+export type ReportStatus = DailyReport['status']
+export type ScoreStatus = DailyReport['scoreStatus']
+
+// ---------------------------------------------------------------------------
+// 积分与排行
+// ---------------------------------------------------------------------------
+
+export type PointsSummary = Schemas['PointsSummary']
+export type PointEntry = Schemas['PointEntry']
+export type PointSource = PointEntry['source']
+export type RankingEntry = Schemas['RankingEntry']
+export type RankingPage = Schemas['RankingPage']
+export type MyRanking = Schemas['MyRanking']
+export type RankingPeriod = NonNullable<MyRanking['period']>
+
+// ---------------------------------------------------------------------------
+// 审计
+// ---------------------------------------------------------------------------
+
+export type AuditEntry = Schemas['AuditEntry']
 
 // ---------------------------------------------------------------------------
 // 枚举（供 UI 映射与筛选使用）
 // ---------------------------------------------------------------------------
 
-export type MembershipStatus = NonNullable<Me['membershipStatus']>
-export type AccountStatus = Me['accountStatus']
-export type RankingPeriod = NonNullable<Schemas['MyRanking']['period']>
-export type TaskType = Schemas['Task']['type']
-export type TaskStatus = Schemas['Task']['status']
+export type MembershipStatus = NonNullable<Member['membershipStatus']>
+export type AccountStatus = Member['accountStatus']
 
 /**
  * 全部业务错误码。契约中 ErrorResponse.code 是一个扁平枚举，

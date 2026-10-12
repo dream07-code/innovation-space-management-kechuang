@@ -41,7 +41,6 @@ const MEMBER_GROUPS: MenuGroup[] = [
       { label: '个人首页', path: '/', icon: 'home' },
       { label: '日报', path: '/reports/daily', icon: 'document' },
       { label: '周报', path: '/reports/weekly', icon: 'calendar' },
-      { label: '我的复核', path: '/reviews', icon: 'star' },
       { label: '积分记录', path: '/points', icon: 'medal' },
       { label: '个人资料', path: '/profile', icon: 'user' },
     ],
@@ -56,7 +55,6 @@ const STAFF_GROUPS: MenuGroup[] = [
       { label: '人员管理', path: '/admin/members', icon: 'users' },
       { label: '日报管理', path: '/admin/reports/daily', icon: 'document' },
       { label: '周报管理', path: '/admin/reports/weekly', icon: 'calendar' },
-      { label: '评分复核', path: '/admin/reviews', icon: 'star' },
       { label: '积分流水', path: '/admin/points', icon: 'medal' },
     ],
   },
@@ -65,12 +63,9 @@ const STAFF_GROUPS: MenuGroup[] = [
 /** 仅学院管理员可见。 */
 const ADMIN_ONLY_GROUPS: MenuGroup[] = [
   {
-    title: '规则与运维',
+    title: '管理',
     items: [
       { label: '负责人管理', path: '/admin/leaders', icon: 'users' },
-      { label: '规则配置', path: '/admin/rules', icon: 'setting' },
-      { label: '月度评定', path: '/admin/monthly-assessments', icon: 'list' },
-      { label: '自动任务', path: '/admin/tasks', icon: 'list' },
       { label: '审计记录', path: '/admin/audits', icon: 'audit' },
     ],
   },

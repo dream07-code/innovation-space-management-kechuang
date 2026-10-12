@@ -57,6 +57,9 @@ export const errors = {
   versionConflict: () => fail('VERSION_CONFLICT', 409),
   idempotencyConflict: () => fail('IDEMPOTENCY_CONFLICT', 409),
   alreadyExists: () => fail('ACCOUNT_ALREADY_EXISTS', 409),
+  reportAlreadyExists: () => fail('REPORT_ALREADY_EXISTS', 409),
+  reportNotEditable: () => fail('REPORT_NOT_EDITABLE', 409),
+  invalidState: () => fail('INVALID_STATE', 409),
   scoringPending: () => fail('SCORING_PENDING', 409),
   tooManyRequests: (seconds = 30) =>
     fail('RATE_LIMITED', 429, `请求过于频繁，请 ${seconds} 秒后重试`, { 'Retry-After': String(seconds) }),
@@ -340,7 +343,18 @@ export function resetMockState(): void {
     account.accountStatus = snapshot.accountStatus
     account.membershipStatus = snapshot.membershipStatus
   }
+
+  // 业务数据（成员/报告/积分/审计）由 data.ts 注册的钩子还原，
+  // 避免 state.ts 反向依赖造成循环导入。
+  for (const hook of resetHooks) hook()
 }
+
+/** 供 data.ts 注册业务数据的重置逻辑。 */
+export function registerResetHook(hook: () => void): void {
+  resetHooks.push(hook)
+}
+
+const resetHooks: Array<() => void> = []
 
 /** 从 Authorization 头解析 Bearer token。 */
 export function bearerFrom(request: Request): string | null {

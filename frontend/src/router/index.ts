@@ -18,7 +18,6 @@ import { routes } from './routes'
 import { registerPasswordChangeRequiredHandler, registerSessionExpiredHandler } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
-import { useRulesStore } from '@/stores/rules'
 
 const router: Router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,7 +36,6 @@ const router: Router = createRouter({
 export function installAuthHooks(): void {
   const auth = useAuthStore()
   const directions = useDirectionsStore()
-  const rules = useRulesStore()
 
   // access token 失效且刷新失败 → 清空状态回登录页。
   registerSessionExpiredHandler((error) => {
@@ -46,7 +44,6 @@ export function installAuthHooks(): void {
 
     // 清掉与账号绑定的缓存，避免下一个账号看到上一个账号的数据。
     directions.reset()
-    rules.reset()
 
     const target = wasBlocked ? { name: 'blocked' } : { name: 'login' }
     if (router.currentRoute.value.name !== target.name) {

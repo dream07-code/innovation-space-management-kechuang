@@ -13,7 +13,6 @@ import { server } from '@/mocks/server'
 import { resetMockState } from '@/mocks/state'
 import * as authApi from '@/api/modules/auth'
 import { listDirections } from '@/api/modules/directions'
-import { fetchSystemRules } from '@/api/modules/system'
 import { ApiError } from '@/api/errors'
 import { clearTokens, getAccessToken, getRefreshToken, hasRefreshToken } from '@/api/tokenStore'
 
@@ -125,16 +124,6 @@ describe('客户端：Response 解包', () => {
     expect(directions[0]).toMatchObject({ name: 'AI 全栈' })
     // 契约：所有 ID 都是字符串，不能变成 number。
     expect(typeof directions[0]?.id).toBe('string')
-  })
-
-  it('系统规则保持「未确认」状态，淘汰人数为 null', async () => {
-    await authApi.login({ account: 'MOCK20260001', password: 'Example-Only9!' })
-
-    const rules = await fetchSystemRules()
-
-    expect(rules.businessTimezone).toBe('Asia/Shanghai')
-    expect(rules.monthlyAssessment.configStatus).toBe('PENDING_CONFIRMATION')
-    expect(rules.monthlyAssessment.eliminateCount).toBeNull()
   })
 })
 

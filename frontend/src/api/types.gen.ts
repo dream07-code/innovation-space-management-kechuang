@@ -249,6 +249,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members/{memberId}/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 学院管理员直接增加学生积分
+         * @description 仅学院管理员可调用。请求只要求正整数points，不需要reason、version或Idempotency-Key；每次调用都新增一条MANUAL_ADJUSTMENT积分流水并累计。
+         */
+        post: operations["addMemberPoints"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members/{memberId}/restore": {
         parameters: {
             query?: never;
@@ -259,8 +279,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 恢复在籍资格（规则待确认）
-         * @description 仅REMOVED可恢复；启用前必须确认恢复与历史积分规则。建议新在籍周期且历史保留；不恢复旧token或先前负责人授权。缺规则503。
+         * 恢复学生在籍资格
+         * @description 仅学院管理员可恢复REMOVED学生。保留报告和积分原始流水/冲正历史，但净积分保持0；membershipStartedAt重置为恢复时间，开始新的14个完整自然日观察期。不恢复旧token或先前会话。
          */
         post: operations["restoreMember"];
         delete?: never;
@@ -469,6 +489,818 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询考核 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        /** 创建考核 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateAssessmentRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        /** 获取考核详情 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 修改考核 */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateAssessmentRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 发布考核 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssessmentCommandRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 关闭考核 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssessmentCommandRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询题库 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        /** 创建题目 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateAssessmentProblemRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-problems/{problemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        /** 获取题目 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 修改题目 */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateAssessmentProblemRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/assessment-problems/{problemId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 退役题目 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssessmentCommandRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 提交代码 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateAssessmentSubmissionRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentSubmissionResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询提交记录 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentSubmissionPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-submissions/{submissionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        /** 获取提交与OJ结果 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentSubmissionResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-submissions/{submissionId}/ai-evaluation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        /** 获取AI评分 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiEvaluationResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-submissions/{submissionId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        /** 查询人工批阅 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentReviewPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        /** 提交人工批阅 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateAssessmentReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentReviewResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        /** 查询考核结果 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentResultPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/score-reviews": {
         parameters: {
             query?: never;
@@ -627,164 +1459,6 @@ export interface paths {
         get: operations["getSystemRules"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/system/rules/monthly-assessment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 配置已确认的月度评定规则
-         * @description 需学院明确政策后开放；version乐观锁，enabled=true时全部必要参数非null。只对未来月份生效，不修改既有快照或已关闭月份，审计规则差异和原因。
-         */
-        put: operations["updateMonthlyRule"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/monthly-assessments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 月度评定列表
-         * @description 按month DESC,createdAt DESC,id数值DESC；无规则时可返回空列表，不自动评定。
-         */
-        get: operations["listAssessments"];
-        put?: never;
-        /**
-         * 生成月度候选快照
-         * @description 仅生成DRAFT，不移出。规则不完整/未确认503，进行中的同月同范围快照409。范围内该业务月的正式报告必须全部SCORED/MANUAL且无会影响积分的PENDING复核；否则409 SCORING_PENDING，不生成可确认快照，不能按暂时保底分淘汰。scope须匹配rulesVersion，周报按首次提交月份归属。STALE/FAILED修订显式提供supersedesAssessmentId，保留历史。
-         */
-        post: operations["generateAssessment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/monthly-assessments/{assessmentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 快照详情 */
-        get: operations["getAssessment"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/monthly-assessments/{assessmentId}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 确认完整候选名单
-         * @description 仅DRAFT且无未决同分，候选集合与快照完整一致。再次检查范围内该月正式报告全部SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。版本/规则/资格变化409，不接受额外成员ID。未决同分不靠数组顺序解决；本版无同分裁定接口，须另行补规则后修订快照。
-         */
-        post: operations["confirmAssessment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/monthly-assessments/{assessmentId}/execute": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 异步执行已确认名单
-         * @description 仅CONFIRMED；派任务前确认范围内当月正式报告全为SCORED/MANUAL且无影响积分的PENDING复核，否则409 SCORING_PENDING。Worker每次移出前同样检查评分已结清和最新成员/报告/积分版本，有未结评分/复核或变化则置STALE并停止，不能只比较版本。检查与资格写入须并发安全。同key不重复派任务，按资格周期幂等移出。返回data.id用于GET /tasks/{taskId}轮询。
-         */
-        post: operations["executeAssessment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 内部任务只读列表
-         * @description 仅学院管理员；按createdAt DESC,id数值DESC。不得返回模型原文、数据库连接或执行脚本。
-         */
-        get: operations["listTasks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tasks/{taskId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 内部任务状态 */
-        get: operations["getTask"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tasks/{taskId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 重试可重试的失败任务
-         * @description 必须FAILED/retryable=true，version及业务资格/规则仍有效。仅重排服务端已登记任务，不接受任务类型替换、脚本、SQL、URL等参数；重复任务事件不再加分/移出。
-         */
-        post: operations["retryTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -986,6 +1660,365 @@ export interface components {
             message: string;
             data: components["schemas"]["Direction"][];
         };
+        AddMemberPointsRequest: {
+            /** Format: int32 */
+            points: number;
+        };
+        ProblemExample: {
+            input: string;
+            output: string;
+            explanation?: string | null;
+        };
+        Assessment: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            id: string;
+            title: string;
+            description: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            directionId: string;
+            directionName: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            problemIds: string[];
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AssessmentProblem: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            id: string;
+            title: string;
+            summary: string;
+            description: string;
+            inputFormat: string;
+            outputFormat: string;
+            examples: components["schemas"]["ProblemExample"][];
+            /** @enum {string} */
+            difficulty: "EASY" | "MEDIUM" | "HARD";
+            tags: string[];
+            timeLimitMs: number;
+            memoryLimitKb: number;
+            allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "RETIRED";
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OjJudgeResult: {
+            /** @enum {string} */
+            verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            passedTestCases: number;
+            totalTestCases: number;
+            timeMs: number;
+            memoryKb: number;
+            safeError: string | null;
+        };
+        AssessmentSubmission: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            id: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            assessmentId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            problemId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            memberId: string;
+            /** @enum {string} */
+            language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+            /** @enum {string} */
+            status: "RECEIVED" | "JUDGING" | "JUDGED" | "FAILED" | "NEEDS_REVIEW";
+            judgeResult?: components["schemas"]["OjJudgeResult"];
+            codeHash?: string;
+            version: number;
+            /** Format: date-time */
+            submittedAt: string;
+            /** Format: date-time */
+            judgedAt?: string | null;
+        };
+        AiEvaluation: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            id: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            submissionId: string;
+            /** @enum {string} */
+            status: "PENDING" | "COMPLETE" | "FAILED" | "NEEDS_REVIEW";
+            score: number | null;
+            reason: string | null;
+            model: string | null;
+            rubricVersion: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AssessmentReview: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            id: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            submissionId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            memberId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            reviewerId: string;
+            score: number;
+            comment: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUPERSEDED";
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AssessmentResult: {
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            assessmentId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            submissionId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            problemId: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            memberId: string;
+            /** @enum {string} */
+            technicalVerdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            passedTestCases: number;
+            totalTestCases: number;
+            timeMs: number;
+            memoryKb: number;
+            aiScore: number | null;
+            humanScore: number | null;
+            finalScore: number | null;
+            /** @enum {string} */
+            scoreSource: "HUMAN" | "AI" | "PENDING" | "UNAVAILABLE";
+            /** @enum {string} */
+            resultStatus: "PENDING" | "COMPLETE" | "NEEDS_REVIEW";
+            /** Format: date-time */
+            publishedAt: string | null;
+        };
+        CreateAssessmentRequest: {
+            title: string;
+            description: string;
+            directionId: string;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            problemIds: string[];
+        };
+        UpdateAssessmentRequest: {
+            version: number;
+            title?: string;
+            description?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            problemIds?: string[];
+        };
+        AssessmentCommandRequest: {
+            version: number;
+        };
+        CreateAssessmentProblemRequest: {
+            title: string;
+            summary: string;
+            description: string;
+            inputFormat: string;
+            outputFormat: string;
+            examples: components["schemas"]["ProblemExample"][];
+            /** @enum {string} */
+            difficulty: "EASY" | "MEDIUM" | "HARD";
+            tags: string[];
+            timeLimitMs: number;
+            memoryLimitKb: number;
+            allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+        };
+        UpdateAssessmentProblemRequest: {
+            version: number;
+            title?: string;
+            summary?: string;
+            description?: string;
+            inputFormat?: string;
+            outputFormat?: string;
+            examples?: components["schemas"]["ProblemExample"][];
+            /** @enum {string} */
+            difficulty?: "EASY" | "MEDIUM" | "HARD";
+            tags?: string[];
+            timeLimitMs?: number;
+            memoryLimitKb?: number;
+            allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+        };
+        CreateAssessmentSubmissionRequest: {
+            problemId: string;
+            /** @enum {string} */
+            language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+            code: string;
+        };
+        CreateAssessmentReviewRequest: {
+            submissionVersion: number;
+            reviewVersion: number;
+            score: number;
+            comment: string;
+        };
+        AssessmentResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["Assessment"];
+        };
+        AssessmentPage: {
+            items: components["schemas"]["Assessment"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentPage"];
+        };
+        AssessmentProblemResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentProblem"];
+        };
+        AssessmentProblemPage: {
+            items: components["schemas"]["AssessmentProblem"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentProblemPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentProblemPage"];
+        };
+        AssessmentSubmissionResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentSubmission"];
+        };
+        AssessmentSubmissionPage: {
+            items: components["schemas"]["AssessmentSubmission"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentSubmissionPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentSubmissionPage"];
+        };
+        AiEvaluationResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AiEvaluation"];
+        };
+        AssessmentReviewResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentReview"];
+        };
+        AssessmentReviewPage: {
+            items: components["schemas"]["AssessmentReview"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentReviewPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentReviewPage"];
+        };
+        AssessmentResultPage: {
+            items: components["schemas"]["AssessmentResult"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentResultPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentResultPage"];
+        };
         Member: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -1100,17 +2133,17 @@ export interface components {
             studentNo: string;
             /** @example 示例同学 */
             name: string;
+            /**
+             * @description 十进制字符串 ID，不转换为 JavaScript Number。
+             * @example 201
+             */
+            directionId: string;
             major?: string | null;
             className?: string | null;
             /** Format: int32 */
             grade?: number | null;
             /** @description 仅本人及有权限的管理人员可见。 */
             contact?: string | null;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            directionId: string;
         };
         /** @description 不接受学号、角色、密码、积分或 managedDirectionIds。负责人不能改方向；学院管理员可调整学生方向。 */
         UpdateMemberRequest: {
@@ -1177,6 +2210,8 @@ export interface components {
              * @example 1
              */
             version: number;
+            /** @example 已核对本次操作原因 */
+            reason: string;
             /** @example 示例同学 */
             name?: string;
             major?: string | null;
@@ -1193,8 +2228,6 @@ export interface components {
             managedDirectionIds?: string[];
             /** @enum {string} */
             accountStatus?: "ENABLED" | "DISABLED";
-            /** @example 已核对本次操作原因 */
-            reason: string;
         };
         DailyReport: {
             /**
@@ -1764,34 +2797,6 @@ export interface components {
             message: string;
             data: components["schemas"]["MyRanking"];
         };
-        MonthlyRule: {
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /** @enum {string} */
-            configStatus: "PENDING_CONFIRMATION" | "READY";
-            /** @example false */
-            enabled: boolean;
-            /** @enum {string|null} */
-            scope: "PER_DIRECTION" | "OVERALL" | null;
-            /** Format: int32 */
-            eliminateCount: number | null;
-            /** Format: int32 */
-            minimumParticipants: number | null;
-            /** Format: int32 */
-            minimumRetained: number | null;
-            /** Format: int32 */
-            newMemberProtectionDays: number | null;
-            /** @enum {string|null} */
-            tiePolicy: "MANUAL_REVIEW" | null;
-            leaderParticipates: boolean | null;
-            /** @enum {string|null} */
-            executionMode: "ADMIN_CONFIRM" | null;
-            /** @example 2026-10 */
-            effectiveFromMonth: string | null;
-        };
         SystemRules: {
             /** @enum {string} */
             businessTimezone: "Asia/Shanghai";
@@ -1811,21 +2816,23 @@ export interface components {
                 /** @enum {string|null} */
                 weeklyEditPolicy: "SAME_WEEK" | null;
             };
-            monthlyAssessment: components["schemas"]["MonthlyRule"];
             inactivityPolicy: {
                 /** @enum {string} */
                 configStatus: "PENDING_CONFIRMATION" | "READY";
-                /** @example false */
+                /** @example true */
                 enabled: boolean;
                 /** Format: int32 */
-                thresholdDays: number | null;
-                /** @enum {string|null} */
-                clockPolicy: "FULL_CALENDAR_DAYS" | null;
+                thresholdDays: number;
+                /** @enum {string} */
+                clockPolicy: "FULL_CALENDAR_DAYS";
             };
             restorePolicy: {
                 /** @enum {string} */
-                configStatus: "PENDING_CONFIRMATION" | "READY";
-                retainHistoricalPoints: boolean | null;
+                configStatus: "READY";
+                /** @enum {boolean} */
+                retainHistoricalPointEntries: true;
+                /** @enum {boolean} */
+                resetNetPoints: true;
             };
         };
         SystemRulesResponse: {
@@ -1834,304 +2841,6 @@ export interface components {
             /** @example Success */
             message: string;
             data: components["schemas"]["SystemRules"];
-        };
-        MonthlyRuleResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["MonthlyRule"];
-        };
-        /** @description 完整替换；enabled=true 时 nullable 项必须全部已确认且非 null。minimumRetained>=1，禁止配置清空全部成员；仅未来月份生效。 */
-        UpdateMonthlyRuleRequest: {
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /** @example false */
-            enabled: boolean;
-            /** @enum {string|null} */
-            scope: "PER_DIRECTION" | "OVERALL" | null;
-            /** Format: int32 */
-            eliminateCount: number | null;
-            /** Format: int32 */
-            minimumParticipants: number | null;
-            /** Format: int32 */
-            minimumRetained: number | null;
-            /** Format: int32 */
-            newMemberProtectionDays: number | null;
-            /** @enum {string|null} */
-            tiePolicy: "MANUAL_REVIEW" | null;
-            leaderParticipates: boolean | null;
-            /** @enum {string|null} */
-            executionMode: "ADMIN_CONFIRM" | null;
-            /** @example 2026-10 */
-            effectiveFromMonth: string | null;
-            /** @example 已核对本次操作原因 */
-            reason: string;
-        };
-        AssessmentCandidate: {
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            memberId: string;
-            /** @example 示例同学 */
-            displayName: string;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            directionId: string;
-            /**
-             * Format: int32
-             * @example 3
-             */
-            points: number;
-            /** Format: int32 */
-            rank: number;
-            tieUnresolved: boolean;
-            /** @example 月度候选，尚未执行 */
-            reason: string;
-        };
-        AssessmentSummary: {
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            id: string;
-            /** @example 2026-10 */
-            month: string;
-            /** @enum {string} */
-            scope: "PER_DIRECTION" | "OVERALL";
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            directionId: string | null;
-            /** @enum {string} */
-            status: "DRAFT" | "CONFIRMED" | "EXECUTING" | "COMPLETED" | "FAILED" | "STALE";
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /**
-             * Format: int32
-             * @example 1
-             */
-            rulesVersion: number;
-            /** Format: int32 */
-            candidateCount: number;
-            /** Format: int32 */
-            unresolvedTieCount: number;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            createdAt: string;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            taskId: string | null;
-        };
-        Assessment: {
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            id: string;
-            /** @example 2026-10 */
-            month: string;
-            /** @enum {string} */
-            scope: "PER_DIRECTION" | "OVERALL";
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            directionId: string | null;
-            /** @enum {string} */
-            status: "DRAFT" | "CONFIRMED" | "EXECUTING" | "COMPLETED" | "FAILED" | "STALE";
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /**
-             * Format: int32
-             * @example 1
-             */
-            rulesVersion: number;
-            /** Format: int32 */
-            candidateCount: number;
-            /** Format: int32 */
-            unresolvedTieCount: number;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            createdAt: string;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            taskId: string | null;
-            candidates: components["schemas"]["AssessmentCandidate"][];
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            snapshotAt: string;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            confirmedAt: string | null;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            completedAt: string | null;
-        };
-        AssessmentResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["Assessment"];
-        };
-        AssessmentPage: {
-            items: components["schemas"]["AssessmentSummary"][];
-            /**
-             * Format: int32
-             * @example 1
-             */
-            page: number;
-            /**
-             * Format: int32
-             * @example 20
-             */
-            size: number;
-            /**
-             * Format: int64
-             * @example 0
-             */
-            total: number;
-        };
-        AssessmentPageResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["AssessmentPage"];
-        };
-        /** @description 只评估已结束自然月；PER_DIRECTION 必填方向，OVERALL 方向为 null；scope 必须与规则一致。重建只能明确替代 STALE/FAILED 快照，不重复执行已完成的资格变更。 */
-        GenerateAssessmentRequest: {
-            /** @example 2026-10 */
-            month: string;
-            /** @enum {string} */
-            scope: "PER_DIRECTION" | "OVERALL";
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            directionId: string | null;
-            /**
-             * Format: int32
-             * @example 1
-             */
-            rulesVersion: number;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            supersedesAssessmentId?: string | null;
-        };
-        ConfirmAssessmentRequest: {
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /**
-             * Format: int32
-             * @example 1
-             */
-            rulesVersion: number;
-            candidateMemberIds: string[];
-            /** @example 已核对本次操作原因 */
-            reason: string;
-        };
-        Task: {
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            id: string;
-            /** @enum {string} */
-            type: "AI_SCORING" | "INACTIVITY_REMOVAL" | "MONTHLY_ASSESSMENT";
-            /** @enum {string} */
-            status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "PAUSED";
-            /**
-             * Format: int32
-             * @example 1
-             */
-            version: number;
-            /** Format: int32 */
-            attempt: number;
-            retryable: boolean;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example null
-             */
-            relatedResourceId: string | null;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            createdAt: string;
-            /**
-             * Format: date-time
-             * @example 2026-10-11T09:00:00+08:00
-             */
-            updatedAt: string;
-            failureCode: string | null;
-            /** @description 仅安全摘要，无 SQL/密码/报告正文/模型原文。 */
-            failureMessage: string | null;
-        };
-        TaskResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["Task"];
-        };
-        TaskPage: {
-            items: components["schemas"]["Task"][];
-            /**
-             * Format: int32
-             * @example 1
-             */
-            page: number;
-            /**
-             * Format: int32
-             * @example 20
-             */
-            size: number;
-            /**
-             * Format: int64
-             * @example 0
-             */
-            total: number;
-        };
-        TaskPageResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["TaskPage"];
         };
         AuditEntry: {
             /**
@@ -2362,6 +3071,9 @@ export interface components {
         };
     };
     parameters: {
+        AssessmentId: string;
+        ProblemId: string;
+        SubmissionId: string;
         Page: number;
         Size: number;
         /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
@@ -3215,6 +3927,46 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    addMemberPoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "points": 3
+                 *     }
+                 */
+                "application/json": components["schemas"]["AddMemberPointsRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；返回积分更新后的完整成员资源。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];
@@ -4677,29 +5429,16 @@ export interface operations {
                      *           "dailyEditPolicy": null,
                      *           "weeklyEditPolicy": null
                      *         },
-                     *         "monthlyAssessment": {
-                     *           "version": 1,
-                     *           "configStatus": "PENDING_CONFIRMATION",
-                     *           "enabled": false,
-                     *           "scope": null,
-                     *           "eliminateCount": null,
-                     *           "minimumParticipants": null,
-                     *           "minimumRetained": null,
-                     *           "newMemberProtectionDays": null,
-                     *           "tiePolicy": null,
-                     *           "leaderParticipates": null,
-                     *           "executionMode": null,
-                     *           "effectiveFromMonth": "2026-10"
-                     *         },
                      *         "inactivityPolicy": {
                      *           "configStatus": "PENDING_CONFIRMATION",
-                     *           "enabled": false,
-                     *           "thresholdDays": null,
-                     *           "clockPolicy": null
+                     *           "enabled": true,
+                     *           "thresholdDays": 14,
+                     *           "clockPolicy": "FULL_CALENDAR_DAYS"
                      *         },
                      *         "restorePolicy": {
-                     *           "configStatus": "PENDING_CONFIRMATION",
-                     *           "retainHistoricalPoints": null
+                     *           "configStatus": "READY",
+                     *           "retainHistoricalPointEntries": true,
+                     *           "resetNetPoints": true
                      *         }
                      *       }
                      *     }
@@ -4713,537 +5452,6 @@ export interface operations {
             404: components["responses"]["NotFound"];
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    updateMonthlyRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "version": 1,
-                 *       "enabled": false,
-                 *       "scope": null,
-                 *       "eliminateCount": null,
-                 *       "minimumParticipants": null,
-                 *       "minimumRetained": null,
-                 *       "newMemberProtectionDays": null,
-                 *       "tiePolicy": null,
-                 *       "leaderParticipates": null,
-                 *       "executionMode": null,
-                 *       "effectiveFromMonth": "2026-10",
-                 *       "reason": "已核对本次操作原因"
-                 *     }
-                 */
-                "application/json": components["schemas"]["UpdateMonthlyRuleRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "version": 1,
-                     *         "configStatus": "PENDING_CONFIRMATION",
-                     *         "enabled": false,
-                     *         "scope": null,
-                     *         "eliminateCount": null,
-                     *         "minimumParticipants": null,
-                     *         "minimumRetained": null,
-                     *         "newMemberProtectionDays": null,
-                     *         "tiePolicy": null,
-                     *         "leaderParticipates": null,
-                     *         "executionMode": null,
-                     *         "effectiveFromMonth": "2026-10"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["MonthlyRuleResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    listAssessments: {
-        parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                size?: components["parameters"]["Size"];
-                month?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "items": [],
-                     *         "page": 1,
-                     *         "size": 20,
-                     *         "total": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AssessmentPageResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    generateAssessment: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "month": "2026-09",
-                 *       "scope": "PER_DIRECTION",
-                 *       "directionId": "1",
-                 *       "rulesVersion": 1
-                 *     }
-                 */
-                "application/json": components["schemas"]["GenerateAssessmentRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "month": "2026-09",
-                     *         "scope": "PER_DIRECTION",
-                     *         "directionId": "1",
-                     *         "status": "DRAFT",
-                     *         "version": 1,
-                     *         "rulesVersion": 1,
-                     *         "candidateCount": 0,
-                     *         "unresolvedTieCount": 0,
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "taskId": null,
-                     *         "candidates": [],
-                     *         "snapshotAt": "2026-10-11T09:00:00+08:00",
-                     *         "confirmedAt": null,
-                     *         "completedAt": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AssessmentResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    getAssessment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assessmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "month": "2026-10",
-                     *         "scope": "PER_DIRECTION",
-                     *         "directionId": null,
-                     *         "status": "DRAFT",
-                     *         "version": 1,
-                     *         "rulesVersion": 1,
-                     *         "candidateCount": 0,
-                     *         "unresolvedTieCount": 0,
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "taskId": null,
-                     *         "candidates": [],
-                     *         "snapshotAt": "2026-10-11T09:00:00+08:00",
-                     *         "confirmedAt": null,
-                     *         "completedAt": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AssessmentResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    confirmAssessment: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                assessmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "version": 1,
-                 *       "rulesVersion": 1,
-                 *       "candidateMemberIds": [],
-                 *       "reason": "已核对本次操作原因"
-                 *     }
-                 */
-                "application/json": components["schemas"]["ConfirmAssessmentRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "month": "2026-10",
-                     *         "scope": "PER_DIRECTION",
-                     *         "directionId": null,
-                     *         "status": "CONFIRMED",
-                     *         "version": 2,
-                     *         "rulesVersion": 1,
-                     *         "candidateCount": 0,
-                     *         "unresolvedTieCount": 0,
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "taskId": null,
-                     *         "candidates": [],
-                     *         "snapshotAt": "2026-10-11T09:00:00+08:00",
-                     *         "confirmedAt": "2026-10-11T09:00:00+08:00",
-                     *         "completedAt": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AssessmentResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    executeAssessment: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                assessmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "version": 1,
-                 *       "reason": "已核对本次操作原因"
-                 *     }
-                 */
-                "application/json": components["schemas"]["ReasonVersionRequest"];
-            };
-        };
-        responses: {
-            /** @description 异步任务已接受，轮询任务状态；不是已执行成功。 */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "type": "MONTHLY_ASSESSMENT",
-                     *         "status": "QUEUED",
-                     *         "version": 1,
-                     *         "attempt": 0,
-                     *         "retryable": false,
-                     *         "relatedResourceId": "201",
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "updatedAt": "2026-10-11T09:00:00+08:00",
-                     *         "failureCode": null,
-                     *         "failureMessage": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    listTasks: {
-        parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                size?: components["parameters"]["Size"];
-                type?: "AI_SCORING" | "INACTIVITY_REMOVAL" | "MONTHLY_ASSESSMENT";
-                status?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "PAUSED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "items": [],
-                     *         "page": 1,
-                     *         "size": 20,
-                     *         "total": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["TaskPageResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    getTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                taskId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功；响应为完整资源现状。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "type": "AI_SCORING",
-                     *         "status": "QUEUED",
-                     *         "version": 1,
-                     *         "attempt": 0,
-                     *         "retryable": false,
-                     *         "relatedResourceId": null,
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "updatedAt": "2026-10-11T09:00:00+08:00",
-                     *         "failureCode": null,
-                     *         "failureMessage": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            429: components["responses"]["TooManyRequests"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    retryTask: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                taskId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "version": 1,
-                 *       "reason": "已核对本次操作原因"
-                 *     }
-                 */
-                "application/json": components["schemas"]["ReasonVersionRequest"];
-            };
-        };
-        responses: {
-            /** @description 异步任务已接受，轮询任务状态；不是已执行成功。 */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "code": "OK",
-                     *       "message": "Success",
-                     *       "data": {
-                     *         "id": "201",
-                     *         "type": "AI_SCORING",
-                     *         "status": "QUEUED",
-                     *         "version": 1,
-                     *         "attempt": 0,
-                     *         "retryable": false,
-                     *         "relatedResourceId": null,
-                     *         "createdAt": "2026-10-11T09:00:00+08:00",
-                     *         "updatedAt": "2026-10-11T09:00:00+08:00",
-                     *         "failureCode": null,
-                     *         "failureMessage": null
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];

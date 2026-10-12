@@ -1,14 +1,25 @@
 /**
  * MSW handlers 汇总。
  *
- * 本轮范围是「地基 + 认证」，因此只实现认证及其依赖的只读接口
- * （方向目录、系统规则）。其余业务接口尚未实现 ——
- * 相应地，未覆盖的请求会被 MSW 放行到真实网络，开发环境下会失败，
- * 这正是预期的：占位页面还没有数据需求。
- *
- * 后续实现各业务页面时，在此追加对应的 handler 模块。
+ * 覆盖契约中 x-implementation-status: implemented 的全部业务接口。
+ * 不覆盖的（规划中功能）：/score-reviews、/system/rules、members/remove ——
+ * 前端不调用它们；若误调，请求会被放行到真实网络并在开发环境可见地失败。
  */
+import { auditHandlers } from './audits'
 import { authHandlers } from './auth'
+import { leaderHandlers } from './leaders'
+import { memberHandlers } from './members'
+import { pointHandlers, rankingHandlers } from './points'
 import { referenceHandlers } from './reference'
+import { reportHandlers } from './reports'
 
-export const handlers = [...authHandlers, ...referenceHandlers]
+export const handlers = [
+  ...authHandlers,
+  ...referenceHandlers,
+  ...memberHandlers,
+  ...leaderHandlers,
+  ...reportHandlers,
+  ...pointHandlers,
+  ...rankingHandlers,
+  ...auditHandlers,
+]

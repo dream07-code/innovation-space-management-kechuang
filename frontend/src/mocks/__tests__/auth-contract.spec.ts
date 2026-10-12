@@ -104,7 +104,7 @@ describe('受限改密会话', () => {
     expect(me.body.data.mustChangePassword).toBe(true)
 
     // 白名单外的业务接口一律 403 PASSWORD_CHANGE_REQUIRED。
-    for (const path of ['/api/v1/directions', '/api/v1/system/rules']) {
+    for (const path of ['/api/v1/directions', '/api/v1/points/ledger']) {
       const denied = await withToken(path, token)
       expect(denied.status).toBe(403)
       expect(denied.body.code).toBe('PASSWORD_CHANGE_REQUIRED')
@@ -217,19 +217,6 @@ describe('退出登录', () => {
 
     const reused = await withToken('/api/v1/auth/me', token)
     expect(reused.status).toBe(401)
-  })
-})
-
-describe('系统规则', () => {
-  it('未配置齐的规则如实返回，淘汰人数为 null（不得有隐藏默认值）', async () => {
-    const { body } = await login('MOCK20260001', 'Example-Only9!')
-    const rules = await withToken('/api/v1/system/rules', body.data.accessToken)
-
-    expect(rules.status).toBe(200)
-    expect(rules.body.data.businessTimezone).toBe('Asia/Shanghai')
-    expect(rules.body.data.monthlyAssessment.configStatus).toBe('PENDING_CONFIRMATION')
-    // AC-09：不得出现隐藏的默认淘汰人数。
-    expect(rules.body.data.monthlyAssessment.eliminateCount).toBeNull()
   })
 })
 
