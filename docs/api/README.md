@@ -6,6 +6,10 @@
 
 校验结果、审查修正与复现命令见 [文档校验记录](VALIDATION.md)。
 
+### backend 本轮实现说明
+
+此副本在 backend 分支与 `main@37797e4` 的契约保持路径/DTO一致。当前backend新增认证、方向、成员基本管理、负责人管理、更正学号/密码重置与审计查询，以及日报/周报、评分、积分和排名接口；自动移出和管理员 `restore` 已实现；手动 `remove`、月评和月度任务不再实现。上文baseline标签为main发布时的历史基线，不应误读成backend当前状态。运行中的springdoc只覆盖已注册路径并标implemented，不能依据静态设计文件中的planned就断言真实接口不存在，亦不能把pending接口当已授权功能。详细验收以本阶段报告为准，本轮未向main推送状态更新。
+
 ## 1. 使用方式与实现状态
 
 1. 前端将 `openapi.yaml` 作为 OpenAPI 3.0 文件导入 Apifox、Postman 或兼容工具，生成 Mock、类型和请求封装；不要把 Mock 地址当真实后端。
@@ -19,7 +23,7 @@
 | `planned` | 本版设计契约，尚未实现；前端使用 Mock |
 | `pending` | 契约草案且依赖业务决策；可以做页面骨架，不启用真实执行 |
 
-后端基线为 `backend` 分支 `e16d7fc`。目前仅 `/actuator/health` 已实现；**本文件的全部 `/api/v1/**` 业务接口均未实现**。基线开发文档在 `/doc.html`，分组 JSON 在 `/v3/api-docs/innovation-space`，业务 paths 为空仍是正常现象；默认及 prod 不开放这些文档入口。这份 YAML 是设计契约，不会因放入 Git 自动出现在运行中的 Knife4j，也不得用测试探针冒充业务接口。
+后端基线为当前 `backend` 分支。认证、方向、成员、日报、周报、积分和排行榜接口已实现；月评/任务契约已删除；手动 `remove` 仍为未实现设计项。开发文档在 `/doc.html`，分组 JSON 在 `/v3/api-docs/innovation-space`，默认及 prod 不开放这些文档入口。这份 YAML 是设计契约，不会因放入 Git 自动出现在运行中的 Knife4j，也不得用测试探针冒充业务接口。
 
 本次 main 只更新文档，没有合并 Java 工程，没有创建数据库账号，也不包含真实学生或负责人信息。
 
@@ -37,6 +41,14 @@
 - 同一个人使用同一个内部 `memberId`/`userId`；任命负责人不创建第二个同学号账号。
 - 学号在普通修改接口中不可改。更正必须走管理员专用接口，校验唯一、说明原因、保留原学号和操作者审计，并撤销旧会话；历史报告/积分继续关联不变的内部 ID，不物理迁移或重建数据。旧学号不再可登录。
 - 学院管理员账号也在统一 `account` 命名空间内，不能与任何学号冲突。管理员账户不在学生创建接口中产生；该接口没有 `role`/`password`/`points` 入参。
+
+## 2.1 排行榜资格（已确认）
+
+- `GET /api/v1/rankings/overall` 和 `GET /api/v1/rankings/directions/{directionId}` 可由学院管理员、方向负责人和学生查看，但 `items`、`total`、rank、同分跳位只统计 `ACTIVE` 学生。
+- `GET /api/v1/rankings/me` 仅面向 `STUDENT`。方向负责人前端隐藏或禁用“我的排名”，个人首页不展示排名卡片。
+- 方向负责人仍可提交日报/周报、保留积分和积分流水，也可以查看公开排行榜；“不计入排行”不等于清零或禁止获得积分。
+- 前端不得通过角色字段自行过滤排行榜行。后端必须从查询层排除方向负责人，否则 `total`、名次和同分计算都会错误。
+- 移出学生不进入在籍排行榜；历史报告、积分流水和管理员恢复逻辑不变。
 
 ## 3. 认证与会话契约（本版技术设计）
 
@@ -171,17 +183,15 @@ Content-Type: application/json
 | 学生 | `GET/POST /members`、`GET/PATCH /members/{memberId}` | 列表、添加、详情、资料修改 |
 | 账号纠错 | `POST /members/{memberId}/account-corrections` | 更正学号并留痕 |
 | 密码重置 | `POST /members/{memberId}/password-reset` | 学院管理员重置学生/负责人密码 |
-| 成员资格 | `POST /members/{memberId}/remove`、`POST /members/{memberId}/restore` | 移出/恢复，不物理删除 |
+| 成员恢复 | `POST /members/{memberId}/restore` | 管理员恢复自动移出的学生；手动提前移出不在本期范围 |
 | 负责人 | `GET/POST /direction-leaders`、`PATCH /direction-leaders/{memberId}`、`POST /direction-leaders/{memberId}/revoke` | 列表、任命、修改资料/授权、撤销任命 |
 | 日报 | `GET/POST /daily-reports`、`GET/PATCH /daily-reports/{reportId}`、`POST /daily-reports/{reportId}/submit` | 创建草稿、修改、正式提交 |
 | 周报 | 与日报一致，将 daily-reports 换为 weekly-reports | 自然周报告 |
 | 复核 | `GET/POST /score-reviews`、`POST /score-reviews/{reviewId}/resolve` | 申请、处理评分争议 |
 | 积分 | `GET /points/me`、`GET /points/ledger` | 本人概览、权限内流水 |
+| 管理员加分 | `POST /members/{memberId}/points` | 管理员直接给学生增加正整数积分 |
 | 排名 | `GET /rankings/overall`、`GET /rankings/directions/{directionId}`、`GET /rankings/me` | 总榜、方向榜、本人排名 |
-| 规则 | `GET /system/rules`、`PUT /system/rules/monthly-assessment` | 查看有效规则、管理员配置月度规则 |
-| 月评 | `GET/POST /monthly-assessments`、`GET /monthly-assessments/{assessmentId}` | 列表、生成预览、快照详情 |
-| 月评执行 | `POST /monthly-assessments/{assessmentId}/confirm`、`POST /monthly-assessments/{assessmentId}/execute` | 确认、异步执行 |
-| 任务 | `GET /tasks`、`GET /tasks/{taskId}`、`POST /tasks/{taskId}/retry` | 仅管理员查看/重试指定失败任务 |
+| 规则 | `GET /system/rules` | 查看报告、自动移出和恢复规则 |
 | 审计 | `GET /audits` | 只读脱敏操作记录 |
 
 ## 7. 日报、周报、积分联动
@@ -205,32 +215,37 @@ Content-Type: application/json
 | 日报积分 | 有效提交先 1 分，最终合计 1–3 分，不是 2–4 分 | 确认分值解释 |
 | 周报积分 | 提交先 1 分，最终合计 1–3 分 | 确认保底方案 |
 | 日期窗口 | 日报当天；周报本周周一至周日；不补交 | 确认补交、修改和请假政策 |
-| 月度归属 | 首次提交月份；跨月补分归原月 | 确认结算/重开规则 |
-| 同分排名 | 竞赛排名 1、1、3；同分展示按 memberId 数值升序 | 不据显示顺序自动淘汰 |
-| 月度评定 | 默认关闭，人数/保护/同分/范围未配置齐不得执行 | 必须明确配置，不隐藏“最后几人”默认值 |
-| 连续两周 | 使用需求文档的 14 个完整自然日建议口径 | 确认加入日、恢复日与请假豁免 |
-| 恢复 | 开新在籍周期，历史不删除，保留历史积分 | 学院确认后才开放执行 |
-| 负责人 | 仍保留本人报告/积分，默认纳入在籍榜 | 确认是否参加月评 |
-| 移出账号 | 本版建议禁止登录及业务访问，管理员可查历史 | 确认是否需要只读登录 |
+| 月度归属 | 首次提交月份；跨月补分归原月；月度积分只查询 | 不执行月度评定或淘汰 |
+| 同分排名 | 竞赛排名 1、1、3；同分展示按 memberId 数值升序 | 不触发任何自动移出 |
+| 连续未交日报 | 14个完整自然日；加入/恢复日不计，草稿和周报无效 | 已确认并实现 |
+| 恢复 | 开新在籍周期；报告和流水保留，净积分清零 | 已确认并实现 |
+| 负责人 | 保留本人报告/积分，不执行日报不活跃自动移出 | 已确认 |
+| 移出账号 | 禁止登录及业务访问，管理员可查历史 | 已确认 |
 
-规则状态由 `/system/rules` 返回。未确认的功能在 Mock 可返回演示值，生产返回 `RULES_NOT_CONFIGURED`，不得以“文档有示例”作为启用自动移出的授权。前端不要硬编码淘汰人数、按本机日期执行移出、根据排名自行删除人员。
+规则状态由 `/system/rules` 返回。前端不得按本机日期自行移出人员或按排名删除学生。
 
-## 8. 月度评定与任务安全边界
+## 8. OJ 考核接口预留
 
-- generate 生成带 rulesVersion 的快照，不直接移出；返回 DRAFT。必要规则为空则 503，已有相同月/范围快照则 409，重试使用同一幂等 key。范围内该业务月所有正式报告必须处于 SCORED/MANUAL，且没有可能改变积分的 PENDING 复核，否则返回 409 `SCORING_PENDING`，不生成可确认快照，不能依据暂时保底分决定淘汰。
-- confirm 必须提供详情中的完整候选 memberId 集合、snapshotVersion（通过 version）、rulesVersion；同分未决或数据已变化返回 409。再次检查评分与复核已结清，未结清返回 `SCORING_PENDING`。客户端不能添加快照之外的人员。
-- execute 只接受 CONFIRMED，派任务前仍检查评分/复核已结清，否则 409 `SCORING_PENDING`。成功返回 HTTP 202 的 TaskResponse，前端使用 **`data.id`** 作为 `/tasks/{taskId}` 的 taskId 轮询；assessment 资源另外通过 taskId 关联该任务并转为 EXECUTING。重复同 key 回放，不生成第二个执行任务。
-- Worker 在每次移出前重查成员在籍状态、报告/积分版本和规则版本，并检查评分/复核仍已结清；不能仅靠版本比较让一直排队的 AI 任务通过。检查和资格写入必须并发安全。存在未结评分/复核或快照过期时标记 STALE 并停止未执行动作，需要生成修订快照，不使用旧名单移出。已完成动作保留日志，不做无痕回滚。
-- tasks 只暴露后端登记的 `AI_SCORING/INACTIVITY_REMOVAL/MONTHLY_ASSESSMENT`；retry 仅失败、retryable=true 且对应规则仍有效的任务。请求不能传 SQL、类名、脚本、任意 URL 或自定义执行参数。
-- 连续两周自动检测是内部调度，不暴露普通用户触发任意成员移出的“捷径”接口。
-- 本版暂不提供直接加减积分、物理删除人员、作废报告、重开已结算月份、修改管理员凭据或公开创建管理员的接口；这些行为如需实现，应先补契约和审计规则。
+OJ 考核系统当前只发布 `planned` 契约，前端可先行开发考核、题库、代码提交、OJ 判定、AI/人工评分和独立结果页面。OJ 产品、沙箱和真实编译运行由后端适配层接入，前端不得依赖 OJ 私有 API。
 
-## 9. 前后端并行开发顺序与验收
+## 9. 自动移出与恢复安全边界
+
+- 自动移出是内部调度，不提供普通用户触发任意成员移出的接口。
+- 仅 `ACTIVE` 学生参与；按 `Asia/Shanghai` 的14个完整自然日判断，加入/恢复日不计，草稿和周报无效。
+- 移出只更新成员资格、撤销会话、写审计并新增积分冲正；不删除报告或原始积分流水。
+- 每条原始非0流水只有一个固定事件键的等额 `REVERSAL`，重复任务和恢复不会二次冲正。
+- 自动移出后迟到评分任务标为 `STALE`，不得新增积分。
+- `POST /members/{memberId}/restore` 仅学院管理员、版本受控且幂等；只恢复 `REMOVED` 学生。
+- 恢复重置 `membershipStartedAt`，开始新的14个完整自然日观察期，净积分保持0，不恢复旧会话。
+- 月度评定、月度淘汰和月度任务已取消，契约不再提供相关路径。
+- 管理员加分接口不要求原因、version 或幂等键，每次调用均累计；本版不提供减分、管理员手动提前移出、物理删除人员、作废报告或公开创建管理员接口。
+
+## 10. 前后端并行开发顺序与验收
 
 1. **优先**：登录/强制改密/退出、方向目录、学生 CRUD、负责人资料/任命、学号更正。
 2. **其次**：日报周报草稿/提交、异步评分状态、个人积分和排行榜。
-3. **规则确认后**：人工复核、恢复、月度规则及评定、自动移出和任务运维。
+3. **当前范围**：人工复核基础结构、自动移出、积分冲正和管理员恢复；月度评定/淘汰已取消。
 
-联调至少覆盖：首次登录受限令牌不能访问业务、refresh 轮换、改密后旧 token 失效、负责人跨方向 403/404、学生不能创建学生、普通 PATCH 不能改学号/角色、重复提交不加分、过期 version 409、排行榜无联系方式、AI 失败仍保留提交、缺少月度规则不能执行。
+联调至少覆盖：首次登录受限令牌不能访问业务、refresh 轮换、改密后旧 token 失效、负责人跨方向 403/404、学生不能创建学生、普通 PATCH 不能改学号/角色、重复提交不加分、过期 version 409、排行榜无联系方式、AI 失败仍保留提交、自动移出边界、幂等冲正和管理员恢复符合契约。
 
 变更流程：契约先更新并说明兼容性，前后端同时同步同一 Git 提交；不能先改一端字段后要求另一端猜测。OpenAPI 文件经规范校验及示例/schema 校验后提交。该文档没有承诺所有技术默认值已实现，真实上线仍以安全测试和学院确认的业务规则为准。
