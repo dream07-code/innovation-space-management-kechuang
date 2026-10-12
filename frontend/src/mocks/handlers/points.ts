@@ -164,7 +164,9 @@ export const rankingHandlers = [
     const denied = guardSession(request)
     if (denied) return denied
     const account = caller(request)
-    if (!account || !account.user.memberId) return errors.forbidden()
+    if (!account || account.user.role !== 'STUDENT' || !account.user.memberId) {
+      return errors.forbidden()
+    }
 
     const url = new URL(request.url)
     const parsed = validatePeriod(url)

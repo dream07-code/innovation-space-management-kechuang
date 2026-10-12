@@ -44,10 +44,8 @@ describe('方向负责人排行资格', () => {
     expect(overall.body.data.total).toBe(overall.body.data.items.length)
     expect(direction.status).toBe(200)
     expect(direction.body.data.items.every((item: { memberId: string }) => item.memberId !== '202')).toBe(true)
-    expect(mine.status).toBe(200)
-    expect(mine.body.data.eligible).toBe(false)
-    expect(mine.body.data.overallRank).toBeNull()
-    expect(mine.body.data.directionRank).toBeNull()
+    expect(mine.status).toBe(403)
+    expect(mine.body.code).toBe('FORBIDDEN')
   })
 
   it('负责人保留积分与积分流水', async () => {
