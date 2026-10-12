@@ -430,7 +430,7 @@ onMounted(async () => {
 }
 
 .shortcut-list button:hover {
-  border-color: #9bc8c1;
+  border-color: #9eafc2;
   transform: translateY(-2px);
 }
 

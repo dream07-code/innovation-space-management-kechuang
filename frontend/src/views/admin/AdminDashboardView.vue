@@ -162,7 +162,7 @@ onMounted(async () => {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   background: var(--app-sidebar);
-  box-shadow: 0 18px 42px rgba(18, 60, 57, 0.15);
+  box-shadow: 0 18px 42px rgba(23, 47, 79, 0.16);
 }
 
 .dashboard-hero__eyebrow,
@@ -322,8 +322,8 @@ onMounted(async () => {
 }
 
 .action-item:hover {
-  border-color: #9bc8c1;
-  background: #eef7f4;
+  border-color: #9eafc2;
+  background: #edf2f8;
   transform: translateY(-2px);
 }
 

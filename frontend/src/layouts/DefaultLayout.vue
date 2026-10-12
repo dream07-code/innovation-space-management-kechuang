@@ -320,8 +320,8 @@ onMounted(() => {
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
-  background: #5ee0b3;
-  box-shadow: 0 0 0 4px rgba(94, 224, 179, 0.12);
+  background: #7fb2e8;
+  box-shadow: 0 0 0 4px rgba(127, 178, 232, 0.14);
 }
 
 .app-content {
