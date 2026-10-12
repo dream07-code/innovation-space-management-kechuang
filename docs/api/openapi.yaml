@@ -36,6 +36,7 @@ tags:
 - name: 评分复核
 - name: 积分
 - name: 排行榜
+- name: 数据看板
 - name: OJ考核
 - name: OJ题目
 - name: OJ提交
@@ -3008,6 +3009,120 @@ paths:
           $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/dashboard/admin:
+    get:
+      tags:
+      - 数据看板
+      operationId: getAdminDashboard
+      summary: 学院管理员数据看板
+      description: 返回全院人员、报告、评分、积分和OJ安全聚合。默认range=30d，只读接口。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      parameters:
+      - name: range
+        in: query
+        required: false
+        description: 统计时间范围。
+        schema:
+          type: string
+          enum: [7d, 30d]
+          default: 30d
+      responses:
+        '200':
+          description: 成功；响应为完整看板快照。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/dashboard/leader:
+    get:
+      tags:
+      - 数据看板
+      operationId: getLeaderDashboard
+      summary: 方向负责人数据看板
+      description: 只返回当前用户获授权方向的人员、报告、评分、积分、OJ和排行榜摘要。默认range=7d，只读接口。
+      x-implementation-status: planned
+      x-roles:
+      - DIRECTION_LEADER
+      parameters:
+      - name: range
+        in: query
+        required: false
+        description: 统计时间范围。
+        schema:
+          type: string
+          enum: [7d, 30d]
+          default: 7d
+      responses:
+        '200':
+          description: 成功；响应为完整看板快照。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderDashboardResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/dashboard/student:
+    get:
+      tags:
+      - 数据看板
+      operationId: getStudentDashboard
+      summary: 学生个人数据看板
+      description: 只返回当前学生本人的积分、排名、报告、OJ考核、积分流水和进度摘要。默认range=7d，只读接口。
+      x-implementation-status: planned
+      x-roles:
+      - STUDENT
+      parameters:
+      - name: range
+        in: query
+        required: false
+        description: 统计时间范围。
+        schema:
+          type: string
+          enum: [7d, 30d]
+          default: 7d
+      responses:
+        '200':
+          description: 成功；响应为完整看板快照。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentDashboardResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -6383,6 +6498,323 @@ components:
           example: Success
         data:
           $ref: '#/components/schemas/MyRanking'
+    AdminDashboardOverview:
+      type: object
+      required:
+      - activeStudents
+      - totalStudents
+      - directionLeaders
+      - removedStudents
+      - todayDailySubmitted
+      - dailyCompletionRate
+      - weeklyCompletionRate
+      - pendingAi
+      - failedAi
+      - pendingReview
+      - pendingOj
+      properties:
+        activeStudents: {type: integer, minimum: 0}
+        totalStudents: {type: integer, minimum: 0}
+        directionLeaders: {type: integer, minimum: 0}
+        removedStudents: {type: integer, minimum: 0}
+        todayDailySubmitted: {type: integer, minimum: 0}
+        dailyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        weeklyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        pendingAi: {type: integer, minimum: 0}
+        failedAi: {type: integer, minimum: 0}
+        pendingReview: {type: integer, minimum: 0}
+        pendingOj: {type: integer, minimum: 0}
+      additionalProperties: false
+    LeaderDashboardOverview:
+      type: object
+      required:
+      - activeStudents
+      - totalStudents
+      - todayDailySubmitted
+      - dailyCompletionRate
+      - weeklyCompletionRate
+      - pendingAi
+      - failedAi
+      - pendingReview
+      - pendingOj
+      - pointsTotal
+      properties:
+        activeStudents: {type: integer, minimum: 0}
+        totalStudents: {type: integer, minimum: 0}
+        todayDailySubmitted: {type: integer, minimum: 0}
+        dailyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        weeklyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        pendingAi: {type: integer, minimum: 0}
+        failedAi: {type: integer, minimum: 0}
+        pendingReview: {type: integer, minimum: 0}
+        pendingOj: {type: integer, minimum: 0}
+        pointsTotal: {type: integer, minimum: 0}
+      additionalProperties: false
+    StudentDashboardOverview:
+      type: object
+      required:
+      - points
+      - overallRank
+      - directionRank
+      - daysSinceLastDaily
+      - dailyStatus
+      - weeklyStatus
+      - pendingOj
+      properties:
+        points: {type: integer, minimum: 0}
+        overallRank: {type: integer, minimum: 1, nullable: true}
+        directionRank: {type: integer, minimum: 1, nullable: true}
+        daysSinceLastDaily: {type: integer, minimum: 0, nullable: true}
+        dailyStatus: {type: string, enum: [SUBMITTED, DUE, MISSING]}
+        weeklyStatus: {type: string, enum: [SUBMITTED, DUE, MISSING]}
+        pendingOj: {type: integer, minimum: 0}
+      additionalProperties: false
+    DashboardTrendPoint:
+      type: object
+      required:
+      - date
+      - dailySubmitted
+      - dailyScored
+      - pointsAdded
+      properties:
+        date: {type: string, format: date}
+        dailySubmitted: {type: integer, minimum: 0}
+        dailyScored: {type: integer, minimum: 0}
+        pointsAdded: {type: integer, minimum: 0}
+      additionalProperties: false
+    DirectionDashboardRow:
+      type: object
+      required:
+      - directionId
+      - directionName
+      - activeStudents
+      - dailyCompletionRate
+      - weeklyCompletionRate
+      - averagePoints
+      - pendingItems
+      properties:
+        directionId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        directionName: {type: string, maxLength: 128}
+        activeStudents: {type: integer, minimum: 0}
+        dailyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        weeklyCompletionRate: {type: number, minimum: 0, maximum: 100}
+        averagePoints: {type: number, minimum: 0}
+        pendingItems: {type: integer, minimum: 0}
+      additionalProperties: false
+    StudentDashboardRow:
+      type: object
+      required:
+      - memberId
+      - displayName
+      - membershipStatus
+      - lastDailyAt
+      - lastWeeklyAt
+      - points
+      - directionRank
+      properties:
+        memberId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        displayName: {type: string, minLength: 1, maxLength: 64}
+        membershipStatus: {type: string, enum: [ACTIVE, REMOVED]}
+        lastDailyAt: {type: string, format: date-time, nullable: true}
+        lastWeeklyAt: {type: string, format: date-time, nullable: true}
+        points: {type: integer, minimum: 0}
+        directionRank: {type: integer, minimum: 1, nullable: true}
+      additionalProperties: false
+    AttentionItem:
+      type: object
+      required:
+      - type
+      - memberId
+      - displayName
+      - directionName
+      - occurredAt
+      - status
+      properties:
+        type: {type: string, enum: [SCORING_FAILED, PENDING_REVIEW, PENDING_OJ, INACTIVITY_RISK]}
+        memberId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        displayName: {type: string, minLength: 1, maxLength: 64}
+        directionName: {type: string, maxLength: 128}
+        occurredAt: {type: string, format: date-time, nullable: true}
+        status: {type: string, maxLength: 64}
+      additionalProperties: false
+    RecentActivityItem:
+      type: object
+      required:
+      - type
+      - occurredAt
+      - summary
+      properties:
+        type: {type: string, maxLength: 64}
+        occurredAt: {type: string, format: date-time}
+        summary: {type: string, maxLength: 1000}
+      additionalProperties: false
+    StudentProgress:
+      type: object
+      required:
+      - dailySubmitted
+      - dailyTarget
+      - weeklySubmitted
+      - weeklyTarget
+      - pointsAdded
+      - daysSinceLastDaily
+      properties:
+        dailySubmitted: {type: integer, minimum: 0}
+        dailyTarget: {type: integer, minimum: 0}
+        weeklySubmitted: {type: integer, minimum: 0}
+        weeklyTarget: {type: integer, minimum: 0}
+        pointsAdded: {type: integer, minimum: 0}
+        daysSinceLastDaily: {type: integer, minimum: 0, nullable: true}
+      additionalProperties: false
+    StudentReportSummary:
+      type: object
+      required:
+      - reportId
+      - reportType
+      - status
+      - scoreStatus
+      - submittedAt
+      - editable
+      properties:
+        reportId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        reportType: {type: string, enum: [DAILY, WEEKLY]}
+        status: {type: string, enum: [DRAFT, SUBMITTED]}
+        scoreStatus: {type: string, enum: [NOT_REQUESTED, QUEUED, PROCESSING, SCORED, RETRYING, REVIEW_REQUIRED, MANUAL]}
+        submittedAt: {type: string, format: date-time, nullable: true}
+        editable: {type: boolean}
+      additionalProperties: false
+    StudentAssessmentSummary:
+      type: object
+      required:
+      - assessmentId
+      - title
+      - status
+      - submissionStatus
+      - technicalVerdict
+      - finalScore
+      - scoreSource
+      properties:
+        assessmentId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        title: {type: string, maxLength: 120}
+        status: {type: string, enum: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]}
+        submissionStatus: {type: string, enum: [NONE, RECEIVED, JUDGING, JUDGED, FAILED, NEEDS_REVIEW]}
+        technicalVerdict: {type: string, nullable: true, maxLength: 64}
+        finalScore: {type: integer, minimum: 0, maximum: 100, nullable: true}
+        scoreSource: {type: string, enum: [HUMAN, AI, PENDING, UNAVAILABLE]}
+      additionalProperties: false
+    PointEntrySummary:
+      type: object
+      required:
+      - entryId
+      - delta
+      - source
+      - reason
+      - effectiveAt
+      properties:
+        entryId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        delta: {type: integer}
+        source: {type: string, maxLength: 64}
+        reason: {type: string, maxLength: 1000, nullable: true}
+        effectiveAt: {type: string, format: date-time}
+      additionalProperties: false
+    StudentRankingPreview:
+      type: object
+      required:
+      - overallRank
+      - overallCount
+      - directionRank
+      - directionCount
+      - eligible
+      properties:
+        overallRank: {type: integer, minimum: 1, nullable: true}
+        overallCount: {type: integer, minimum: 0}
+        directionRank: {type: integer, minimum: 1, nullable: true}
+        directionCount: {type: integer, minimum: 0}
+        eligible: {type: boolean}
+      additionalProperties: false
+    AdminDashboard:
+      type: object
+      required: [range, overview, trends, directions, attention, recentActivity]
+      properties:
+        range: {type: string, enum: [7d, 30d]}
+        overview: {$ref: '#/components/schemas/AdminDashboardOverview'}
+        trends:
+          type: array
+          items: {$ref: '#/components/schemas/DashboardTrendPoint'}
+        directions:
+          type: array
+          items: {$ref: '#/components/schemas/DirectionDashboardRow'}
+        attention:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/AttentionItem'}
+        recentActivity:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/RecentActivityItem'}
+      additionalProperties: false
+    LeaderDashboard:
+      type: object
+      required: [range, overview, students, trends, attention, rankingPreview]
+      properties:
+        range: {type: string, enum: [7d, 30d]}
+        overview: {$ref: '#/components/schemas/LeaderDashboardOverview'}
+        students:
+          type: array
+          items: {$ref: '#/components/schemas/StudentDashboardRow'}
+        trends:
+          type: array
+          items: {$ref: '#/components/schemas/DashboardTrendPoint'}
+        attention:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/AttentionItem'}
+        rankingPreview:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/RankingEntry'}
+      additionalProperties: false
+    StudentDashboard:
+      type: object
+      required: [range, overview, progress, reports, assessments, points, rankingPreview]
+      properties:
+        range: {type: string, enum: [7d, 30d]}
+        overview: {$ref: '#/components/schemas/StudentDashboardOverview'}
+        progress: {$ref: '#/components/schemas/StudentProgress'}
+        reports:
+          type: array
+          items: {$ref: '#/components/schemas/StudentReportSummary'}
+        assessments:
+          type: array
+          items: {$ref: '#/components/schemas/StudentAssessmentSummary'}
+        points:
+          type: array
+          items: {$ref: '#/components/schemas/PointEntrySummary'}
+        rankingPreview: {$ref: '#/components/schemas/StudentRankingPreview'}
+      additionalProperties: false
+    AdminDashboardResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AdminDashboard'}
+      additionalProperties: false
+    LeaderDashboardResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/LeaderDashboard'}
+      additionalProperties: false
+    StudentDashboardResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/StudentDashboard'}
+      additionalProperties: false
     SystemRules:
       type: object
       required:
