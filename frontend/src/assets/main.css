@@ -162,6 +162,13 @@ h4 {
   box-shadow: 0 5px 12px rgba(37, 99, 235, 0.18);
 }
 
+@media (pointer: coarse) {
+  .el-button:not(.is-text):not(.is-link) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 .el-input__wrapper,
 .el-select__wrapper,
 .el-textarea__inner {

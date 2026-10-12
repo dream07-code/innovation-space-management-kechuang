@@ -1301,6 +1301,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 学院管理员数据看板
+         * @description 返回全院人员、报告、评分、积分和OJ安全聚合。默认range=30d，只读接口。
+         */
+        get: operations["getAdminDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/leader": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 方向负责人数据看板
+         * @description 只返回当前用户获授权方向的人员、报告、评分、积分、OJ和排行榜摘要。默认range=7d，只读接口。
+         */
+        get: operations["getLeaderDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/student": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 学生个人数据看板
+         * @description 只返回当前学生本人的积分、排名、报告、OJ考核、积分流水和进度摘要。默认range=7d，只读接口。
+         */
+        get: operations["getStudentDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/score-reviews": {
         parameters: {
             query?: never;
@@ -1394,7 +1454,7 @@ export interface paths {
         };
         /**
          * 全空间排行榜
-         * @description 仅ACTIVE成员的最小展示信息。按points DESC,memberId数值ASC，同分rank并列且下一名跳位(1,1,3)。榜单时间asOf，同一次分页可能变化，不能用于直接淘汰。
+         * @description 仅ACTIVE学生的最小展示信息；方向负责人和学院管理员不进入items、total、rank或同分计算。按points DESC,memberId数值ASC，同分rank并列且下一名跳位(1,1,3)。方向负责人可查看榜单但不提供我的排名。榜单时间asOf，同一次分页可能变化，不能用于直接淘汰。
          */
         get: operations["getOverallRanking"];
         put?: never;
@@ -1414,7 +1474,7 @@ export interface paths {
         };
         /**
          * 方向内排行榜
-         * @description 所有已登录用户可看方向的最小公开榜单；按成员当前方向归组，历史月评不因此改写。排序/同分同总榜，返回真实方向内rank。
+         * @description 所有已登录用户可看方向的最小公开榜单，但仅ACTIVE学生进入items、total、rank和同分计算；方向负责人可查看但不进入榜单。按成员当前方向归组，历史月评不因此改写。排序/同分同总榜。
          */
         get: operations["getDirectionRanking"];
         put?: never;
@@ -1433,8 +1493,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 本人总榜与方向榜名次
-         * @description 不在榜单时eligible=false，两种rank均null；不能用分页序号当全榜名次。
+         * 学生本人总榜与方向榜名次
+         * @description 仅STUDENT可查询本人排名。ACTIVE学生不在榜单时eligible=false，两种rank均null；方向负责人和管理员不调用此接口，前端隐藏我的排名。不能用分页序号当全榜名次。
          */
         get: operations["getMyRanking"];
         put?: never;
@@ -2707,6 +2767,7 @@ export interface components {
             message: string;
             data: components["schemas"]["PointEntryPage"];
         };
+        /** @description 仅返回ACTIVE学生；方向负责人和学院管理员永不进入排行榜。 */
         RankingEntry: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -2755,6 +2816,7 @@ export interface components {
             message: string;
             data: components["schemas"]["RankingPage"];
         };
+        /** @description 仅学生个人排名；方向负责人和学院管理员无此资源。 */
         MyRanking: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -2796,6 +2858,182 @@ export interface components {
             /** @example Success */
             message: string;
             data: components["schemas"]["MyRanking"];
+        };
+        AdminDashboardOverview: {
+            activeStudents: number;
+            totalStudents: number;
+            directionLeaders: number;
+            removedStudents: number;
+            todayDailySubmitted: number;
+            dailyCompletionRate: number;
+            weeklyCompletionRate: number;
+            pendingAi: number;
+            failedAi: number;
+            pendingReview: number;
+            pendingOj: number;
+        };
+        LeaderDashboardOverview: {
+            activeStudents: number;
+            totalStudents: number;
+            todayDailySubmitted: number;
+            dailyCompletionRate: number;
+            weeklyCompletionRate: number;
+            pendingAi: number;
+            failedAi: number;
+            pendingReview: number;
+            pendingOj: number;
+            pointsTotal: number;
+        };
+        StudentDashboardOverview: {
+            points: number;
+            overallRank: number | null;
+            directionRank: number | null;
+            daysSinceLastDaily: number | null;
+            /** @enum {string} */
+            dailyStatus: "SUBMITTED" | "DUE" | "MISSING";
+            /** @enum {string} */
+            weeklyStatus: "SUBMITTED" | "DUE" | "MISSING";
+            pendingOj: number;
+        };
+        DashboardTrendPoint: {
+            /** Format: date */
+            date: string;
+            dailySubmitted: number;
+            dailyScored: number;
+            pointsAdded: number;
+        };
+        DirectionDashboardRow: {
+            directionId: string;
+            directionName: string;
+            activeStudents: number;
+            dailyCompletionRate: number;
+            weeklyCompletionRate: number;
+            averagePoints: number;
+            pendingItems: number;
+        };
+        StudentDashboardRow: {
+            memberId: string;
+            displayName: string;
+            /** @enum {string} */
+            membershipStatus: "ACTIVE" | "REMOVED";
+            /** Format: date-time */
+            lastDailyAt: string | null;
+            /** Format: date-time */
+            lastWeeklyAt: string | null;
+            points: number;
+            directionRank: number | null;
+        };
+        AttentionItem: {
+            /** @enum {string} */
+            type: "SCORING_FAILED" | "PENDING_REVIEW" | "PENDING_OJ" | "INACTIVITY_RISK";
+            memberId: string;
+            displayName: string;
+            directionName: string;
+            /** Format: date-time */
+            occurredAt: string | null;
+            status: string;
+        };
+        RecentActivityItem: {
+            type: string;
+            /** Format: date-time */
+            occurredAt: string;
+            summary: string;
+        };
+        StudentProgress: {
+            dailySubmitted: number;
+            dailyTarget: number;
+            weeklySubmitted: number;
+            weeklyTarget: number;
+            pointsAdded: number;
+            daysSinceLastDaily: number | null;
+        };
+        StudentReportSummary: {
+            reportId: string;
+            /** @enum {string} */
+            reportType: "DAILY" | "WEEKLY";
+            /** @enum {string} */
+            status: "DRAFT" | "SUBMITTED";
+            /** @enum {string} */
+            scoreStatus: "NOT_REQUESTED" | "QUEUED" | "PROCESSING" | "SCORED" | "RETRYING" | "REVIEW_REQUIRED" | "MANUAL";
+            /** Format: date-time */
+            submittedAt: string | null;
+            editable: boolean;
+        };
+        StudentAssessmentSummary: {
+            assessmentId: string;
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
+            /** @enum {string} */
+            submissionStatus: "NONE" | "RECEIVED" | "JUDGING" | "JUDGED" | "FAILED" | "NEEDS_REVIEW";
+            technicalVerdict: string | null;
+            finalScore: number | null;
+            /** @enum {string} */
+            scoreSource: "HUMAN" | "AI" | "PENDING" | "UNAVAILABLE";
+        };
+        PointEntrySummary: {
+            entryId: string;
+            delta: number;
+            source: string;
+            reason: string | null;
+            /** Format: date-time */
+            effectiveAt: string;
+        };
+        StudentRankingPreview: {
+            overallRank: number | null;
+            overallCount: number;
+            directionRank: number | null;
+            directionCount: number;
+            eligible: boolean;
+        };
+        AdminDashboard: {
+            /** @enum {string} */
+            range: "7d" | "30d";
+            overview: components["schemas"]["AdminDashboardOverview"];
+            trends: components["schemas"]["DashboardTrendPoint"][];
+            directions: components["schemas"]["DirectionDashboardRow"][];
+            attention: components["schemas"]["AttentionItem"][];
+            recentActivity: components["schemas"]["RecentActivityItem"][];
+        };
+        LeaderDashboard: {
+            /** @enum {string} */
+            range: "7d" | "30d";
+            overview: components["schemas"]["LeaderDashboardOverview"];
+            students: components["schemas"]["StudentDashboardRow"][];
+            trends: components["schemas"]["DashboardTrendPoint"][];
+            attention: components["schemas"]["AttentionItem"][];
+            rankingPreview: components["schemas"]["RankingEntry"][];
+        };
+        StudentDashboard: {
+            /** @enum {string} */
+            range: "7d" | "30d";
+            overview: components["schemas"]["StudentDashboardOverview"];
+            progress: components["schemas"]["StudentProgress"];
+            reports: components["schemas"]["StudentReportSummary"][];
+            assessments: components["schemas"]["StudentAssessmentSummary"][];
+            points: components["schemas"]["PointEntrySummary"][];
+            rankingPreview: components["schemas"]["StudentRankingPreview"];
+        };
+        AdminDashboardResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AdminDashboard"];
+        };
+        LeaderDashboardResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["LeaderDashboard"];
+        };
+        StudentDashboardResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["StudentDashboard"];
         };
         SystemRules: {
             /** @enum {string} */
@@ -4970,6 +5208,93 @@ export interface operations {
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getAdminDashboard: {
+        parameters: {
+            query?: {
+                /** @description 统计时间范围。 */
+                range?: "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功；响应为完整看板快照。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDashboardResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getLeaderDashboard: {
+        parameters: {
+            query?: {
+                /** @description 统计时间范围。 */
+                range?: "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功；响应为完整看板快照。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderDashboardResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getStudentDashboard: {
+        parameters: {
+            query?: {
+                /** @description 统计时间范围。 */
+                range?: "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功；响应为完整看板快照。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentDashboardResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];
         };

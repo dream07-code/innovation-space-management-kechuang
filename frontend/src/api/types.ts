@@ -139,6 +139,28 @@ export type AssessmentScoreSource = AssessmentResult['scoreSource']
 export type AssessmentResultStatus = AssessmentResult['resultStatus']
 
 // ---------------------------------------------------------------------------
+// 角色数据看板
+// ---------------------------------------------------------------------------
+
+export type DashboardRange = '7d' | '30d'
+export type AdminDashboardOverview = Schemas['AdminDashboardOverview']
+export type LeaderDashboardOverview = Schemas['LeaderDashboardOverview']
+export type StudentDashboardOverview = Schemas['StudentDashboardOverview']
+export type DashboardTrendPoint = Schemas['DashboardTrendPoint']
+export type DirectionDashboardRow = Schemas['DirectionDashboardRow']
+export type StudentDashboardRow = Schemas['StudentDashboardRow']
+export type AttentionItem = Schemas['AttentionItem']
+export type RecentActivityItem = Schemas['RecentActivityItem']
+export type StudentProgress = Schemas['StudentProgress']
+export type StudentReportSummary = Schemas['StudentReportSummary']
+export type StudentAssessmentSummary = Schemas['StudentAssessmentSummary']
+export type PointEntrySummary = Schemas['PointEntrySummary']
+export type StudentRankingPreview = Schemas['StudentRankingPreview']
+export type AdminDashboard = Schemas['AdminDashboard']
+export type LeaderDashboard = Schemas['LeaderDashboard']
+export type StudentDashboard = Schemas['StudentDashboard']
+
+// ---------------------------------------------------------------------------
 // 枚举（供 UI 映射与筛选使用）
 // ---------------------------------------------------------------------------
 

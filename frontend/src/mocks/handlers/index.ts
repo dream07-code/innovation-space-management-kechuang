@@ -6,6 +6,7 @@
  * 前端不调用它们；若误调，请求会被放行到真实网络并在开发环境可见地失败。
  */
 import { auditHandlers } from './audits'
+import { dashboardHandlers } from './dashboard'
 import { authHandlers } from './auth'
 import { leaderHandlers } from './leaders'
 import { memberHandlers } from './members'
@@ -23,5 +24,6 @@ export const handlers = [
   ...pointHandlers,
   ...rankingHandlers,
   ...auditHandlers,
+  ...dashboardHandlers,
   ...ojHandlers,
 ]
