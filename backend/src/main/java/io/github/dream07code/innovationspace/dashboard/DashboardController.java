@@ -13,16 +13,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
   private final DashboardAdminService admins;
   private final DashboardLeaderService leaders;
+  private final DashboardStudentService students;
 
-  public DashboardController(DashboardAdminService admins, DashboardLeaderService leaders) {
+  public DashboardController(
+      DashboardAdminService admins, DashboardLeaderService leaders, DashboardStudentService students) {
     this.admins = admins;
     this.leaders = leaders;
+    this.students = students;
   }
 
   @GetMapping("/leader")
   public ApiResponse<Map<String, Object>> leaderDashboard(
       @RequestParam(required = false) String range) {
     return ApiResponse.success(leaders.summary(MemberController.actor(), range));
+  }
+
+  @GetMapping("/student")
+  public ApiResponse<Map<String, Object>> studentDashboard(
+      @RequestParam(required = false) String range) {
+    return ApiResponse.success(students.summary(MemberController.actor(), range));
   }
 
   @GetMapping("/admin")
