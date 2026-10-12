@@ -170,22 +170,22 @@ onMounted(load)
 
       <el-row :gutter="16" class="format-row">
         <el-col :span="12">
-          <el-card shadow="never">
-            <template #header>输入格式</template>
+          <section class="format-panel">
+            <h3>输入格式</h3>
             <div class="problem-text">{{ problem.inputFormat }}</div>
-          </el-card>
+          </section>
         </el-col>
         <el-col :span="12">
-          <el-card shadow="never">
-            <template #header>输出格式</template>
+          <section class="format-panel">
+            <h3>输出格式</h3>
             <div class="problem-text">{{ problem.outputFormat }}</div>
-          </el-card>
+          </section>
         </el-col>
       </el-row>
 
       <el-divider content-position="left">示例</el-divider>
-      <el-card v-for="(item, index) in problem.examples" :key="index" shadow="never" class="example-card">
-        <template #header>示例 {{ index + 1 }}{{ item.explanation ? ` · ${item.explanation}` : '' }}</template>
+      <article v-for="(item, index) in problem.examples" :key="index" class="example-card">
+        <h3>示例 {{ index + 1 }}{{ item.explanation ? ` · ${item.explanation}` : '' }}</h3>
         <el-row :gutter="16">
           <el-col :span="12">
             <div class="code-label">输入</div>
@@ -196,7 +196,7 @@ onMounted(load)
             <pre class="code-block">{{ item.output }}</pre>
           </el-col>
         </el-row>
-      </el-card>
+      </article>
     </template>
   </el-card>
 </template>
@@ -232,6 +232,22 @@ onMounted(load)
 
 .format-row {
   margin-top: 16px;
+}
+
+.format-panel,
+.example-card {
+  height: 100%;
+  padding: 17px;
+  border: 1px solid var(--app-border);
+  border-radius: 7px;
+  background: var(--app-surface-soft);
+}
+
+.format-panel h3,
+.example-card h3 {
+  margin: 0 0 13px;
+  color: var(--app-ink);
+  font-size: 13px;
 }
 
 .example-card {

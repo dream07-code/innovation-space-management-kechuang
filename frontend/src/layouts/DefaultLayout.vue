@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * 默认布局：左侧导航 + 顶栏。
+ * 默认业务布局：品牌侧栏 + 顶栏 + 工作区。
  *
- * 菜单按角色生成（见 @/config/menu）。注意这只是呈现层 ——
- * 真正的权限由后端逐对象校验，前端隐藏菜单不是安全控制。
+ * 菜单按角色生成（见 @/config/menu）。此布局只负责呈现与返回导航，
+ * 真正的数据权限仍由后端逐对象校验。
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  ArrowLeft,
   Calendar,
   DataLine,
   Document,
@@ -17,6 +18,7 @@ import {
   Medal,
   Setting,
   Star,
+  SwitchButton,
   Trophy,
   User,
   UserFilled,
@@ -25,6 +27,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import { menuForRole, ROLE_LABELS, type MenuIconKey } from '@/config/menu'
+import { backActionFor, isSubpagePath } from '@/layouts/backNavigation'
 
 const auth = useAuthStore()
 const directions = useDirectionsStore()
@@ -47,22 +50,37 @@ const iconMap: Record<MenuIconKey, unknown> = {
 
 const groups = computed(() => menuForRole(auth.role))
 
-/** 当前高亮项：取最长匹配前缀，避免 /admin 同时点亮子页面。 */
 const activePath = computed(() => {
   const path = route.path
-  const all = groups.value.flatMap((g) => g.items.map((i) => i.path))
-  const matches = all.filter((p) => p !== '/' && path.startsWith(p))
+  const all = groups.value.flatMap((group) => group.items.map((item) => item.path))
+  const matches = all.filter((itemPath) => itemPath !== '/' && path.startsWith(itemPath))
   if (matches.length > 0) {
     return matches.reduce((a, b) => (a.length >= b.length ? a : b))
   }
   return path === '/' ? '/' : path
 })
 
+const homePath = computed(() => (auth.isAdmin ? '/admin' : '/'))
+const showBackButton = computed(() => isSubpagePath(route.path, homePath.value))
+const backAction = computed(() => {
+  const historyBack =
+    typeof window.history.state?.back === 'string' ? window.history.state.back : null
+  return backActionFor(route.path, historyBack, auth.homeRouteName)
+})
+
 const directionName = computed(() => directions.nameOf(auth.user?.directionId))
-
 const roleLabel = computed(() => (auth.role ? ROLE_LABELS[auth.role] : ''))
-
+const userInitial = computed(() => auth.displayName.trim().slice(0, 1) || 'U')
 const loggingOut = ref(false)
+
+function goBack(): void {
+  const action = backAction.value
+  if (action.kind === 'history') {
+    router.back()
+    return
+  }
+  void router.push({ name: action.name })
+}
 
 async function handleLogout(): Promise<void> {
   try {
@@ -72,7 +90,7 @@ async function handleLogout(): Promise<void> {
       type: 'warning',
     })
   } catch {
-    return // 用户取消
+    return
   }
 
   loggingOut.value = true
@@ -87,19 +105,25 @@ async function handleLogout(): Promise<void> {
 }
 
 onMounted(() => {
-  // 方向目录是多个筛选器的取值来源，登录后先取一次。
   void directions.ensureLoaded().catch(() => {
-    // 失败不阻断界面；各页面在使用时会再次尝试并给出提示。
+    // 页面使用方向数据时会再次加载并展示错误。
   })
 })
 </script>
 
 <template>
-  <el-container class="layout">
-    <el-aside width="220px" class="layout__aside">
-      <div class="layout__brand">学院科创空间</div>
-      <el-scrollbar>
-        <el-menu :default-active="activePath" router class="layout__menu">
+  <el-container class="app-shell">
+    <el-aside class="app-sidebar" width="260px">
+      <div class="app-brand">
+        <span class="app-brand__mark"><el-icon><DataLine /></el-icon></span>
+        <span class="app-brand__text">
+          <strong>学院科创空间</strong>
+          <small>Innovation Space</small>
+        </span>
+      </div>
+
+      <el-scrollbar class="app-nav-scroll">
+        <el-menu :default-active="activePath" router class="app-nav">
           <template v-for="group in groups" :key="group.title">
             <el-menu-item-group :title="group.title">
               <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
@@ -110,31 +134,56 @@ onMounted(() => {
           </template>
         </el-menu>
       </el-scrollbar>
+
+      <div class="app-sidebar__footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>数据更新于 {{ new Date().toLocaleDateString('zh-CN') }}</span>
+      </div>
     </el-aside>
 
-    <el-container>
-      <el-header class="layout__header">
-        <div class="layout__header-left">
-          <span class="layout__page-title">{{ route.meta.title ?? '' }}</span>
+    <el-container class="app-content">
+      <el-header class="app-header">
+        <div class="app-header__left">
+          <el-button
+            v-if="showBackButton"
+            class="back-button"
+            :icon="ArrowLeft"
+            text
+            data-test="back"
+            @click="goBack"
+          >
+            返回
+          </el-button>
+          <div class="page-heading">
+            <span class="page-heading__eyebrow">学院科创空间管理系统</span>
+            <h1 class="page-heading__title">{{ route.meta.title ?? '工作台' }}</h1>
+          </div>
         </div>
 
-        <div class="layout__header-right">
-          <el-tag v-if="auth.role" size="small" effect="plain">{{ roleLabel }}</el-tag>
-          <span v-if="auth.user?.directionId" class="layout__direction">{{ directionName }}</span>
-          <span class="layout__name">{{ auth.displayName }}</span>
-          <el-button
-            link
-            type="primary"
-            :loading="loggingOut"
-            data-test="logout"
-            @click="handleLogout"
-          >
-            退出登录
-          </el-button>
+        <div class="app-header__right">
+          <div class="user-summary">
+            <span class="user-avatar">{{ userInitial }}</span>
+            <span class="user-summary__text">
+              <strong>{{ auth.displayName }}</strong>
+              <small>{{ roleLabel }}<template v-if="directionName && auth.user?.directionId"> · {{ directionName }}</template></small>
+            </span>
+          </div>
+          <el-tooltip content="退出登录" placement="bottom">
+            <el-button
+              class="logout-button"
+              :icon="SwitchButton"
+              circle
+              text
+              :loading="loggingOut"
+              aria-label="退出登录"
+              data-test="logout"
+              @click="handleLogout"
+            />
+          </el-tooltip>
         </div>
       </el-header>
 
-      <el-main class="layout__main">
+      <el-main class="app-main">
         <RouterView />
       </el-main>
     </el-container>
@@ -142,56 +191,340 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.layout {
-  height: 100vh;
+.app-shell {
+  height: 100dvh;
+  min-height: 640px;
+  background: var(--app-bg);
 }
 
-.layout__aside {
-  border-right: 1px solid var(--el-border-color-light);
+.app-sidebar {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  color: #eef8f5;
+  background: var(--app-sidebar);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.layout__brand {
-  height: 60px;
+.app-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 1rem;
-  border-bottom: 1px solid var(--el-border-color-light);
-  flex-shrink: 0;
+  gap: 12px;
+  min-height: 82px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.layout__menu {
-  border-right: none;
+.app-brand__mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  color: var(--app-sidebar);
+  background: var(--app-accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(8, 31, 29, 0.22);
 }
 
-.layout__header {
+.app-brand__mark .el-icon {
+  font-size: 20px;
+}
+
+.app-brand__text {
   display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.app-brand__text strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-brand__text small {
+  margin-top: 5px;
+  color: rgba(238, 248, 245, 0.58);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-nav-scroll {
+  flex: 1;
+  padding: 16px 12px;
+}
+
+.app-nav {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: rgba(238, 248, 245, 0.72);
+  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.08);
+  --el-menu-active-color: #fff;
+  border-right: none;
+  background: transparent;
+}
+
+.app-nav :deep(.el-menu-item-group__title) {
+  padding: 14px 12px 7px;
+  color: rgba(238, 248, 245, 0.38);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-nav :deep(.el-menu-item) {
+  height: 44px;
+  margin: 3px 0;
+  padding: 0 12px !important;
+  border-radius: 7px;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.app-nav :deep(.el-menu-item:hover) {
+  transform: translateX(2px);
+}
+
+.app-nav :deep(.el-menu-item.is-active) {
+  color: #fff;
+  font-weight: 650;
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}
+
+.app-nav :deep(.el-menu-item .el-icon) {
+  margin-right: 11px;
+  font-size: 17px;
+}
+
+.app-sidebar__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 20px 18px;
+  color: rgba(238, 248, 245, 0.46);
+  font-size: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #5ee0b3;
+  box-shadow: 0 0 0 4px rgba(94, 224, 179, 0.12);
+}
+
+.app-content {
+  min-width: 0;
+  background: var(--app-bg);
+}
+
+.app-header {
+  display: flex;
+  height: 82px;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--el-border-color-light);
-  background: var(--el-bg-color);
+  gap: 20px;
+  padding: 0 30px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--app-border);
+  backdrop-filter: blur(14px);
 }
 
-.layout__page-title {
-  font-weight: 600;
+.app-header__left {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
 }
 
-.layout__header-right {
+.back-button {
+  flex: 0 0 auto;
+  color: var(--app-muted);
+}
+
+.back-button:hover {
+  color: var(--app-brand);
+}
+
+.page-heading {
+  min-width: 0;
+}
+
+.page-heading__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.page-heading__title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--app-ink);
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-summary {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--app-border);
 }
 
-.layout__direction,
-.layout__name {
-  color: var(--el-text-color-regular);
-  font-size: 0.875rem;
+.user-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 750;
+  background: var(--app-brand);
+  border-radius: 50%;
 }
 
-.layout__main {
-  background: var(--el-fill-color-light);
+.user-summary__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.user-summary__text strong {
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--app-ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-summary__text small {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-button {
+  color: var(--app-muted);
+}
+
+.app-main {
+  padding: 26px 30px 36px;
+  overflow: auto;
+  background: var(--app-bg);
+}
+
+@media (max-width: 960px) {
+  .app-sidebar {
+    width: 82px !important;
+  }
+
+  .app-brand {
+    justify-content: center;
+    padding: 18px 12px;
+  }
+
+  .app-brand__text,
+  .app-sidebar__footer span:last-child,
+  .app-nav :deep(.el-menu-item-group__title),
+  .app-nav :deep(.el-menu-item span) {
+    display: none;
+  }
+
+  .app-nav :deep(.el-menu-item) {
+    justify-content: center;
+    padding: 0 !important;
+  }
+
+  .app-nav :deep(.el-menu-item .el-icon) {
+    margin: 0;
+  }
+
+  .app-sidebar__footer {
+    justify-content: center;
+    padding: 15px 8px;
+  }
+
+  .app-header {
+    padding: 0 20px;
+  }
+
+  .app-main {
+    padding: 22px 20px 30px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    min-height: 100dvh;
+  }
+
+  .app-sidebar {
+    width: 66px !important;
+  }
+
+  .app-brand__mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .app-header {
+    height: 72px;
+    padding: 0 14px;
+  }
+
+  .page-heading__eyebrow,
+  .user-summary {
+    display: none;
+  }
+
+  .page-heading__title {
+    max-width: 45vw;
+    font-size: 18px;
+  }
+
+  .app-main {
+    padding: 16px 14px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav :deep(.el-menu-item) {
+    transition: none;
+  }
 }
 </style>

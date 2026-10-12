@@ -11,6 +11,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ArrowRight, DataLine, Medal, UserFilled } from '@element-plus/icons-vue'
 
 import { ApiError, describeError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
@@ -67,114 +68,358 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <div class="login">
-    <el-card class="login__card" shadow="always">
-      <div class="login__header">
-        <h1 class="login__title">学院科创空间管理系统</h1>
-        <p class="login__subtitle">学生与方向负责人使用学号登录，学院管理员使用指定账号</p>
+  <main class="login-shell">
+    <section class="login-brand-panel" aria-label="系统介绍">
+      <div class="login-brand">
+        <span class="login-brand__mark"><el-icon><DataLine /></el-icon></span>
+        <div>
+          <strong>学院科创空间</strong>
+          <span>Innovation Space Management</span>
+        </div>
       </div>
 
-      <el-alert
-        v-if="errorMessage"
-        type="error"
-        :closable="false"
-        show-icon
-        :title="errorMessage"
-        class="login__error"
-      />
+      <div class="login-brand__content">
+        <p class="login-brand__eyebrow">学院数字化运营平台</p>
+        <h1>让每一次学习、协作与成长都有迹可循。</h1>
+        <p class="login-brand__summary">
+          统一管理人员、日报周报、积分排行、审计记录与 OJ 考核，为学生和学院团队提供清晰可靠的工作台。
+        </p>
 
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-position="top"
-        @submit.prevent="handleSubmit"
-      >
-        <el-form-item label="账号" prop="account">
-          <el-input
-            v-model="form.account"
-            placeholder="学号或管理员账号"
-            autocomplete="username"
-            size="large"
-            data-test="account"
-          />
-        </el-form-item>
+        <div class="login-feature-list">
+          <div class="login-feature">
+            <el-icon><UserFilled /></el-icon>
+            <div><strong>人员与方向</strong><span>权限清晰，管理留痕</span></div>
+          </div>
+          <div class="login-feature">
+            <el-icon><Medal /></el-icon>
+            <div><strong>成长与积分</strong><span>过程可追踪，结果可核对</span></div>
+          </div>
+        </div>
+      </div>
 
-        <el-form-item label="密码" prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            placeholder="请输入密码"
-            autocomplete="current-password"
-            show-password
-            size="large"
-            data-test="password"
-            @keyup.enter="handleSubmit"
-          />
-        </el-form-item>
+      <p class="login-brand__footer">面向学院内部成员 · 数据仅用于教学管理</p>
+    </section>
 
-        <el-button
-          type="primary"
-          size="large"
-          class="login__submit"
-          :loading="submitting"
-          data-test="submit"
-          @click="handleSubmit"
+    <section class="login-form-panel">
+      <div class="login-form-wrap">
+        <div class="login-mobile-brand">
+          <span class="login-brand__mark"><el-icon><DataLine /></el-icon></span>
+          <strong>学院科创空间</strong>
+        </div>
+
+        <div class="login-header">
+          <p class="login-header__eyebrow">欢迎回来</p>
+          <h2>登录管理系统</h2>
+          <p>学生与方向负责人使用学号登录，学院管理员使用指定账号</p>
+        </div>
+
+        <el-alert
+          v-if="errorMessage"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="errorMessage"
+          class="login__error"
+        />
+
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-position="top"
+          @submit.prevent="handleSubmit"
         >
-          登录
-        </el-button>
-      </el-form>
+          <el-form-item label="账号" prop="account">
+            <el-input
+              v-model="form.account"
+              placeholder="学号或管理员账号"
+              autocomplete="username"
+              size="large"
+              data-test="account"
+            />
+          </el-form-item>
 
-      <p class="login__hint">
-        账号由学院管理员或方向负责人添加，本系统不提供自助注册。忘记密码请联系学院管理员重置。
-      </p>
-    </el-card>
-  </div>
+          <el-form-item label="密码" prop="password">
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="请输入密码"
+              autocomplete="current-password"
+              show-password
+              size="large"
+              data-test="password"
+              @keyup.enter="handleSubmit"
+            />
+          </el-form-item>
+
+          <el-button
+            type="primary"
+            size="large"
+            class="login__submit"
+            :icon="ArrowRight"
+            :loading="submitting"
+            data-test="submit"
+            @click="handleSubmit"
+          >
+            登录
+          </el-button>
+        </el-form>
+
+        <p class="login__hint">
+          账号由学院管理员或方向负责人添加，本系统不提供自助注册。忘记密码请联系学院管理员重置。
+        </p>
+      </div>
+    </section>
+  </main>
 </template>
 
 <style scoped>
-.login {
-  min-height: 100vh;
+.login-shell {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: minmax(380px, 0.9fr) minmax(480px, 1.1fr);
+  background: var(--app-bg);
+}
+
+.login-brand-panel {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 42px 48px;
+  color: #edf8f5;
+  background: var(--app-sidebar);
+}
+
+.login-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--el-fill-color-light);
-  padding: 1.5rem;
+  gap: 12px;
 }
 
-.login__card {
-  width: 100%;
-  max-width: 420px;
+.login-brand__mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  color: var(--app-sidebar);
+  background: var(--app-accent);
+  border-radius: 8px;
 }
 
-.login__header {
-  text-align: center;
-  margin-bottom: 1.5rem;
+.login-brand__mark .el-icon {
+  font-size: 22px;
 }
 
-.login__title {
-  font-size: 1.25rem;
-  margin: 0 0 0.5rem;
+.login-brand strong,
+.login-brand span {
+  display: block;
+  letter-spacing: 0;
 }
 
-.login__subtitle {
-  color: var(--el-text-color-secondary);
-  font-size: 0.875rem;
+.login-brand strong {
+  font-size: 17px;
+}
+
+.login-brand span {
+  margin-top: 3px;
+  color: rgba(237, 248, 245, 0.54);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.login-brand__content {
+  max-width: 580px;
+  padding: 72px 0;
+}
+
+.login-brand__eyebrow {
+  margin: 0 0 18px;
+  color: #f0bd68;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.login-brand__content h1 {
+  max-width: 560px;
   margin: 0;
+  color: #fff;
+  font-size: 48px;
+  font-weight: 760;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.login-brand__summary {
+  max-width: 520px;
+  margin: 24px 0 0;
+  color: rgba(237, 248, 245, 0.7);
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.login-feature-list {
+  display: grid;
+  margin-top: 38px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.login-feature {
+  display: flex;
+  min-height: 92px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.login-feature .el-icon {
+  margin-top: 2px;
+  color: #f0bd68;
+  font-size: 20px;
+}
+
+.login-feature strong,
+.login-feature span {
+  display: block;
+}
+
+.login-feature strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.login-feature span {
+  margin-top: 6px;
+  color: rgba(237, 248, 245, 0.56);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-brand__footer {
+  margin: 0;
+  color: rgba(237, 248, 245, 0.42);
+  font-size: 11px;
+}
+
+.login-form-panel {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px;
+  background: var(--app-bg);
+}
+
+.login-form-wrap {
+  width: min(100%, 430px);
+  padding: 38px 40px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.login-mobile-brand {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.login-mobile-brand .login-brand__mark {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+
+.login-header {
+  margin-bottom: 26px;
+}
+
+.login-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--app-brand);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.login-header h2 {
+  margin: 0;
+  color: var(--app-ink);
+  font-size: 28px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.login-header p:last-child {
+  margin: 10px 0 0;
+  color: var(--app-muted);
+  line-height: 1.7;
 }
 
 .login__error {
-  margin-bottom: 1rem;
+  margin-bottom: 18px;
 }
 
 .login__submit {
   width: 100%;
+  margin-top: 4px;
 }
 
 .login__hint {
-  color: var(--el-text-color-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  margin: 1.25rem 0 0;
+  margin: 22px 0 0;
+  padding-top: 18px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.75;
+  border-top: 1px solid var(--app-border);
+}
+
+@media (max-width: 920px) {
+  .login-brand__content h1 {
+    font-size: 38px;
+  }
+
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand-panel {
+    display: none;
+  }
+
+  .login-form-panel {
+    padding: 24px;
+  }
+
+  .login-mobile-brand {
+    display: flex;
+  }
+}
+
+@media (max-width: 520px) {
+  .login-form-panel {
+    align-items: start;
+    padding: 14px;
+  }
+
+  .login-form-wrap {
+    padding: 28px 22px;
+  }
+
+  .login-header h2 {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-form-wrap {
+    box-shadow: none;
+  }
 }
 </style>

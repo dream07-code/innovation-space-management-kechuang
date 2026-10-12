@@ -231,7 +231,7 @@ onMounted(load)
 
       <el-form-item label="示例">
         <div class="examples">
-          <el-card v-for="(item, index) in form.examples" :key="index" shadow="never" class="example-card">
+          <div v-for="(item, index) in form.examples" :key="index" class="example-card">
             <div class="example-header">
               <span>示例 {{ index + 1 }}</span>
               <el-button
@@ -247,7 +247,7 @@ onMounted(load)
             <el-input v-model="item.input" type="textarea" :rows="2" placeholder="输入" />
             <el-input v-model="item.output" type="textarea" :rows="2" placeholder="输出" class="example-output" />
             <el-input v-model="item.explanation" placeholder="说明（可选）" />
-          </el-card>
+          </div>
           <el-button :icon="Plus" @click="addExample">添加示例</el-button>
         </div>
       </el-form-item>
@@ -309,6 +309,10 @@ onMounted(load)
 
 .example-card {
   width: 100%;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 7px;
+  background: var(--app-surface-soft);
 }
 
 .example-header {
