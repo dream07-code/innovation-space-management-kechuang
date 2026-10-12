@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MigrationProperties {
   private boolean enabled;
   private String mode = "disabled";
-    private String requiredVersion = "6";
+    private String requiredVersion = "7";
 
   public boolean isEnabled() {
     return enabled;
