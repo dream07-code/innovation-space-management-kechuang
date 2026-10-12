@@ -24,6 +24,7 @@ import {
   UserFilled,
 } from '@element-plus/icons-vue'
 
+import BrandLogo from '@/components/BrandLogo.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import { menuForRole, ROLE_LABELS, type MenuIconKey } from '@/config/menu'
@@ -115,11 +116,7 @@ onMounted(() => {
   <el-container class="app-shell">
     <el-aside class="app-sidebar" width="260px">
       <div class="app-brand">
-        <span class="app-brand__mark"><el-icon><DataLine /></el-icon></span>
-        <span class="app-brand__text">
-          <strong>学院科创空间</strong>
-          <small>Innovation Space</small>
-        </span>
+        <BrandLogo :size="42" />
       </div>
 
       <el-scrollbar class="app-nav-scroll">
@@ -155,7 +152,7 @@ onMounted(() => {
             返回
           </el-button>
           <div class="page-heading">
-            <span class="page-heading__eyebrow">学院科创空间管理系统</span>
+            <span class="page-heading__eyebrow">科创空间</span>
             <h1 class="page-heading__title">{{ route.meta.title ?? '工作台' }}</h1>
           </div>
         </div>
@@ -213,46 +210,6 @@ onMounted(() => {
   min-height: 82px;
   padding: 18px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.app-brand__mark {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  place-items: center;
-  color: var(--app-sidebar);
-  background: var(--app-accent);
-  border-radius: 8px;
-  box-shadow: 0 8px 18px rgba(8, 31, 29, 0.22);
-}
-
-.app-brand__mark .el-icon {
-  font-size: 20px;
-}
-
-.app-brand__text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.app-brand__text strong {
-  overflow: hidden;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-brand__text small {
-  margin-top: 5px;
-  color: rgba(238, 248, 245, 0.58);
-  font-size: 10px;
-  letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .app-nav-scroll {
@@ -457,7 +414,6 @@ onMounted(() => {
     padding: 18px 12px;
   }
 
-  .app-brand__text,
   .app-sidebar__footer span:last-child,
   .app-nav :deep(.el-menu-item-group__title),
   .app-nav :deep(.el-menu-item span) {
@@ -496,10 +452,9 @@ onMounted(() => {
     width: 66px !important;
   }
 
-  .app-brand__mark {
+  .app-brand :deep(.brand-logo__mark) {
     width: 34px;
     height: 34px;
-    flex-basis: 34px;
   }
 
   .app-header {

@@ -11,8 +11,9 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { ArrowRight, DataLine, Medal, UserFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Medal, UserFilled } from '@element-plus/icons-vue'
 
+import BrandLogo from '@/components/BrandLogo.vue'
 import { ApiError, describeError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
 
@@ -71,11 +72,7 @@ async function handleSubmit(): Promise<void> {
   <main class="login-shell">
     <section class="login-brand-panel" aria-label="系统介绍">
       <div class="login-brand">
-        <span class="login-brand__mark"><el-icon><DataLine /></el-icon></span>
-        <div>
-          <strong>学院科创空间</strong>
-          <span>Innovation Space Management</span>
-        </div>
+        <BrandLogo :size="46" />
       </div>
 
       <div class="login-brand__content">
@@ -103,8 +100,7 @@ async function handleSubmit(): Promise<void> {
     <section class="login-form-panel">
       <div class="login-form-wrap">
         <div class="login-mobile-brand">
-          <span class="login-brand__mark"><el-icon><DataLine /></el-icon></span>
-          <strong>学院科创空间</strong>
+          <BrandLogo :size="38" />
         </div>
 
         <div class="login-header">
@@ -195,38 +191,6 @@ async function handleSubmit(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.login-brand__mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  place-items: center;
-  color: var(--app-sidebar);
-  background: var(--app-accent);
-  border-radius: 8px;
-}
-
-.login-brand__mark .el-icon {
-  font-size: 22px;
-}
-
-.login-brand strong,
-.login-brand span {
-  display: block;
-  letter-spacing: 0;
-}
-
-.login-brand strong {
-  font-size: 17px;
-}
-
-.login-brand span {
-  margin-top: 3px;
-  color: rgba(237, 248, 245, 0.54);
-  font-size: 10px;
-  text-transform: uppercase;
 }
 
 .login-brand__content {
