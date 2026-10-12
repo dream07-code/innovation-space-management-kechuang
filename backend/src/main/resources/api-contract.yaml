@@ -2336,7 +2336,7 @@ paths:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
       responses:
-        '200':
+        '201':
           description: 成功。
           content:
             application/json:
@@ -2568,7 +2568,7 @@ paths:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
       responses:
-        '200':
+        '201':
           description: 成功。
           content:
             application/json:
@@ -2724,7 +2724,7 @@ paths:
       x-roles:
       - STUDENT
       responses:
-        '200':
+        '201':
           description: 成功。
           content:
             application/json:
@@ -2906,7 +2906,7 @@ paths:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
       responses:
-        '200':
+        '201':
           description: 成功。
           content:
             application/json:
