@@ -452,7 +452,7 @@ onMounted(() => {
     width: 66px !important;
   }
 
-  .app-brand :deep(.brand-logo__mark) {
+  .app-brand :deep(.brand-logo__badge) {
     width: 34px;
     height: 34px;
   }

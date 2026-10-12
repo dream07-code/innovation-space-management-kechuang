@@ -9,6 +9,8 @@ describe('BrandLogo', () => {
 
     expect(wrapper.text()).toContain('科创空间')
     expect(wrapper.text()).not.toContain('学院')
+    expect(wrapper.find('.brand-logo__badge').exists()).toBe(true)
+
     const image = wrapper.find('img')
     expect(image.attributes('alt')).toBe('科创空间标志')
     expect(image.attributes('src')).toContain('brand-icon.png')

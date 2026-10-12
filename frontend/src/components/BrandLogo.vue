@@ -20,13 +20,9 @@ withDefaults(
 
 <template>
   <div class="brand-logo">
-    <img
-      class="brand-logo__mark"
-      :src="brandIcon"
-      :width="size"
-      :height="size"
-      alt="科创空间标志"
-    >
+    <span class="brand-logo__badge" :style="{ width: `${size}px`, height: `${size}px` }">
+      <img class="brand-logo__mark" :src="brandIcon" alt="科创空间标志">
+    </span>
 
     <span v-if="showText" class="brand-copy">
       <strong>科创空间</strong>
@@ -43,10 +39,24 @@ withDefaults(
   gap: 11px;
 }
 
+.brand-logo__badge {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 3px;
+  border: 1px solid rgba(23, 47, 79, 0.12);
+  border-radius: 10px;
+  background: #fffaf2;
+  box-shadow:
+    0 8px 18px rgba(5, 18, 32, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
 .brand-logo__mark {
   display: block;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 8px 14px rgba(23, 47, 79, 0.18));
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .brand-copy {
