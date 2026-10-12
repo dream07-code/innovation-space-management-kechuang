@@ -93,6 +93,13 @@ a:hover {
   color: var(--app-brand-strong);
 }
 
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
 :focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.28);
   outline-offset: 2px;
@@ -103,23 +110,40 @@ a:hover {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius);
   background: var(--app-surface);
-  box-shadow: var(--app-shadow);
+  box-shadow:
+    0 1px 2px rgba(37, 99, 235, 0.04),
+    var(--app-shadow);
+  transition:
+    border-color var(--app-transition),
+    box-shadow var(--app-transition);
+}
+
+@media (hover: hover) {
+  .el-card:hover {
+    border-color: #cbd8e8;
+    box-shadow:
+      0 2px 4px rgba(37, 99, 235, 0.05),
+      0 16px 34px rgba(37, 99, 235, 0.1);
+  }
 }
 
 .el-card__header {
   padding: 18px 20px;
   color: var(--app-ink);
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: 0;
   background: var(--app-surface-soft);
   border-bottom: 1px solid var(--app-border);
 }
 
 .el-card__body {
-  padding: 20px;
+  padding: 22px;
 }
 
 .el-button {
   min-height: 34px;
+  letter-spacing: 0;
   border-radius: var(--app-control-radius);
   font-weight: 650;
   transition:

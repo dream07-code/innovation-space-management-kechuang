@@ -132,10 +132,6 @@ onMounted(() => {
         </el-menu>
       </el-scrollbar>
 
-      <div class="app-sidebar__footer">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span>数据更新于 {{ new Date().toLocaleDateString('zh-CN') }}</span>
-      </div>
     </el-aside>
 
     <el-container class="app-content">
@@ -260,25 +256,6 @@ onMounted(() => {
 .app-nav :deep(.el-menu-item .el-icon) {
   margin-right: 11px;
   font-size: 17px;
-}
-
-.app-sidebar__footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 15px 20px 18px;
-  color: #8794a8;
-  font-size: 11px;
-  border-top: 1px solid var(--app-border);
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  border-radius: 50%;
-  background: var(--app-brand);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
 }
 
 .app-content {
@@ -414,7 +391,6 @@ onMounted(() => {
     padding: 18px 12px;
   }
 
-  .app-sidebar__footer span:last-child,
   .app-nav :deep(.el-menu-item-group__title),
   .app-nav :deep(.el-menu-item span) {
     display: none;
@@ -427,11 +403,6 @@ onMounted(() => {
 
   .app-nav :deep(.el-menu-item .el-icon) {
     margin: 0;
-  }
-
-  .app-sidebar__footer {
-    justify-content: center;
-    padding: 15px 8px;
   }
 
   .app-header {

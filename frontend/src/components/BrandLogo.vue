@@ -26,7 +26,6 @@ withDefaults(
 
     <span v-if="showText" class="brand-copy">
       <strong>科创空间</strong>
-      <small>INNOVATION SPACE</small>
     </span>
   </div>
 </template>
@@ -71,18 +70,6 @@ withDefaults(
   color: inherit;
   font-size: 15px;
   font-weight: 760;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.brand-copy small {
-  margin-top: 5px;
-  overflow: hidden;
-  color: inherit;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0;
-  opacity: 0.58;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
