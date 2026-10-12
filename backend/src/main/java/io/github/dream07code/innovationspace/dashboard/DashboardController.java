@@ -12,9 +12,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/dashboard")
 public class DashboardController {
   private final DashboardAdminService admins;
+  private final DashboardLeaderService leaders;
 
-  public DashboardController(DashboardAdminService admins) {
+  public DashboardController(DashboardAdminService admins, DashboardLeaderService leaders) {
     this.admins = admins;
+    this.leaders = leaders;
+  }
+
+  @GetMapping("/leader")
+  public ApiResponse<Map<String, Object>> leaderDashboard(
+      @RequestParam(required = false) String range) {
+    return ApiResponse.success(leaders.summary(MemberController.actor(), range));
   }
 
   @GetMapping("/admin")
