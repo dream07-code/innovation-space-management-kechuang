@@ -90,3 +90,14 @@ GET /api/v1/dashboard/student?range=7d
 - 管理员风险列表最多10条。
 - 负责人排行榜不含负责人。
 - 页面不出现 `studentNo/contact/content/code/privateTestData/rawProviderResponse/apiToken/password`。
+
+
+## 日报表单字段
+
+日报创建/编辑表单只显示以下字段：
+
+- `learningContent`：学习内容，必填。
+- `gains`：收获，选填。
+- `problems`：遇到的问题，选填。
+
+日期由服务端按 `Asia/Shanghai` 当天生成，不在表单显示日期选择器。`nextPlan`、`links` 以及其它历史兼容字段不作为表单项。草稿允许暂时不完整，但正式提交前 `learningContent` 必须为非空文本；`gains` 和 `problems` 可以留空。

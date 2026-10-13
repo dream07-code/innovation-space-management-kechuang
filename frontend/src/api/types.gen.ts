@@ -2348,7 +2348,7 @@ export interface components {
             /** @example 完成接口请求与参数校验练习。 */
             learningContent: string;
             /** @example 理解了参数校验与异常映射。 */
-            gains: string;
+            gains: string | null;
             problems: string | null;
             nextPlan: string | null;
             links: string[];
@@ -2385,8 +2385,14 @@ export interface components {
             message: string;
             data: components["schemas"]["DailyReportPage"];
         };
-        /** @description 创建日报草稿；reportDate 由服务端按业务当天生成。学习内容必填且 trim 后不得为空，收获和遇到的问题可以省略。 */
+        /** @description 创建日报草稿；当前前端只填写 learningContent、gains、problems，其中 learningContent 必填且 trim 后不得为空。reportDate 为历史兼容字段，可省略并由服务端按 Asia/Shanghai 当天生成；nextPlan/links 不作为常用表单项。 */
         CreateDailyReportRequest: {
+            /**
+             * Format: date
+             * @description 历史兼容字段；当前前端不展示、不发送，服务端默认使用 Asia/Shanghai 当天。
+             * @example 2026-10-11
+             */
+            reportDate?: string;
             /** @example 今天学习了 Spring Boot 接口设计 */
             learningContent: string;
             /** @example 理解了参数校验 */
@@ -2398,7 +2404,7 @@ export interface components {
             /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             links?: string[];
         };
-        /** @description 只改正文，不改成员或日期。当前日报表单只发送 version、learningContent、gains、problems；日期不变，历史 nextPlan/links 仅保留 API 兼容。 */
+        /** @description 只改正文，不改成员或日期。当前日报表单只发送 version、learningContent、gains、problems；learningContent 必填且 trim 后不得为空，日期不变，历史 nextPlan/links 仅保留 API 兼容。 */
         UpdateDailyReportRequest: {
             /**
              * Format: int32
@@ -2517,7 +2523,7 @@ export interface components {
             message: string;
             data: components["schemas"]["WeeklyReportPage"];
         };
-        /** @description 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
+        /** @description 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
         CreateWeeklyReportRequest: {
             /**
              * Format: date

@@ -66,7 +66,7 @@ async function load(): Promise<void> {
     const loaded = await getDailyReport(reportId.value!)
     report.value = loaded
     form.learningContent = loaded.learningContent
-    form.gains = loaded.gains
+    form.gains = loaded.gains ?? ''
     form.problems = loaded.problems ?? ''
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
@@ -140,7 +140,7 @@ async function submit(): Promise<void> {
       crypto.randomUUID(),
     )
     form.learningContent = report.value.learningContent
-    form.gains = report.value.gains
+    form.gains = report.value.gains ?? ''
     form.problems = report.value.problems ?? ''
     ElMessage.success('已正式提交，保底积分已入账，评分排队中')
   } catch (error) {
