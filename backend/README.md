@@ -173,6 +173,27 @@ OJ 考核接口先以 `planned` OpenAPI 契约发布，前端可开发考核/题
 
 当前默认 `OJ_PROVIDER=mock`。选型报告见 `docs/superpowers/reports/2026-10-12-open-source-oj-selection.md`：Judge0 适配器已实现并用本地 fake HTTP contract tests 验证，但真实启用前必须部署隔离的 Judge0 服务、提供受控私有测试用例加载器，并完成 GPL-3.0 合规审查。`OJ_PROVIDER=judge0` 时仅服务端访问 `OJ_BASE_URL`/`OJ_API_TOKEN`，浏览器不能调用 OJ 私有 API。
 
+### Judge0 本地验证
+
+已在开发机尝试启动隔离的 `judge0/judge0:latest`，并用独立 PostgreSQL、Redis 和 privileged 容器验证 `/about` 返回 `1.13.1`。当前主机使用 cgroup v2，Judge0 1.13.1 的 isolate 作业会返回 `INTERNAL_ERROR`（`/box/script.py` 不可创建），因此生产判题仍保持 `OJ_PROVIDER=mock` 降级；这不代表应用适配器故障，fake HTTP contract 已覆盖成功、失败、超时、非法状态和无测试点场景。
+
+需要重新验证时，使用隔离网络、专用数据库和不暴露公网的 loopback 端口：
+
+```bash
+docker network create innovation-judge0-net
+docker run -d --name innovation-judge0-postgres --network innovation-judge0-net \
+  -e POSTGRES_PASSWORD='<一次性开发密码>' postgres:13-alpine
+docker run -d --name innovation-judge0-redis --network innovation-judge0-net redis:6-alpine
+docker run -d --name innovation-judge0 --network innovation-judge0-net --privileged \
+  -p 127.0.0.1:2358:2358 \
+  -e POSTGRES_HOST=innovation-judge0-postgres \
+  -e POSTGRES_PASSWORD='<一次性开发密码>' \
+  -e REDIS_HOST=innovation-judge0-redis judge0/judge0:latest
+curl -fsS http://127.0.0.1:2358/about
+```
+
+只有在 `/about` 健康且真实 Python/Java 样例能稳定返回 `ACCEPTED`、cgroup 隔离和磁盘配额经过验收后，才能设置 `OJ_PROVIDER=judge0`。Judge0 Token 只能通过服务端密钥管理注入；浏览器、Git、审计和日志不得接触 Token、原始 stdout/stderr 或正式考核隐藏测试点。
+
 AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。积分排行榜及排名人数仅统计 `ACTIVE` 学生；方向负责人保留报告积分和流水，但不进入总榜、方向榜或个人排名，前端隐藏负责人的“我的排名”。
 
 ## 角色化数据看板
