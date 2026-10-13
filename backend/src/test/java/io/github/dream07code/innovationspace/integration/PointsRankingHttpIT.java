@@ -43,6 +43,7 @@ class PointsRankingHttpIT {
   @Autowired SessionService sessions;
   @Value("${local.server.port}") int port;
   String studentToken;
+  String leaderToken;
 
   @BeforeEach
   void fixture() {
@@ -54,12 +55,17 @@ class PointsRankingHttpIT {
     insertMember(11, "MOCK011", 1, "乙同学", "ACTIVE");
     insertMember(12, "MOCK012", 2, "丙同学", "ACTIVE");
     insertMember(13, "MOCK013", 1, "移出同学", "REMOVED");
+    insertMember(14, "MOCK014", 1, "方向负责人", "ACTIVE");
+    jdbc.update("UPDATE app_user SET role='DIRECTION_LEADER' WHERE id=14");
+    jdbc.update("INSERT INTO leader_direction_scope(user_id,direction_id,granted_at) VALUES(14,1,UTC_TIMESTAMP(6))");
+    insertLedger(14, 99, "2026-10-01 01:00:00", "LEADER");
     insertLedger(10, 3, "2026-10-01 01:00:00", "A1");
     insertLedger(10, 2, "2026-09-30 15:59:59", "A2");
     insertLedger(11, 5, "2026-10-02 01:00:00", "B1");
     insertLedger(12, 1, "2026-10-03 01:00:00", "C1");
     insertLedger(13, 20, "2026-10-03 01:00:00", "D1");
     studentToken = sessions.issue(10).accessToken();
+    leaderToken = sessions.issue(14).accessToken();
   }
 
   @Test
@@ -88,6 +94,19 @@ class PointsRankingHttpIT {
     assertEquals(3, HttpTestSupport.json(mine).at("/data/points").asInt());
     assertEquals(3, HttpTestSupport.json(mine).at("/data/overallCount").asInt());
     assertTrue(HttpTestSupport.json(mine).at("/data/eligible").asBoolean());
+  }
+
+  @Test
+  void rankingsExcludeLeadersAndRejectLeaderPersonalRanking() throws Exception {
+    var overall = send(studentToken, "GET", "/api/v1/rankings/overall?page=1&size=20", null);
+    assertEquals(200, overall.statusCode());
+    var data = HttpTestSupport.json(overall).at("/data");
+    assertEquals(3, data.at("/total").asInt());
+    assertFalse(overall.body().contains("MOCK014"));
+    var direction = send(studentToken, "GET", "/api/v1/rankings/directions/1?page=1&size=20", null);
+    assertEquals(200, direction.statusCode());
+    assertFalse(direction.body().contains("MOCK014"));
+    assertEquals(403, send(leaderToken, "GET", "/api/v1/rankings/me?period=ALL_TIME", null).statusCode());
   }
 
   @Test

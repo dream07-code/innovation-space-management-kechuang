@@ -34,7 +34,8 @@ public class RankingService {
   }
 
   public Map<String, Object> me(SessionPrincipal principal, String period, String month) {
-    if (principal.memberId() == null) throw new ApiException(403, ErrorCode.FORBIDDEN);
+    if (!"STUDENT".equals(principal.role()) || principal.memberId() == null)
+      throw new ApiException(403, ErrorCode.FORBIDDEN);
     Period selected = period(period, month);
     Map<String, Object> row =
         jdbc.queryForMap("SELECT id,direction_id,membership_status FROM member WHERE id=?", principal.memberId());
@@ -118,7 +119,8 @@ public class RankingService {
   }
 
   private Query scored(Long direction, Period period) {
-    StringBuilder where = new StringBuilder(" WHERE m.membership_status='ACTIVE'");
+    StringBuilder where =
+        new StringBuilder(" WHERE u.role='STUDENT' AND m.membership_status='ACTIVE'");
     List<Object> args = new ArrayList<>();
     if (direction != null) {
       where.append(" AND m.direction_id=?");

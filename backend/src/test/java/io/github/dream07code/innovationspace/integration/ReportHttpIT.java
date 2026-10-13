@@ -73,6 +73,9 @@ class ReportHttpIT {
     var replay = send(token, "POST", "/api/v1/daily-reports", body, "11111111-1111-4111-8111-111111111111");
     assertEquals(201, replay.statusCode());
     assertEquals(id, HttpTestSupport.json(replay).path("data").path("id").asText());
+    var duplicate = send(token, "POST", "/api/v1/daily-reports", body, "11111111-1111-4111-8111-111111111112");
+    assertEquals(409, duplicate.statusCode());
+    assertEquals("REPORT_ALREADY_EXISTS", HttpTestSupport.json(duplicate).at("/code").asText());
     assertEquals(400, send(token, "POST", "/api/v1/daily-reports/" + id + "/submit", "{\"version\":1}", null).statusCode());
     var submitted = send(token, "POST", "/api/v1/daily-reports/" + id + "/submit", "{\"version\":1}", "22222222-2222-4222-8222-222222222222");
     assertEquals(200, submitted.statusCode());
