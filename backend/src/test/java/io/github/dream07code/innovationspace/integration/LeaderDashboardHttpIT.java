@@ -55,7 +55,7 @@ class LeaderDashboardHttpIT {
   void fixture() {
     MysqlTestSupport.migrate(MYSQL);
     for (String table : new String[] {
-        "assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_judge_result",
+        "assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result",
         "assessment_submission_code","assessment_submission","assessment_problem_link","assessment_problem","assessment",
         "point_ledger","report_review","report_scoring_task","report_version","report",
         "leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {

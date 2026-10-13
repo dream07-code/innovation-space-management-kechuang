@@ -10,7 +10,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -35,18 +37,25 @@ public class Judge0OjAdapter implements OjAdapter {
   public OjJudgeResult judge(OjSubmission submission) {
     Integer languageId = LANGUAGE_IDS.get(submission.language());
     if (languageId == null || submission.testCases().isEmpty())
-      return internal(submission.testCases().size());
+      return internal(submission.testCases());
     int passed = 0;
     int maxTimeMs = 0;
     int maxMemoryKb = 0;
     OjVerdict verdict = OjVerdict.ACCEPTED;
     String safeError = null;
+    var results = new ArrayList<OjJudgeResult.TestCaseResult>();
     try {
-      for (var testCase : submission.testCases()) {
+      for (int index = 0; index < submission.testCases().size(); index++) {
+        var testCase = submission.testCases().get(index);
         var root = submit(submission, languageId, testCase);
         var status = root.path("status");
         int statusId = status.path("id").asInt(-1);
         var current = verdict(statusId);
+        int timeMs = millis(root.path("time").asText("0"));
+        int memoryKb = root.path("memory").asInt(0);
+        results.add(
+            new OjJudgeResult.TestCaseResult(
+                index + 1, current, timeMs, memoryKb, safeOrNull(current)));
         if (current != OjVerdict.ACCEPTED) {
           if (verdict == OjVerdict.ACCEPTED) {
             verdict = current;
@@ -55,14 +64,20 @@ public class Judge0OjAdapter implements OjAdapter {
         } else {
           passed++;
         }
-        maxTimeMs = Math.max(maxTimeMs, millis(root.path("time").asText("0")));
-        maxMemoryKb = Math.max(maxMemoryKb, root.path("memory").asInt(0));
+        maxTimeMs = Math.max(maxTimeMs, timeMs);
+        maxMemoryKb = Math.max(maxMemoryKb, memoryKb);
       }
     } catch (Exception error) {
-      return internal(submission.testCases().size());
+      return internal(submission.testCases());
     }
     return new OjJudgeResult(
-        verdict, passed, submission.testCases().size(), maxTimeMs, maxMemoryKb, safeError);
+        verdict,
+        passed,
+        submission.testCases().size(),
+        maxTimeMs,
+        maxMemoryKb,
+        safeError,
+        results);
   }
 
   private JsonNode submit(
@@ -125,8 +140,28 @@ public class Judge0OjAdapter implements OjAdapter {
     };
   }
 
-  private static OjJudgeResult internal(int total) {
+  private static String safeOrNull(OjVerdict verdict) {
+    return verdict == OjVerdict.ACCEPTED ? null : safe(verdict);
+  }
+
+  private static OjJudgeResult internal(List<OjSubmission.TestCase> testCases) {
+    var results = new ArrayList<OjJudgeResult.TestCaseResult>();
+    for (int index = 0; index < testCases.size(); index++) {
+      results.add(
+          new OjJudgeResult.TestCaseResult(
+              index + 1,
+              OjVerdict.INTERNAL_ERROR,
+              0,
+              0,
+              "synthetic judge0 response unavailable"));
+    }
     return new OjJudgeResult(
-        OjVerdict.INTERNAL_ERROR, 0, total, 0, 0, "synthetic judge0 response unavailable");
+        OjVerdict.INTERNAL_ERROR,
+        0,
+        testCases.size(),
+        0,
+        0,
+        "synthetic judge0 response unavailable",
+        results);
   }
 }

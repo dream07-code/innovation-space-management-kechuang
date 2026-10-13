@@ -55,7 +55,7 @@ class AssessmentSubmissionHttpIT {
   @BeforeEach
   void fixture() throws Exception {
     MysqlTestSupport.migrate(MYSQL);
-    for (String table : new String[] {"assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_judge_result","assessment_submission","assessment_problem_link","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
+    for (String table : new String[] {"assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result","assessment_submission","assessment_problem_link","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
       jdbc.update("DELETE FROM " + table);
     }
     seedMember(10, "STUDENT", 1);
@@ -69,7 +69,7 @@ class AssessmentSubmissionHttpIT {
     otherStudentToken = sessions.issue(12).accessToken();
 
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"提交题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java","python"]}
+        {"title":"提交题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java","python"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"},{"input":"2","expectedOutput":"2"}]}
         """, UUID.randomUUID().toString());
     assertEquals(201, problem.statusCode());
     problemId = HttpTestSupport.json(problem).at("/data/id").asText();
@@ -107,6 +107,13 @@ class AssessmentSubmissionHttpIT {
     ContractAssertions.response("GET", "/api/v1/assessment-submissions/" + id, detail);
     assertEquals("JUDGED", HttpTestSupport.json(detail).at("/data/status").asText());
     assertEquals("ACCEPTED", HttpTestSupport.json(detail).at("/data/judgeResult/verdict").asText());
+    assertEquals(2, HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults").size());
+    assertEquals(1, HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults/0/position").asInt());
+    assertEquals("ACCEPTED", HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults/1/verdict").asText());
+    assertFalse(detail.body().contains("\"input\""));
+    assertFalse(detail.body().contains("\"expectedOutput\""));
+    assertFalse(detail.body().contains("stdout"));
+    assertFalse(detail.body().contains("stderr"));
     assertFalse(detail.body().contains("private solution marker"));
     assertFalse(detail.body().contains("codeLocator"));
 

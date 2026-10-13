@@ -42,6 +42,9 @@ class OpenSourceOjAdapterIT {
       assertEquals(OjVerdict.ACCEPTED, result.verdict());
       assertEquals(2, result.passedTestCases());
       assertEquals(2, result.totalTestCases());
+      assertEquals(2, result.testCaseResults().size());
+      assertEquals(1, result.testCaseResults().get(0).position());
+      assertEquals(OjVerdict.ACCEPTED, result.testCaseResults().get(1).verdict());
       assertTrue(result.safeError() == null || !result.safeError().contains("secret"));
       assertFalse(String.valueOf(result).contains("secret-code"));
       assertFalse(String.valueOf(result).contains("secret stdout"));
@@ -90,6 +93,20 @@ class OpenSourceOjAdapterIT {
   }
 
   @Test
+  void emptyAssessmentTestCasesFailClosedInsteadOfAccepting() {
+    var properties = new Judge0OjProperties();
+    properties.setProvider("judge0");
+    properties.setBaseUrl("http://127.0.0.1:1");
+    var result = new Judge0OjAdapter(properties).judge(new OjSubmission("java", "class Main {}", java.util.List.of()));
+
+    assertEquals(OjVerdict.INTERNAL_ERROR, result.verdict());
+    assertEquals(0, result.passedTestCases());
+    assertEquals(0, result.totalTestCases());
+    assertTrue(result.testCaseResults().isEmpty());
+    assertNotNull(result.safeError());
+  }
+
+  @Test
   void malformedAndUnavailableResponsesBecomeInternalError() throws Exception {
     var responses = new ArrayDeque<String>();
     responses.add("{not-json");
@@ -106,6 +123,8 @@ class OpenSourceOjAdapterIT {
                   new OjSubmission(
                       "java", "class Main {}", java.util.List.of(new OjSubmission.TestCase("", "x"))));
       assertEquals(OjVerdict.INTERNAL_ERROR, result.verdict());
+      assertEquals(1, result.testCaseResults().size());
+      assertEquals(OjVerdict.INTERNAL_ERROR, result.testCaseResults().getFirst().verdict());
       assertNotNull(result.safeError());
       assertFalse(result.safeError().contains("{not-json"));
       } finally {

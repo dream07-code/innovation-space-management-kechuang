@@ -44,6 +44,7 @@ class OJApiContractIT {
         "AssessmentProblem",
         "AssessmentSubmission",
         "OjJudgeResult",
+        "OjTestCaseResult",
         "AiEvaluation",
         "AssessmentReview",
         "AssessmentResult",
@@ -87,6 +88,13 @@ class OJApiContractIT {
     var submission = api.getComponents().getSchemas().get("AssessmentSubmission");
     assertTrue(submission.getProperties().containsKey("id"));
     assertEquals("string", ((io.swagger.v3.oas.models.media.StringSchema) submission.getProperties().get("id")).getType());
+    var judge = api.getComponents().getSchemas().get("OjJudgeResult");
+    assertTrue(judge.getProperties().containsKey("testCaseResults"));
+    assertFalse(judge.getProperties().containsKey("input"));
+    assertFalse(judge.getProperties().containsKey("expectedOutput"));
+    assertFalse(judge.getProperties().containsKey("stdout"));
+    assertFalse(judge.getProperties().containsKey("stderr"));
+
     assertFalse(submission.getProperties().containsKey("code"));
     assertFalse(submission.getProperties().containsKey("privateTestData"));
     assertTrue(api.getComponents().getSchemas().get("CreateAssessmentSubmissionRequest").getProperties().containsKey("code"));

@@ -228,9 +228,29 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
       judge.put("timeMs", row.get("time_ms"));
       judge.put("memoryKb", row.get("memory_kb"));
       judge.put("safeError", row.get("safe_error"));
+      judge.put("testCaseResults", testCaseResults(id));
       out.put("judgeResult", judge);
     }
     return out;
+  }
+
+  private List<Map<String, Object>> testCaseResults(long submissionId) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT position,verdict,time_ms,memory_kb,safe_error FROM oj_test_case_result"
+                + " WHERE submission_id=? ORDER BY position",
+            submissionId);
+    var results = new ArrayList<Map<String, Object>>();
+    for (var row : rows) {
+      var result = new LinkedHashMap<String, Object>();
+      result.put("position", row.get("position"));
+      result.put("verdict", row.get("verdict"));
+      result.put("timeMs", row.get("time_ms"));
+      result.put("memoryKb", row.get("memory_kb"));
+      result.put("safeError", row.get("safe_error"));
+      results.add(result);
+    }
+    return results;
   }
 
   private Map<String, Object> row(long id) {
