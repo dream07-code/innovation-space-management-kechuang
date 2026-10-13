@@ -1494,7 +1494,7 @@ export interface paths {
         };
         /**
          * 学生本人总榜与方向榜名次
-         * @description 仅STUDENT可查询本人排名。ACTIVE学生不在榜单时eligible=false，两种rank均null；方向负责人和管理员不调用此接口，前端隐藏我的排名。不能用分页序号当全榜名次。
+         * @description 仅STUDENT可查询本人排名。ACTIVE学生不在榜单时eligible=false，两种rank均null；方向负责人和管理员返回403，前端隐藏我的排名。不能用分页序号当全榜名次。
          */
         get: operations["getMyRanking"];
         put?: never;
@@ -2385,7 +2385,7 @@ export interface components {
             message: string;
             data: components["schemas"]["DailyReportPage"];
         };
-        /** @description 创建日报草稿；当前前端只填写 learningContent、gains、problems，其中 learningContent 必填且 trim 后不得为空。reportDate 为历史兼容字段，可省略并由服务端按 Asia/Shanghai 当天生成；nextPlan/links 不作为常用表单项。 */
+        /** @description 日报创建草稿；前端只需要填写 learningContent、gains、problems，其中 learningContent 必填且 trim 后不得为空。reportDate 为历史兼容字段，可省略并由服务端按 Asia/Shanghai 当天生成；nextPlan/links 不作为常用表单项。当天重复日报返回 409 REPORT_ALREADY_EXISTS。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
         CreateDailyReportRequest: {
             /**
              * Format: date
@@ -2523,7 +2523,7 @@ export interface components {
             message: string;
             data: components["schemas"]["WeeklyReportPage"];
         };
-        /** @description 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
+        /** @description 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。当天重复日报返回409 REPORT_ALREADY_EXISTS。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
         CreateWeeklyReportRequest: {
             /**
              * Format: date
