@@ -662,7 +662,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 发布考核 */
+        /**
+         * 发布考核
+         * @description 发布考核并同步将关联的 DRAFT 题目设为 PUBLISHED，确保学生可以在题库、考核详情和代码提交页看到题目。
+         */
         post: {
             parameters: {
                 query?: never;
