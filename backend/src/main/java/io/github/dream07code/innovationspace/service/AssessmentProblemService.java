@@ -17,5 +17,6 @@ public interface AssessmentProblemService {
   Map<String, Object> get(long id, SessionPrincipal actor);
   Map<String, Object> list(SessionPrincipal actor, int page, int size);
   Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor);
+  Map<String, Object> testCases(long id, SessionPrincipal actor);
   IdempotencyService.StoredResponse retire( long id, Map<String, Object> request, SessionPrincipal actor, String key);
 }

@@ -44,8 +44,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
 
   public IdempotencyService.StoredResponse create(
       Map<String, Object> request, SessionPrincipal actor, String key) {
-    validate(request);
     requireManage(actor);
+    validate(request);
+    validateTestCaseField(request.get("assessmentTestCases"), true);
+    validateTestCaseField(request.get("practiceTestCases"), false);
     return idem.execute(
         actor,
         "POST",
@@ -74,6 +76,14 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
                       Timestamp.from(now),
                       Timestamp.from(now));
                   long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+                  saveTestCases(
+                      id,
+                      "assessment_problem_assessment_test_case",
+                      request.get("assessmentTestCases"));
+                  saveTestCases(
+                      id,
+                      "assessment_problem_practice_test_case",
+                      request.get("practiceTestCases"));
                   audit(actor, "ASSESSMENT_PROBLEM_CREATED", id);
                   return new IdempotencyService.StoredResponse(
                       201, json.writeValueAsString(ApiResponse.success(response(id))));
@@ -84,6 +94,16 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     var row = row(id);
     requireVisible(actor, row);
     return response(id);
+  }
+
+  public Map<String, Object> testCases(long id, SessionPrincipal actor) {
+    requireManage(actor);
+    row(id);
+    return Map.of(
+        "assessmentTestCases",
+        readTestCases(id, "assessment_problem_assessment_test_case"),
+        "practiceTestCases",
+        readTestCases(id, "assessment_problem_practice_test_case"));
   }
 
   public Map<String, Object> list(SessionPrincipal actor, int page, int size) {
@@ -116,6 +136,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
 
   public Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor) {
     validateUpdate(request);
+    if (request.containsKey("assessmentTestCases"))
+      validateTestCaseField(request.get("assessmentTestCases"), true);
+    if (request.containsKey("practiceTestCases"))
+      validateTestCaseField(request.get("practiceTestCases"), false);
     requireManage(actor);
     long version = version(request.get("version"));
     return tx.execute(
@@ -145,6 +169,14 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
           args.add(Timestamp.from(clock.instant()));
           args.add(id);
           jdbc.update("UPDATE assessment_problem SET " + String.join(",", fields) + " WHERE id=?", args.toArray());
+          if (values.containsKey("assessmentTestCases")) {
+            jdbc.update("DELETE FROM assessment_problem_assessment_test_case WHERE problem_id=?", id);
+            saveTestCases(id, "assessment_problem_assessment_test_case", values.get("assessmentTestCases"));
+          }
+          if (values.containsKey("practiceTestCases")) {
+            jdbc.update("DELETE FROM assessment_problem_practice_test_case WHERE problem_id=?", id);
+            saveTestCases(id, "assessment_problem_practice_test_case", values.get("practiceTestCases"));
+          }
           audit(actor, "ASSESSMENT_PROBLEM_UPDATED", id);
           return response(id);
         });
@@ -249,9 +281,26 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     languages(request.get("allowedLanguages"));
   }
 
+  private static void validateTestCaseField(Object value, boolean required) {
+    if (value == null) {
+      if (required) throw bad();
+      return;
+    }
+    if (!(value instanceof List<?> list) || (required && list.isEmpty()) || list.size() > 100) throw bad();
+    for (Object item : list) {
+      if (!(item instanceof Map<?, ?> testCase)) throw bad();
+      if (!Set.of("input", "expectedOutput").containsAll(testCase.keySet())
+          || testCase.keySet().size() != 2) throw bad();
+      if (!(testCase.get("input") instanceof String input)
+          || input.length() > 1_000_000) throw bad();
+      if (!(testCase.get("expectedOutput") instanceof String expected)
+          || expected.length() > 1_000_000) throw bad();
+    }
+  }
+
   private static void validateUpdate(Map<String, Object> request) {
     if (request == null || request.size() < 2 || !request.containsKey("version")) throw bad();
-    var allowed = Set.of("version", "title", "summary", "description", "inputFormat", "outputFormat", "examples", "difficulty", "tags", "timeLimitMs", "memoryLimitKb", "allowedLanguages");
+    var allowed = Set.of("version", "title", "summary", "description", "inputFormat", "outputFormat", "examples", "difficulty", "tags", "timeLimitMs", "memoryLimitKb", "allowedLanguages", "assessmentTestCases", "practiceTestCases");
     if (!allowed.containsAll(request.keySet())) throw bad();
     for (var entry : request.entrySet()) {
       String key = entry.getKey();
@@ -269,6 +318,8 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         case "timeLimitMs" -> integer(value, 100, 30000);
         case "memoryLimitKb" -> integer(value, 1024, 1048576);
         case "allowedLanguages" -> languages(value);
+        case "assessmentTestCases" -> validateTestCaseField(value, true);
+        case "practiceTestCases" -> validateTestCaseField(value, false);
         default -> throw bad();
       }
     }
@@ -331,6 +382,46 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       if (!(item instanceof String language)
           || !Set.of("java", "python", "cpp", "javascript", "go", "rust").contains(language)) throw bad();
       result.add(language);
+    }
+    return result;
+  }
+
+  private void saveTestCases(long problemId, String table, Object value) {
+    if (value == null) return;
+    var list = (List<?>) value;
+    Instant now = clock.instant();
+    int position = 1;
+    for (Object item : list) {
+      var testCase = (Map<?, ?>) item;
+      jdbc.update(
+          "INSERT INTO "
+              + table
+              + "(problem_id,position,input,expected_output,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+          problemId,
+          position++,
+          testCase.get("input"),
+          testCase.get("expectedOutput"),
+          Timestamp.from(now),
+          Timestamp.from(now));
+    }
+  }
+
+  private List<Map<String, Object>> readTestCases(long problemId, String table) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT position,input,expected_output FROM " + table
+                + " WHERE problem_id=? ORDER BY position",
+            problemId);
+    var result = new ArrayList<Map<String, Object>>();
+    for (var row : rows) {
+      result.add(
+          Map.of(
+              "position",
+              row.get("position"),
+              "input",
+              row.get("input"),
+              "expectedOutput",
+              row.get("expected_output")));
     }
     return result;
   }

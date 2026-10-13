@@ -66,11 +66,17 @@ class AssessmentManagementHttpIT {
   @Test
   void adminCreatesProblemAndAssessmentThenPublishesAndCloses() throws Exception {
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"一行数组","outputFormat":"两个下标","examples":[{"input":"[2,7]\\n9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"]}
+        {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"一行数组","outputFormat":"两个下标","examples":[{"input":"[2,7]\\n9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"[2,7]\\n9","expectedOutput":"0 1"},{"input":"[3,3]\\n6","expectedOutput":"0 1"}],"practiceTestCases":[{"input":"[1,2]\\n3","expectedOutput":"0 1"}]}
         """, "11111111-1111-4111-8111-111111111111");
     assertEquals(201, problem.statusCode());
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
     ContractAssertions.response("POST", "/api/v1/assessment-problems", problem);
+    assertFalse(problem.body().contains("expectedOutput"));
+    var problemCases = send(adminToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null);
+    assertEquals(200, problemCases.statusCode());
+    assertEquals(2, HttpTestSupport.json(problemCases).path("data").path("assessmentTestCases").size());
+    assertEquals(1, HttpTestSupport.json(problemCases).path("data").path("practiceTestCases").size());
+    assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
 
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
         {"title":"基础算法考核","description":"第一期考核","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-19T09:00:00+08:00","allowedLanguages":["java"],"problemIds":[%s]}
@@ -105,12 +111,12 @@ class AssessmentManagementHttpIT {
   @Test
   void managementPermissionsAndVersionConflictsAreEnforced() throws Exception {
     var studentCreate = send(studentToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"学生不能创建","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"]}
+        {"title":"学生不能创建","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
         """, "55555555-5555-4555-8555-555555555555");
     assertEquals(403, studentCreate.statusCode());
 
     var problem = send(leaderToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"负责人题目","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"]}
+        {"title":"负责人题目","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
         """, "66666666-6666-4666-8666-666666666666");
     assertEquals(201, problem.statusCode());
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
@@ -127,6 +133,26 @@ class AssessmentManagementHttpIT {
     String assessmentId = HttpTestSupport.json(assessment).path("data").path("id").asText();
     assertEquals(409, send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId, "{\"version\":99,\"title\":\"错误版本\"}", null).statusCode());
     assertEquals(400, send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId, "{\"version\":1}", null).statusCode());
+  }
+
+  @Test
+  void problemTestCasesCanBeReplacedByStaffButNotReadByStudents() throws Exception {
+    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
+        {"title":"测试点替换题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
+        """, "99999999-9999-4999-8999-999999999999");
+    assertEquals(201, problem.statusCode());
+    String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
+    var updated = send(adminToken, "PATCH", "/api/v1/assessment-problems/" + problemId, """
+        {"version":1,"assessmentTestCases":[{"input":"2","expectedOutput":"2"},{"input":"3","expectedOutput":"3"}],"practiceTestCases":[{"input":"4","expectedOutput":"4"}]}
+        """, null);
+    assertEquals(200, updated.statusCode());
+    assertEquals(2, HttpTestSupport.json(updated).path("data").path("version").asInt());
+    var cases = send(adminToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null);
+    assertEquals(200, cases.statusCode());
+    assertEquals(2, HttpTestSupport.json(cases).path("data").path("assessmentTestCases").size());
+    assertEquals("2", HttpTestSupport.json(cases).path("data").path("assessmentTestCases").path(0).path("input").asText());
+    assertEquals(1, HttpTestSupport.json(cases).path("data").path("practiceTestCases").size());
+    assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
   }
 
   private void seedMember(int id, String role, int directionId) {

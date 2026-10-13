@@ -76,7 +76,7 @@ class AssessmentReviewHttpIT {
     otherLeaderToken = sessions.issue(12).accessToken();
 
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"人工批阅题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"]}
+        {"title":"人工批阅题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
         """, UUID.randomUUID().toString());
     assertEquals(201, problem.statusCode());
     problemId = HttpTestSupport.json(problem).at("/data/id").asText();

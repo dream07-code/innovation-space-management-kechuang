@@ -34,6 +34,11 @@ public class AssessmentProblemController {
     return ApiResponse.success(service.get(problemId, actor()));
   }
 
+  @GetMapping("/{problemId}/test-cases")
+  public ApiResponse<Map<String, Object>> testCases(@PathVariable long problemId) {
+    return ApiResponse.success(service.testCases(problemId, actor()));
+  }
+
   @PatchMapping("/{problemId}")
   public ApiResponse<Map<String, Object>> update(
       @PathVariable long problemId, @RequestBody Map<String, Object> request) {

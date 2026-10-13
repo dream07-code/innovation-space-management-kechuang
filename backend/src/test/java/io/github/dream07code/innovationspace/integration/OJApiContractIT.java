@@ -22,6 +22,7 @@ class OJApiContractIT {
         "/api/v1/assessments/{assessmentId}/close",
         "/api/v1/assessment-problems",
         "/api/v1/assessment-problems/{problemId}",
+        "/api/v1/assessment-problems/{problemId}/test-cases",
         "/api/v1/assessment-problems/{problemId}/retire",
         "/api/v1/assessments/{assessmentId}/submissions",
         "/api/v1/assessment-submissions",
@@ -49,6 +50,9 @@ class OJApiContractIT {
         "UpdateAssessmentRequest",
         "CreateAssessmentProblemRequest",
         "UpdateAssessmentProblemRequest",
+        "AssessmentProblemTestCaseInput",
+        "AssessmentProblemTestCase",
+        "AssessmentProblemTestCasesResponse",
         "CreateAssessmentSubmissionRequest",
         "CreateAssessmentReviewRequest",
         "AssessmentResponse",
@@ -63,6 +67,17 @@ class OJApiContractIT {
     }) {
       assertNotNull(api.getComponents().getSchemas().get(schema), schema);
     }
+
+    var createProblem = api.getComponents().getSchemas().get("CreateAssessmentProblemRequest");
+    assertTrue(createProblem.getRequired().contains("assessmentTestCases"));
+    assertTrue(createProblem.getProperties().containsKey("practiceTestCases"));
+    var problemTestCases = api.getComponents().getSchemas().get("AssessmentProblemTestCasesResponse");
+    var problemTestCasesData =
+        ((io.swagger.v3.oas.models.media.ObjectSchema)
+                problemTestCases.getProperties().get("data"))
+            .getRequired();
+    assertTrue(problemTestCasesData.contains("assessmentTestCases"));
+    assertTrue(problemTestCasesData.contains("practiceTestCases"));
 
     var submission = api.getComponents().getSchemas().get("AssessmentSubmission");
     assertTrue(submission.getProperties().containsKey("id"));
