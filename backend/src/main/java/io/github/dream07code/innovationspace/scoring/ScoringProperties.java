@@ -38,11 +38,17 @@ public class ScoringProperties {
     if (!enabled) return;
     if (!"mock".equals(provider) && !"openai-compatible".equals(provider))
       throw new IllegalArgumentException("Unsupported AI provider");
-    if (model == null || model.isBlank() || model.length() > 128)
-      throw new IllegalArgumentException("AI model is required");
-    if (apiKey == null || apiKey.isBlank() || apiKey.length() > 4096)
-      throw new IllegalArgumentException("AI API key is required");
-    if ("openai-compatible".equals(provider)) validateBaseUrl();
+    if (model != null && !model.isBlank() && model.length() > 128)
+      throw new IllegalArgumentException("AI model is invalid");
+    if (apiKey != null && !apiKey.isBlank() && apiKey.length() > 4096)
+      throw new IllegalArgumentException("AI API key is invalid");
+    if ("openai-compatible".equals(provider)) {
+      if (model == null || model.isBlank())
+        throw new IllegalArgumentException("AI model is required");
+      if (apiKey == null || apiKey.isBlank())
+        throw new IllegalArgumentException("AI API key is required");
+      validateBaseUrl();
+    }
     if (connectTimeoutMs < 100 || connectTimeoutMs > 10000
         || requestTimeoutMs < 1000 || requestTimeoutMs > 120000
         || maxRetries < 0 || maxRetries > 3

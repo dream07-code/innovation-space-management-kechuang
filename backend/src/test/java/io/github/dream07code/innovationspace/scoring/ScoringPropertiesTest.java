@@ -19,6 +19,16 @@ class ScoringPropertiesTest {
   }
 
   @Test
+  void enabledMockProviderNeedsNoModelOrApiKey() {
+    var properties = new ScoringProperties();
+    properties.setEnabled(true);
+    properties.setProvider("mock");
+    properties.setModel("");
+    properties.setApiKey("");
+    assertDoesNotThrow(properties::validate);
+  }
+
+  @Test
   void publicBaseUrlMustBePureOriginAndNumericLimitsAreBounded() {
     var properties = new ScoringProperties();
     properties.setEnabled(true);
