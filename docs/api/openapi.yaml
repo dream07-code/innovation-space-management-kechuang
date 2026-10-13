@@ -4606,6 +4606,18 @@ components:
           type: string
           format: date-time
       additionalProperties: false
+    OjTestCaseResult:
+      type: object
+      required: [position, verdict, timeMs, memoryKb, safeError]
+      properties:
+        position: {type: integer, minimum: 1, maximum: 100}
+        verdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        timeMs: {type: integer, minimum: 0}
+        memoryKb: {type: integer, minimum: 0}
+        safeError: {type: string, nullable: true, maxLength: 500}
+      additionalProperties: false
     OjJudgeResult:
       type: object
       required:
@@ -4615,6 +4627,7 @@ components:
       - timeMs
       - memoryKb
       - safeError
+      - testCaseResults
       properties:
         verdict:
           type: string
@@ -4635,6 +4648,10 @@ components:
           type: string
           nullable: true
           maxLength: 500
+        testCaseResults:
+          type: array
+          items: {$ref: '#/components/schemas/OjTestCaseResult'}
+          maxItems: 100
       additionalProperties: false
     AssessmentSubmission:
       type: object

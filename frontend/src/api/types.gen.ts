@@ -1898,6 +1898,14 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        OjTestCaseResult: {
+            position: number;
+            /** @enum {string} */
+            verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            timeMs: number;
+            memoryKb: number;
+            safeError: string | null;
+        };
         OjJudgeResult: {
             /** @enum {string} */
             verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
@@ -1906,6 +1914,7 @@ export interface components {
             timeMs: number;
             memoryKb: number;
             safeError: string | null;
+            testCaseResults: components["schemas"]["OjTestCaseResult"][];
         };
         AssessmentSubmission: {
             /**

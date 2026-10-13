@@ -17,6 +17,7 @@ import type {
   CreateAssessmentReviewRequest,
   CreateAssessmentSubmissionRequest,
   OjJudgeResult,
+  OjTestCaseResult,
   ProblemExample,
   UpdateAssessmentProblemRequest,
   UpdateAssessmentRequest,
@@ -37,6 +38,21 @@ export async function codeHashOf(code: string): Promise<string> {
   const bytes = new TextEncoder().encode(code)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function mockTestCaseResults(
+  total: number,
+  passed: number,
+  verdict: OjTestCaseResult['verdict'] = 'ACCEPTED',
+  safeError: string | null = null,
+): OjTestCaseResult[] {
+  return Array.from({ length: total }, (_, index) => ({
+    position: index + 1,
+    verdict: index < passed ? 'ACCEPTED' : verdict,
+    timeMs: index < passed ? 12 : 10,
+    memoryKb: index < passed ? 2048 : 1024,
+    safeError: index < passed ? null : safeError,
+  }))
 }
 
 const example = (input: string, output: string, explanation?: string): ProblemExample => ({
@@ -165,6 +181,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
       timeMs: 42,
       memoryKb: 18432,
       safeError: null,
+      testCaseResults: mockTestCaseResults(3, 3),
     },
     codeHash: 'mock-safe-hash-9201',
     version: 1,
@@ -185,6 +202,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
       timeMs: 58,
       memoryKb: 22118,
       safeError: 'answer mismatch on hidden case',
+      testCaseResults: mockTestCaseResults(3, 1, 'WRONG_ANSWER', 'answer mismatch on hidden case'),
     },
     codeHash: 'mock-safe-hash-9202',
     version: 2,
@@ -205,6 +223,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
       timeMs: 21,
       memoryKb: 16384,
       safeError: null,
+      testCaseResults: mockTestCaseResults(3, 3),
     },
     codeHash: 'mock-safe-hash-9203',
     version: 1,
@@ -225,6 +244,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
       timeMs: 0,
       memoryKb: 0,
       safeError: 'judge service unavailable',
+      testCaseResults: mockTestCaseResults(3, 0, 'INTERNAL_ERROR', 'judge service unavailable'),
     },
     codeHash: 'mock-safe-hash-9204',
     version: 3,
@@ -405,6 +425,7 @@ export async function createSubmission(
       timeMs: 36,
       memoryKb: 18432,
       safeError: null,
+      testCaseResults: mockTestCaseResults(3, 3),
     },
     codeHash: await codeHashOf(payload.code),
     version: 1,
@@ -520,5 +541,6 @@ export function judgeResultForNewSubmission(payload: CreateAssessmentSubmissionR
     timeMs: 36,
     memoryKb: 18432,
     safeError: null,
+    testCaseResults: mockTestCaseResults(3, 3),
   }
 }
