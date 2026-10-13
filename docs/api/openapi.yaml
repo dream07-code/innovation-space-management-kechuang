@@ -1657,7 +1657,9 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateDailyReportRequest'
             example:
-              reportDate: '2026-10-11'
+              learningContent: 完成接口请求与参数校验练习。
+              gains: 理解了参数校验与异常映射。
+              problems: null
   /api/v1/daily-reports/{reportId}:
     get:
       tags:
@@ -5543,11 +5545,13 @@ components:
           example: '2026-10-11'
         learningContent:
           type: string
+          minLength: 1
           maxLength: 10000
           example: 完成接口请求与参数校验练习。
         gains:
           type: string
           maxLength: 10000
+          nullable: true
           example: 理解了参数校验与异常映射。
         problems:
           type: string
@@ -5628,14 +5632,16 @@ components:
     CreateDailyReportRequest:
       type: object
       required:
-      - reportDate
+      - learningContent
       properties:
         reportDate:
           type: string
           format: date
           example: '2026-10-11'
+          description: 兼容旧客户端；前端不展示日期，服务端默认使用Asia/Shanghai今天。
         learningContent:
           type: string
+          minLength: 1
           maxLength: 10000
           example: 完成接口请求与参数校验练习。
         gains:
@@ -5659,7 +5665,7 @@ components:
             pattern: ^https?://
           maxItems: 10
       additionalProperties: false
-      description: 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。
+      description: 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。周报 weekStart 必须为周一，weekEnd 服务端计算。
     UpdateDailyReportRequest:
       type: object
       required:
@@ -5696,7 +5702,7 @@ components:
           maxItems: 10
       additionalProperties: false
       minProperties: 2
-      description: 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。
+      description: 只改内容，不改成员或日期。日报表单只使用learningContent、gains、problems；SUBMITTED 修改必须对合并后的完整正文执行learningContent非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。
     WeeklyReport:
       type: object
       required:
@@ -5919,7 +5925,7 @@ components:
             pattern: ^https?://
           maxItems: 10
       additionalProperties: false
-      description: 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。
+      description: 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。周报 weekStart 必须为周一，weekEnd 服务端计算。
     UpdateWeeklyReportRequest:
       type: object
       required:
