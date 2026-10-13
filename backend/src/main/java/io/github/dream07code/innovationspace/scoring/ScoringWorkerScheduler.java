@@ -25,9 +25,7 @@ public class ScoringWorkerScheduler {
             0L,
             TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(concurrency),
-            runnable -> {
-              throw new RejectedExecutionException("scoring queue full");
-            });
+            new ThreadPoolExecutor.AbortPolicy());
   }
 
   @Scheduled(fixedDelayString = "${app.ai.poll-interval-ms:1000}")
