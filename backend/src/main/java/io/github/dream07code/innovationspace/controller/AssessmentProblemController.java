@@ -29,6 +29,12 @@ public class AssessmentProblemController {
     return stored(service.create(request, actor(), key));
   }
 
+  @PostMapping("/import")
+  public ResponseEntity<String> importProblems(
+      @RequestBody Map<String, Object> request, @RequestHeader("Idempotency-Key") String key) {
+    return stored(service.importProblems(request, actor(), key));
+  }
+
   @GetMapping("/{problemId}")
   public ApiResponse<Map<String, Object>> get(@PathVariable long problemId) {
     return ApiResponse.success(service.get(problemId, actor()));

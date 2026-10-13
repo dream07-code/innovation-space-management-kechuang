@@ -2629,6 +2629,52 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateAssessmentProblemRequest'
 
+  /api/v1/assessment-problems/import:
+    post:
+      tags:
+      - OJ题目
+      summary: 批量导入题目
+      description: 单次最多 100 道题、请求不超过 5 MB；任何题目校验失败时整批回滚。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 全部题目导入成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemImportResponse'
+        '400':
+          description: 导入校验失败；返回安全的逐题错误摘要，不写入任何题目。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemImportResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportAssessmentProblemsRequest'
+
   /api/v1/assessment-problems/{problemId}:
     parameters:
     - $ref: '#/components/parameters/ProblemId'
@@ -4965,6 +5011,46 @@ components:
           maxItems: 100
       minProperties: 2
       additionalProperties: false
+    ImportAssessmentProblemsRequest:
+      type: object
+      required: [problems]
+      properties:
+        problems:
+          type: array
+          items: {$ref: '#/components/schemas/CreateAssessmentProblemRequest'}
+          minItems: 1
+          maxItems: 100
+      additionalProperties: false
+    AssessmentProblemImportError:
+      type: object
+      required: [index, code]
+      properties:
+        index: {type: integer, minimum: 0, maximum: 99}
+        code:
+          type: string
+          enum: [INVALID_IMPORT, INVALID_PROBLEM, DUPLICATE_TITLE, TOO_MANY_PROBLEMS, REQUEST_TOO_LARGE]
+      additionalProperties: false
+    AssessmentProblemImportResult:
+      type: object
+      required: [importedCount, problemIds, errors]
+      properties:
+        importedCount: {type: integer, minimum: 0, maximum: 100}
+        problemIds:
+          type: array
+          items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+          maxItems: 100
+        errors:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblemImportError'}
+          maxItems: 100
+      additionalProperties: false
+    AssessmentProblemImportResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK, INVALID_REQUEST]}
+        message: {type: string}
+        data: {$ref: '#/components/schemas/AssessmentProblemImportResult'}
     CreateAssessmentSubmissionRequest:
       type: object
       required: [problemId, language, code]

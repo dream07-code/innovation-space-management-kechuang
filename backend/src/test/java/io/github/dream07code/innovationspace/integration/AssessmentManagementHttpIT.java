@@ -155,6 +155,94 @@ class AssessmentManagementHttpIT {
     assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
   }
 
+  @Test
+  void adminImportsProblemBatchWithIdempotencyAndSafeResult() throws Exception {
+    var body = """
+        {"problems":[%s,%s]}
+        """.formatted(validImportProblem("批量导入甲"), validImportProblem("批量导入乙"));
+    var first = send(adminToken, "POST", "/api/v1/assessment-problems/import", body, "aaaaaaaa-1111-4111-8111-111111111111");
+    assertEquals(201, first.statusCode());
+    assertEquals(2, HttpTestSupport.json(first).path("data").path("importedCount").asInt());
+    assertEquals(2, HttpTestSupport.json(first).path("data").path("problemIds").size());
+    assertEquals(0, HttpTestSupport.json(first).path("data").path("errors").size());
+    assertFalse(first.body().contains("expectedOutput"));
+    ContractAssertions.response("POST", "/api/v1/assessment-problems/import", first);
+
+    var replay = send(adminToken, "POST", "/api/v1/assessment-problems/import", body, "aaaaaaaa-1111-4111-8111-111111111111");
+    assertEquals(201, replay.statusCode());
+    assertEquals(
+        HttpTestSupport.json(first).path("data").path("problemIds").toString(),
+        HttpTestSupport.json(replay).path("data").path("problemIds").toString());
+    assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class));
+  }
+
+  @Test
+  void invalidProblemRollsBackEntireImportAndReturnsSafePerItemError() throws Exception {
+    int before = jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class);
+    var body = """
+        {"problems":[%s,{"title":"缺少测试点","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"practiceTestCases":[]}]}
+        """.formatted(validImportProblem("将被回滚"));
+    var failed = send(adminToken, "POST", "/api/v1/assessment-problems/import", body, "bbbbbbbb-2222-4222-8222-222222222222");
+    assertEquals(400, failed.statusCode());
+    assertEquals("INVALID_REQUEST", HttpTestSupport.json(failed).path("code").asText());
+    assertEquals(0, HttpTestSupport.json(failed).path("data").path("importedCount").asInt());
+    assertEquals(0, HttpTestSupport.json(failed).path("data").path("problemIds").size());
+    assertEquals(1, HttpTestSupport.json(failed).path("data").path("errors").size());
+    assertEquals(1, HttpTestSupport.json(failed).path("data").path("errors").path(0).path("index").asInt());
+    assertEquals("INVALID_PROBLEM", HttpTestSupport.json(failed).path("data").path("errors").path(0).path("code").asText());
+    assertFalse(failed.body().contains("缺少测试点"));
+    assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class));
+    ContractAssertions.response("POST", "/api/v1/assessment-problems/import", failed);
+  }
+
+  @Test
+  void importRejectsDuplicateLimitsOversizeAndStudents() throws Exception {
+    int before = jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class);
+
+    var duplicate = send(adminToken, "POST", "/api/v1/assessment-problems/import",
+        "{\"problems\":[%s,%s]}".formatted(validImportProblem("重复标题"), validImportProblem("  重复标题  ")),
+        "cccccccc-3333-4333-8333-333333333333");
+    assertEquals(400, duplicate.statusCode());
+    assertEquals("DUPLICATE_TITLE", HttpTestSupport.json(duplicate).path("data").path("errors").path(0).path("code").asText());
+
+    var tooMany = send(adminToken, "POST", "/api/v1/assessment-problems/import",
+        "{\"problems\":[" + java.util.stream.IntStream.range(0, 101)
+            .mapToObj(i -> validImportProblem("第" + i + "题"))
+            .collect(java.util.stream.Collectors.joining(",")) + "]}",
+        "dddddddd-4444-4444-8444-444444444444");
+    assertEquals(400, tooMany.statusCode());
+    assertEquals("TOO_MANY_PROBLEMS", HttpTestSupport.json(tooMany).path("data").path("errors").path(0).path("code").asText());
+
+    var oversized = send(adminToken, "POST", "/api/v1/assessment-problems/import",
+        oversizedImportBody(), "eeeeeeee-5555-4555-8555-555555555555");
+    assertEquals(400, oversized.statusCode());
+    assertEquals("REQUEST_TOO_LARGE", HttpTestSupport.json(oversized).path("data").path("errors").path(0).path("code").asText());
+
+    var student = send(studentToken, "POST", "/api/v1/assessment-problems/import",
+        "{\"problems\":[%s]}".formatted(validImportProblem("学生越权")),
+        "ffffffff-6666-4666-8666-666666666666");
+    assertEquals(403, student.statusCode());
+    assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class));
+  }
+
+  private static String validImportProblem(String title) {
+    return """
+        {"title":"%s","summary":"导入摘要","description":"导入题面","inputFormat":"一行输入","outputFormat":"一行输出","examples":[],"difficulty":"EASY","tags":["导入"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
+        """.formatted(title).strip();
+  }
+
+  private static String oversizedImportBody() {
+    String input = "x".repeat(900_000);
+    String problem =
+        "{\"title\":\"超大导入题\",\"summary\":\"x\",\"description\":\"x\",\"inputFormat\":\"x\","
+            + "\"outputFormat\":\"x\",\"examples\":[],\"difficulty\":\"EASY\",\"tags\":[],"
+            + "\"timeLimitMs\":1000,\"memoryLimitKb\":65536,\"allowedLanguages\":[\"java\"],"
+            + "\"assessmentTestCases\":[{\"input\":\"" + input + "\",\"expectedOutput\":\"ok\"}]}";
+    return "{\"problems\":[" + java.util.stream.IntStream.range(0, 6)
+        .mapToObj(i -> problem)
+        .collect(java.util.stream.Collectors.joining(",")) + "]}";
+  }
+
   private void seedMember(int id, String role, int directionId) {
     jdbc.update("INSERT INTO member(id,student_no,direction_id,name,joined_at,membership_started_at,created_at,updated_at) VALUES(?,?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", id, "MOCK" + id, directionId, "成员" + id);
     jdbc.update("INSERT INTO app_user(id,member_id,account,password_hash,role,must_change_password,status,display_name,created_at,updated_at) VALUES(?,?,?, 'hash',?,false,'ENABLED',?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", id, id, "MOCK" + id, role, "成员" + id);

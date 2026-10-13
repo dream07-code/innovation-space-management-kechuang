@@ -8,6 +8,7 @@ import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,6 +34,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   private final Clock clock;
   private final TransactionTemplate tx;
   private final AssessmentStatePolicy states = new AssessmentStatePolicy();
+  private static final int IMPORT_MAX_BYTES = 5 * 1024 * 1024;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public AssessmentProblemServiceImpl(
@@ -57,25 +60,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         () ->
             tx.execute(
                 status -> {
-                  Instant now = clock.instant();
-                  jdbc.update(
-                      "INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,status,version,created_by,created_at,updated_at)"
-                          + " VALUES(?,?,?,?,?,?,?,?,?,?,?, 'DRAFT',1,?,?,?)",
-                      text(request, "title", 120),
-                      text(request, "summary", 300),
-                      text(request, "description", 20000),
-                      text(request, "inputFormat", 5000),
-                      text(request, "outputFormat", 5000),
-                      json.writeValueAsString(examples(request.get("examples"))),
-                      request.get("difficulty"),
-                      json.writeValueAsString(tags(request.get("tags"))),
-                      integer(request.get("timeLimitMs"), 100, 30000),
-                      integer(request.get("memoryLimitKb"), 1024, 1048576),
-                      json.writeValueAsString(languages(request.get("allowedLanguages"))),
-                      actor.userId(),
-                      Timestamp.from(now),
-                      Timestamp.from(now));
-                  long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+                  long id = insertProblem(request, actor);
                   saveTestCases(
                       id,
                       "assessment_problem_assessment_test_case",
@@ -88,6 +73,47 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
                   return new IdempotencyService.StoredResponse(
                       201, json.writeValueAsString(ApiResponse.success(response(id))));
                 }));
+  }
+
+  public IdempotencyService.StoredResponse importProblems(
+      Map<String, Object> request, SessionPrincipal actor, String key) {
+    requireManage(actor);
+    String requestJson = json.writeValueAsString(request);
+    return idem.execute(
+        actor,
+        "POST",
+        "/api/v1/assessment-problems/import",
+        key,
+        requestJson,
+        () -> {
+          var errors = validateImportRequest(request, requestJson);
+          if (!errors.isEmpty()) return importFailure(errors);
+          @SuppressWarnings("unchecked")
+          var problems = (List<Object>) request.get("problems");
+          return tx.execute(
+              status -> {
+                var ids = new ArrayList<String>();
+                for (Object item : problems) {
+                  @SuppressWarnings("unchecked")
+                  var problem = (Map<String, Object>) item;
+                  long id = insertProblem(problem, actor);
+                  saveTestCases(
+                      id,
+                      "assessment_problem_assessment_test_case",
+                      problem.get("assessmentTestCases"));
+                  saveTestCases(
+                      id,
+                      "assessment_problem_practice_test_case",
+                      problem.get("practiceTestCases"));
+                  audit(actor, "ASSESSMENT_PROBLEM_IMPORTED", id);
+                  ids.add(String.valueOf(id));
+                }
+                return new IdempotencyService.StoredResponse(
+                    201,
+                    json.writeValueAsString(
+                        ApiResponse.success(importResult(ids, List.of()))));
+              });
+        });
   }
 
   public Map<String, Object> get(long id, SessionPrincipal actor) {
@@ -383,6 +409,123 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
           || !Set.of("java", "python", "cpp", "javascript", "go", "rust").contains(language)) throw bad();
       result.add(language);
     }
+    return result;
+  }
+
+  private long insertProblem(Map<String, Object> request, SessionPrincipal actor) {
+    Instant now = clock.instant();
+    jdbc.update(
+        "INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,status,version,created_by,created_at,updated_at)"
+            + " VALUES(?,?,?,?,?,?,?,?,?,?,?, 'DRAFT',1,?,?,?)",
+        text(request, "title", 120),
+        text(request, "summary", 300),
+        text(request, "description", 20000),
+        text(request, "inputFormat", 5000),
+        text(request, "outputFormat", 5000),
+        json.writeValueAsString(examples(request.get("examples"))),
+        request.get("difficulty"),
+        json.writeValueAsString(tags(request.get("tags"))),
+        integer(request.get("timeLimitMs"), 100, 30000),
+        integer(request.get("memoryLimitKb"), 1024, 1048576),
+        json.writeValueAsString(languages(request.get("allowedLanguages"))),
+        actor.userId(),
+        Timestamp.from(now),
+        Timestamp.from(now));
+    return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+  }
+
+  private List<Map<String, Object>> validateImportRequest(
+      Map<String, Object> request, String requestJson) {
+    var errors = new ArrayList<Map<String, Object>>();
+    if (requestJson.getBytes(StandardCharsets.UTF_8).length > IMPORT_MAX_BYTES) {
+      errors.add(importError(0, "REQUEST_TOO_LARGE"));
+      return errors;
+    }
+    if (request == null || request.size() != 1 || !request.containsKey("problems")) {
+      errors.add(importError(0, "INVALID_IMPORT"));
+      return errors;
+    }
+    if (!(request.get("problems") instanceof List<?> problems)) {
+      errors.add(importError(0, "INVALID_IMPORT"));
+      return errors;
+    }
+    if (problems.isEmpty()) {
+      errors.add(importError(0, "INVALID_IMPORT"));
+      return errors;
+    }
+    if (problems.size() > 100) {
+      errors.add(importError(0, "TOO_MANY_PROBLEMS"));
+      return errors;
+    }
+    var titles = new java.util.HashSet<String>();
+    for (int index = 0; index < problems.size(); index++) {
+      try {
+        validateImportProblem(problems.get(index));
+        String title = String.valueOf(((Map<?, ?>) problems.get(index)).get("title"))
+            .trim()
+            .toLowerCase(Locale.ROOT);
+        if (!titles.add(title)) {
+          errors.add(importError(index, "DUPLICATE_TITLE"));
+        }
+      } catch (ApiException exception) {
+        errors.add(importError(index, "INVALID_PROBLEM"));
+      }
+      if (errors.size() >= 100) break;
+    }
+    return errors;
+  }
+
+  private static void validateImportProblem(Object value) {
+    if (!(value instanceof Map<?, ?> raw)) throw bad();
+    var allowed =
+        Set.of(
+            "title",
+            "summary",
+            "description",
+            "inputFormat",
+            "outputFormat",
+            "examples",
+            "difficulty",
+            "tags",
+            "timeLimitMs",
+            "memoryLimitKb",
+            "allowedLanguages",
+            "assessmentTestCases",
+            "practiceTestCases");
+    if (!allowed.containsAll(raw.keySet())) throw bad();
+    @SuppressWarnings("unchecked")
+    var item = (Map<String, Object>) raw;
+    validate(item);
+    validateTestCaseField(item.get("assessmentTestCases"), true);
+    validateTestCaseField(item.get("practiceTestCases"), false);
+  }
+
+  private static Map<String, Object> importError(int index, String code) {
+    var error = new LinkedHashMap<String, Object>();
+    error.put("index", index);
+    error.put("code", code);
+    return error;
+  }
+
+  private IdempotencyService.StoredResponse importFailure(List<Map<String, Object>> errors) {
+    var body =
+        Map.of(
+            "code",
+            "INVALID_REQUEST",
+            "message",
+            "Import validation failed",
+            "data",
+            importResult(List.of(), errors));
+    return new IdempotencyService.StoredResponse(
+        400, json.writeValueAsString(body));
+  }
+
+  private static Map<String, Object> importResult(
+      List<String> problemIds, List<Map<String, Object>> errors) {
+    var result = new LinkedHashMap<String, Object>();
+    result.put("importedCount", problemIds.size());
+    result.put("problemIds", problemIds);
+    result.put("errors", errors);
     return result;
   }
 
