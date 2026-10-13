@@ -138,6 +138,28 @@ onMounted(load)
           {{ submission.judgeResult.safeError }}
         </el-descriptions-item>
       </el-descriptions>
+      <template v-if="submission.judgeResult?.testCaseResults?.length">
+        <div class="test-case-heading">逐测试点结果</div>
+        <el-table :data="submission.judgeResult.testCaseResults" max-height="360" class="test-case-table">
+          <el-table-column prop="position" label="#" width="60" />
+          <el-table-column label="结果" width="120">
+            <template #default="{ row }">
+              <el-tag :type="verdictMeta(row.verdict).type" effect="plain">
+                {{ verdictMeta(row.verdict).label }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="耗时" width="100">
+            <template #default="{ row }">{{ row.timeMs }} ms</template>
+          </el-table-column>
+          <el-table-column label="内存" width="110">
+            <template #default="{ row }">{{ Math.round(row.memoryKb / 1024) }} MB</template>
+          </el-table-column>
+          <el-table-column label="安全错误" min-width="180">
+            <template #default="{ row }">{{ row.safeError ?? '—' }}</template>
+          </el-table-column>
+        </el-table>
+      </template>
       <el-empty v-else description="OJ 尚未返回技术判定" />
 
       <el-divider content-position="left">AI 质量评分</el-divider>
@@ -202,6 +224,14 @@ onMounted(load)
 </template>
 
 <style scoped>
+.test-case-heading {
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+.test-case-table {
+  margin-top: 10px;
+}
 .page__header {
   display: flex;
   align-items: center;
