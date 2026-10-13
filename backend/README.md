@@ -101,6 +101,8 @@ java -cp "target/test-classes:target/classes:$(cat target/test-classpath.txt)" \
 
 当前后端已完成本阶段报告/积分功能；上线前仍需确认账号私密交付、隐私保护、限流部署策略与备份恢复，不能因为已有认证就跳过业务确认。
 
+生产镜像、同源 Nginx、Compose、环境变量和冒烟验证见 [`deploy/README.md`](../deploy/README.md)。
+
 ## 认证与业务基础接口（backend 当前实现）
 
 当前 `backend` 已实现并通过真实 MySQL 集成测试的接口包括：
