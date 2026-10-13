@@ -322,42 +322,23 @@ public class MemberServiceImpl implements MemberService {
   }
 
   public static void fields(Map<String, Object> body, Set<String> allowed) {
-    if (body == null || !allowed.containsAll(body.keySet())) throw bad();
+    MemberService.fields(body, allowed);
   }
 
   public static String required(Map<String, Object> body, String field, int max) {
-    Object v = body.get(field);
-    if (!(v instanceof String text) || text.isBlank() || text.length() > max) throw bad();
-    return text;
+    return MemberService.required(body, field, max);
   }
 
   public static long parseId(String value) {
-    if (value == null || !value.matches("[1-9][0-9]{0,18}")) throw bad();
-    try {
-      long id = Long.parseLong(value);
-      if (id <= 0) throw bad();
-      return id;
-    } catch (NumberFormatException e) {
-      throw bad();
-    }
+    return MemberService.parseId(value);
   }
 
   public static ApiException bad() {
-    return new ApiException(400, ErrorCode.INVALID_REQUEST);
+    return MemberService.bad();
   }
 
   public static void validateProfile(Map<String, Object> request) {
-    for (String f : new String[] {"major", "className", "contact"})
-      if (request.containsKey(f)
-          && request.get(f) != null
-          && (!(request.get(f) instanceof String t) || t.length() > 100)) throw bad();
-    if (request.containsKey("grade") && request.get("grade") != null) {
-      if (!(request.get("grade") instanceof Number n)
-          || n.doubleValue() != n.intValue()
-          || n.intValue() < 1900
-          || n.intValue() > 2200) throw bad();
-    }
-    if (request.containsKey("name")) required(request, "name", 64);
+    MemberService.validateProfile(request);
   }
 
   public IdempotencyService.StoredResponse adminAction(

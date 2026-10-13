@@ -66,6 +66,7 @@
 4. 个人日报/周报列表按当前成员过滤，避免负责人个人页面混入学生报告。
 5. 同步最新日报 API 契约到后端 OpenAPI 和 Knife4j 资源。
 6. 增加后端/前端生产镜像、Nginx 同源路由、Compose、部署文档和自动化冒烟脚本。
+7. 最终架构复核移除 Service 接口对 ServiceImpl 的反向依赖，保持 `controller -> service -> service.impl -> mapper` 的单向依赖。
 
 ## 5. 生产部署产物
 

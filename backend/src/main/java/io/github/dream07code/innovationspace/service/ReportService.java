@@ -1,9 +1,9 @@
 package io.github.dream07code.innovationspace.service;
-import io.github.dream07code.innovationspace.service.impl.ReportServiceImpl;
 
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import io.github.dream07code.innovationspace.security.SessionService;
+import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
 import java.util.*;
 import io.github.dream07code.innovationspace.assessment.*;
@@ -20,5 +20,7 @@ public interface ReportService {
   IdempotencyService.StoredResponse submit( long id, long version, SessionPrincipal principal, String key);
   Map<String, Object> update( long id, Map<String, Object> request, SessionPrincipal principal, ReportType type);
   Map<String, Object> response(long id);
-  static ApiException bad() { return ReportServiceImpl.bad(); }
+  static ApiException bad() {
+    return new ApiException(400, ErrorCode.INVALID_REQUEST);
+  }
 }

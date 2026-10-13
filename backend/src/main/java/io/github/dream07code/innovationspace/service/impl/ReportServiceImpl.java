@@ -617,6 +617,6 @@ public class ReportServiceImpl implements ReportService {
   }
 
   public static ApiException bad() {
-    return new ApiException(400, ErrorCode.INVALID_REQUEST);
+    return ReportService.bad();
   }
 }
