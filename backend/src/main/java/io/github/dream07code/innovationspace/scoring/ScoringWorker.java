@@ -1,6 +1,6 @@
 package io.github.dream07code.innovationspace.scoring;
 
-import io.github.dream07code.innovationspace.points.PointLedgerService;
+import io.github.dream07code.innovationspace.service.PointLedgerService;
 import io.github.dream07code.innovationspace.points.PointsPolicyProperties;
 import java.sql.Timestamp;
 import java.time.Clock;

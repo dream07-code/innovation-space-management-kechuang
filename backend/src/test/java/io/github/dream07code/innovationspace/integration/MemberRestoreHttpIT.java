@@ -1,7 +1,7 @@
 package io.github.dream07code.innovationspace.integration;
 
-import io.github.dream07code.innovationspace.membership.MembershipRemovalService;
-import io.github.dream07code.innovationspace.points.PointLedgerService;
+import io.github.dream07code.innovationspace.service.MembershipRemovalService;
+import io.github.dream07code.innovationspace.service.PointLedgerService;
 import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.ContractAssertions;
 import io.github.dream07code.testsupport.HttpTestSupport;

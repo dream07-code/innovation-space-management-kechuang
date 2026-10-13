@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers=WebProbeConfiguration.ProbeController.class, excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
         type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
         classes = {io.github.dream07code.innovationspace.config.SchemaReadinessConfiguration.class,
-                io.github.dream07code.innovationspace.web.AuthController.class,
+                io.github.dream07code.innovationspace.controller.AuthController.class,
                 io.github.dream07code.innovationspace.security.SecurityConfiguration.class,
                 io.github.dream07code.innovationspace.config.SchemaReadinessInterceptor.class}))
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters=false)

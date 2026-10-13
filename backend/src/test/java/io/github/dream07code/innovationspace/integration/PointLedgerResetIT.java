@@ -3,7 +3,8 @@ package io.github.dream07code.innovationspace.integration;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.dream07code.innovationspace.membership.InactivityPolicy;
-import io.github.dream07code.innovationspace.points.PointLedgerService;
+import io.github.dream07code.innovationspace.service.PointLedgerService;
+import io.github.dream07code.innovationspace.service.impl.PointLedgerServiceImpl;
 import io.github.dream07code.testsupport.MysqlTestSupport;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,7 +35,7 @@ class PointLedgerResetIT {
     insertLedger(jdbc, 42, 21, 31, 3, "2026-10-02 01:00:00", "original-42");
     jdbc.update("INSERT INTO point_ledger(id,member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(43,10,20,30,2,'AI_ADJUSTMENT','2026-10-02 02:00:00','2026-10-02 02:00:00','v1','original-43')");
 
-    var points = new PointLedgerService(jdbc, Clock.systemUTC());
+    var points = new PointLedgerServiceImpl(jdbc, Clock.systemUTC());
     assertEquals(4, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-16T00:00:00Z")));
     assertEquals(0, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-17T00:00:00Z")));
 

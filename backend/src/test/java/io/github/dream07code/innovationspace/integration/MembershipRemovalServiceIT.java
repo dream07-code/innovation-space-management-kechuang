@@ -1,6 +1,6 @@
 package io.github.dream07code.innovationspace.integration;
 
-import io.github.dream07code.innovationspace.membership.MembershipRemovalService;
+import io.github.dream07code.innovationspace.service.MembershipRemovalService;
 import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.MysqlTestSupport;
 import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;

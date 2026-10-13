@@ -1,8 +1,8 @@
 package io.github.dream07code.innovationspace.integration;
 
 import io.github.dream07code.innovationspace.common.exception.ApiException;
-import io.github.dream07code.innovationspace.points.PointLedgerService;
-import io.github.dream07code.innovationspace.report.ReportService;
+import io.github.dream07code.innovationspace.service.PointLedgerService;
+import io.github.dream07code.innovationspace.service.ReportService;
 import io.github.dream07code.innovationspace.report.ReportType;
 import io.github.dream07code.innovationspace.scoring.*;
 import io.github.dream07code.innovationspace.security.PasswordService;

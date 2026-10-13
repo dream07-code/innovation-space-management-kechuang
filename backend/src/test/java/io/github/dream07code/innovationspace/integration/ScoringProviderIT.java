@@ -1,6 +1,7 @@
 package io.github.dream07code.innovationspace.integration;
 
-import io.github.dream07code.innovationspace.points.PointLedgerService;
+import io.github.dream07code.innovationspace.service.PointLedgerService;
+import io.github.dream07code.innovationspace.service.impl.PointLedgerServiceImpl;
 import io.github.dream07code.innovationspace.scoring.*;
 import io.github.dream07code.testsupport.MysqlTestSupport;
 import java.net.InetSocketAddress;
@@ -54,7 +55,7 @@ class ScoringProviderIT {
       jdbc.update("INSERT INTO report_version(id,report_id,version,content_json,content_hash,edited_by,created_at,is_current) VALUES(5,5,1,'{}',UNHEX(SHA2('{}',256)),5,UTC_TIMESTAMP(6),TRUE)");
       jdbc.update("INSERT INTO report_scoring_task(id,report_id,report_version_id,status,attempt,created_at,updated_at) VALUES(5,5,5,'PROCESSING',0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
       jdbc.update("INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(5,5,5,1,'SUBMISSION_BASE',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'v1','base')");
-      var points = new PointLedgerService(jdbc, Clock.systemUTC());
+      var points = new PointLedgerServiceImpl(jdbc, Clock.systemUTC());
       points.appendIfAbsent(5,5,5,2,"AI_ADJUSTMENT","score-5-3",java.time.Instant.now());
       assertEquals(3, points.total(5));
       points.appendIfAbsent(5,5,5,2,"AI_ADJUSTMENT","score-5-3",java.time.Instant.now());

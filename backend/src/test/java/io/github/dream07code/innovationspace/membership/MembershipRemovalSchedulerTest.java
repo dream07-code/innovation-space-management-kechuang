@@ -1,4 +1,5 @@
 package io.github.dream07code.innovationspace.membership;
+import io.github.dream07code.innovationspace.service.MembershipRemovalService;
 
 import io.github.dream07code.innovationspace.config.DatabaseSchemaGuard;
 import io.github.dream07code.innovationspace.config.SchemaUnavailableException;

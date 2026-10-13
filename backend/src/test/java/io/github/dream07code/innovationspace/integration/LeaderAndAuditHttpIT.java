@@ -74,5 +74,5 @@ class LeaderAndAuditHttpIT {
   assertEquals("MOCK001",jdbc.queryForObject("SELECT student_no FROM member WHERE id=?",String.class,Long.parseLong(member)));
  }
  @Autowired org.springframework.transaction.PlatformTransactionManager manager;
- @Autowired io.github.dream07code.innovationspace.member.MemberService memberService;
+ @Autowired io.github.dream07code.innovationspace.service.MemberService memberService;
 }
