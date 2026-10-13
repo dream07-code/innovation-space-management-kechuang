@@ -25,7 +25,7 @@
 | `pnpm lint` | 通过 |
 | `pnpm build` | 通过 |
 | `backend/mvnw test` | 52 个单元测试全部通过 |
-| `backend/mvnw clean verify` | 重构基线已通过 50 个单元测试和 106 个集成测试；本轮新增修复继续通过完整单元测试与定向集成测试，最终发布前仍需再运行一次完整 `clean verify` |
+| `backend/mvnw clean verify` | `BUILD SUCCESS`：52 个单元测试和 107 个集成/打包测试全部通过 |
 
 前端生产构建只有一个非阻断警告：主入口 chunk 超过 500 kB。功能不受影响，后续可单独进行路由/组件代码分割优化。
 
@@ -98,4 +98,3 @@
 - 日报/周报最终 1–3 分规则以及 `REPORT_POINTS_MODE` 的正式取值。
 - AI 厂商、模型、API Key、数据发送与保存策略。
 - Judge0 部署、私有测试数据隔离和 GPL-3.0 合规审查。
-- 首次正式部署前重新执行完整 `backend/mvnw clean verify` 和前端完整质量套件。
