@@ -90,6 +90,13 @@ class AssessmentManagementHttpIT {
     var published = send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish", "{\"version\":1}", "33333333-3333-4333-8333-333333333333");
     assertEquals(200, published.statusCode());
     assertEquals("PUBLISHED", HttpTestSupport.json(published).path("data").path("status").asText());
+    var studentProblems = send(studentToken, "GET", "/api/v1/assessment-problems?page=1&size=20", "", null);
+    assertEquals(200, studentProblems.statusCode());
+    assertEquals(1, HttpTestSupport.json(studentProblems).path("data").path("total").asInt());
+    assertEquals(problemId, HttpTestSupport.json(studentProblems).path("data").path("items").path(0).path("id").asText());
+    var studentProblem = send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId, "", null);
+    assertEquals(200, studentProblem.statusCode());
+    assertEquals("PUBLISHED", HttpTestSupport.json(studentProblem).path("data").path("status").asText());
     var closed = send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/close", "{\"version\":2}", "44444444-4444-4444-8444-444444444444");
     assertEquals(200, closed.statusCode());
     assertEquals("CLOSED", HttpTestSupport.json(closed).path("data").path("status").asText());

@@ -188,6 +188,23 @@ public class AssessmentServiceImpl implements AssessmentService {
                       target.name(),
                       Timestamp.from(clock.instant()),
                       id);
+                  if (target == AssessmentStatus.PUBLISHED) {
+                    var publishedProblemIds =
+                        jdbc.queryForList(
+                            "SELECT p.id FROM assessment_problem p JOIN assessment_problem_link l"
+                                + " ON l.problem_id=p.id WHERE l.assessment_id=? AND p.status='DRAFT'"
+                                + " ORDER BY l.position",
+                            Long.class,
+                            id);
+                    jdbc.update(
+                        "UPDATE assessment_problem p JOIN assessment_problem_link l"
+                            + " ON l.problem_id=p.id SET p.status='PUBLISHED',p.version=p.version+1,"
+                            + " p.updated_at=? WHERE l.assessment_id=? AND p.status='DRAFT'",
+                        Timestamp.from(clock.instant()),
+                        id);
+                    for (Long problemId : publishedProblemIds)
+                      auditProblem(actor, "ASSESSMENT_PROBLEM_PUBLISHED", problemId);
+                  }
                   audit(actor, "ASSESSMENT_" + target.name(), id, "Changed assessment state");
                   return new IdempotencyService.StoredResponse(
                       200, json.writeValueAsString(ApiResponse.success(response(id))));
@@ -283,6 +300,17 @@ public class AssessmentServiceImpl implements AssessmentService {
         action,
         id,
         summary,
+        Timestamp.from(clock.instant()));
+  }
+
+  private void auditProblem(SessionPrincipal actor, String action, long id) {
+    jdbc.update(
+        "INSERT INTO assessment_audit(actor_user_id,action,resource_type,resource_id,summary,result,occurred_at)"
+            + " VALUES(?,?, 'ASSESSMENT_PROBLEM',?,?, 'SUCCESS',?)",
+        actor.userId(),
+        action,
+        id,
+        "Published linked problem",
         Timestamp.from(clock.instant()));
   }
 

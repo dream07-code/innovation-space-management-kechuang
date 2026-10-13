@@ -2474,6 +2474,7 @@ paths:
       tags:
       - OJ考核
       summary: 发布考核
+      description: 发布考核并同步将关联的 DRAFT 题目设为 PUBLISHED，确保学生可以在题库、考核详情和代码提交页看到题目。
       x-implementation-status: planned
       x-roles:
       - COLLEGE_ADMIN
