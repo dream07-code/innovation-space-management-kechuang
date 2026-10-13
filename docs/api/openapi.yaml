@@ -2706,6 +2706,44 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateAssessmentProblemRequest'
 
+  /api/v1/assessment-problems/{problemId}/test-cases:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags:
+      - OJ题目
+      summary: 读取题目测试点（仅工作人员）
+      description: 返回正式考核隐藏测试点与题库练习测试点，学生访问返回 403。
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemTestCasesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /api/v1/assessment-problems/{problemId}/retire:
     parameters:
     - $ref: '#/components/parameters/ProblemId'
@@ -4828,7 +4866,7 @@ components:
       additionalProperties: false
     CreateAssessmentProblemRequest:
       type: object
-      required: [title, summary, description, inputFormat, outputFormat, examples, difficulty, tags, timeLimitMs, memoryLimitKb, allowedLanguages]
+      required: [title, summary, description, inputFormat, outputFormat, examples, difficulty, tags, timeLimitMs, memoryLimitKb, allowedLanguages, assessmentTestCases]
       properties:
         title: {type: string, minLength: 1, maxLength: 120}
         summary: {type: string, maxLength: 300}
@@ -4850,7 +4888,50 @@ components:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
           minItems: 1
+        assessmentTestCases:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
+          minItems: 1
+          maxItems: 100
+        practiceTestCases:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
+          maxItems: 100
       additionalProperties: false
+    AssessmentProblemTestCaseInput:
+      type: object
+      required: [input, expectedOutput]
+      properties:
+        input: {type: string, maxLength: 1000000}
+        expectedOutput: {type: string, maxLength: 1000000}
+      additionalProperties: false
+    AssessmentProblemTestCase:
+      type: object
+      required: [position, input, expectedOutput]
+      properties:
+        position: {type: integer, minimum: 1, maximum: 100, readOnly: true}
+        input: {type: string, maxLength: 1000000}
+        expectedOutput: {type: string, maxLength: 1000000}
+      additionalProperties: false
+    AssessmentProblemTestCasesResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [assessmentTestCases, practiceTestCases]
+          properties:
+            assessmentTestCases:
+              type: array
+              items: {$ref: '#/components/schemas/AssessmentProblemTestCase'}
+              maxItems: 100
+            practiceTestCases:
+              type: array
+              items: {$ref: '#/components/schemas/AssessmentProblemTestCase'}
+              maxItems: 100
+          additionalProperties: false
     UpdateAssessmentProblemRequest:
       type: object
       required: [version]
@@ -4873,6 +4954,15 @@ components:
         allowedLanguages:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+        assessmentTestCases:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
+          minItems: 1
+          maxItems: 100
+        practiceTestCases:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
+          maxItems: 100
       minProperties: 2
       additionalProperties: false
     CreateAssessmentSubmissionRequest:

@@ -2,17 +2,18 @@
 /**
  * 创建/编辑 OJ 题目。
  *
- * 页面只编辑公开题面、示例、限制和允许语言；私有测试数据由受控 OJ/存储管理，
- * 普通前端接口不读取也不展示。
+ * 页面编辑公开题面、示例、限制、允许语言，以及工作人员专用的两套测试点：
+ * 正式考核隐藏测试点与题库练习测试点始终使用不同字段保存。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 
 import {
   createAssessmentProblem,
   getAssessmentProblem,
+  getAssessmentProblemTestCases,
   retireAssessmentProblem,
   updateAssessmentProblem,
 } from '@/api/modules/oj'
@@ -21,9 +22,13 @@ import { languageLabel } from '@/components/ojMeta'
 import type {
   AssessmentLanguage,
   AssessmentProblem,
-  ProblemExample,
-  UpdateAssessmentProblemRequest,
 } from '@/api/types'
+import {
+  buildCreateProblemPayload,
+  buildUpdateProblemPayload,
+  validateProblemTestCaseForm,
+  type ProblemTestCaseRow,
+} from './problemPayload'
 
 const route = useRoute()
 const router = useRouter()
@@ -54,6 +59,8 @@ const form = reactive({
     output: string
     explanation: string
   }>,
+  assessmentTestCases: [{ input: '', expectedOutput: '' }] as ProblemTestCaseRow[],
+  practiceTestCases: [] as ProblemTestCaseRow[],
 })
 
 const rules: FormRules = {
@@ -72,21 +79,15 @@ const languageOptions = (['java', 'python', 'cpp', 'javascript', 'go', 'rust'] a
   (value) => ({ value, label: languageLabel(value) }),
 )
 
-function toExamples(): ProblemExample[] {
-  return form.examples
-    .filter((item) => item.input.trim() || item.output.trim())
-    .map((item) => ({
-      input: item.input,
-      output: item.output,
-      explanation: item.explanation.trim() || null,
-    }))
-}
-
 async function load(): Promise<void> {
   if (isNew.value) return
   loading.value = true
   try {
-    problem.value = await getAssessmentProblem(problemId.value!)
+    const [loadedProblem, testCases] = await Promise.all([
+      getAssessmentProblem(problemId.value!),
+      getAssessmentProblemTestCases(problemId.value!),
+    ])
+    problem.value = loadedProblem
     form.title = problem.value.title
     form.summary = problem.value.summary
     form.description = problem.value.description
@@ -103,6 +104,17 @@ async function load(): Promise<void> {
       explanation: item.explanation ?? '',
     }))
     if (form.examples.length === 0) form.examples.push({ input: '', output: '', explanation: '' })
+    form.assessmentTestCases = testCases.assessmentTestCases.map((item) => ({
+      input: item.input,
+      expectedOutput: item.expectedOutput,
+    }))
+    if (form.assessmentTestCases.length === 0) {
+      form.assessmentTestCases.push({ input: '', expectedOutput: '' })
+    }
+    form.practiceTestCases = testCases.practiceTestCases.map((item) => ({
+      input: item.input,
+      expectedOutput: item.expectedOutput,
+    }))
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -113,30 +125,28 @@ async function load(): Promise<void> {
 async function save(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  const testCaseError = validateProblemTestCaseForm(
+    form.assessmentTestCases,
+    form.practiceTestCases,
+  )
+  if (testCaseError) {
+    ElMessage.warning(testCaseError)
+    return
+  }
 
   saving.value = true
   try {
-    const base = {
-      title: form.title.trim(),
-      summary: form.summary.trim(),
-      description: form.description.trim(),
-      inputFormat: form.inputFormat.trim(),
-      outputFormat: form.outputFormat.trim(),
-      examples: toExamples(),
-      difficulty: form.difficulty,
-      tags: form.tagsText.split(',').map((item) => item.trim()).filter(Boolean),
-      timeLimitMs: form.timeLimitMs,
-      memoryLimitKb: form.memoryLimitKb,
-      allowedLanguages: form.allowedLanguages,
-    }
     if (isNew.value) {
-      const created = await createAssessmentProblem(base, crypto.randomUUID())
+      const created = await createAssessmentProblem(
+        buildCreateProblemPayload(form),
+        crypto.randomUUID(),
+      )
       ElMessage.success('题目草稿已创建')
       void router.replace({ name: 'oj-problem-detail', params: { problemId: created.id } })
       return
     }
 
-    const payload: UpdateAssessmentProblemRequest = { version: problem.value!.version, ...base }
+    const payload = buildUpdateProblemPayload(problem.value!.version, form)
     const updated = await updateAssessmentProblem(problem.value!.id, payload)
     ElMessage.success('题目已保存')
     void router.replace({ name: 'oj-problem-detail', params: { problemId: updated.id } })
@@ -184,6 +194,33 @@ function addExample(): void {
 function removeExample(index: number): void {
   if (form.examples.length <= 1) return
   form.examples.splice(index, 1)
+}
+
+type TestCaseKind = 'assessment' | 'practice'
+
+function testCasesOf(kind: TestCaseKind): ProblemTestCaseRow[] {
+  return kind === 'assessment' ? form.assessmentTestCases : form.practiceTestCases
+}
+
+function addTestCase(kind: TestCaseKind): void {
+  testCasesOf(kind).push({ input: '', expectedOutput: '' })
+}
+
+function removeTestCase(kind: TestCaseKind, index: number): void {
+  const rows = testCasesOf(kind)
+  if (kind === 'assessment' && rows.length <= 1) return
+  rows.splice(index, 1)
+}
+
+function moveTestCase(kind: TestCaseKind, index: number, offset: -1 | 1): void {
+  const rows = testCasesOf(kind)
+  const target = index + offset
+  if (target < 0 || target >= rows.length) return
+  const current = rows[index]
+  const other = rows[target]
+  if (!current || !other) return
+  rows[index] = other
+  rows[target] = current
 }
 
 onMounted(load)
@@ -249,6 +286,125 @@ onMounted(load)
             <el-input v-model="item.explanation" placeholder="说明（可选）" />
           </div>
           <el-button :icon="Plus" @click="addExample">添加示例</el-button>
+        </div>
+      </el-form-item>
+
+      <el-form-item label="正式考核测试点">
+        <div class="test-case-section">
+          <el-alert
+            type="warning"
+            :closable="false"
+            show-icon
+            title="此测试点在正式考核中对学员隐藏"
+            description="正式考核判题只使用本组测试点；题库练习不会读取本组数据。"
+          />
+          <div
+            v-for="(item, index) in form.assessmentTestCases"
+            :key="`assessment-${index}`"
+            class="test-case-card"
+          >
+            <div class="test-case-header">
+              <strong>隐藏测试点 {{ index + 1 }}</strong>
+              <div class="test-case-actions">
+                <el-button
+                  link
+                  :icon="ArrowUp"
+                  :disabled="index === 0"
+                  aria-label="上移"
+                  @click="moveTestCase('assessment', index, -1)"
+                />
+                <el-button
+                  link
+                  :icon="ArrowDown"
+                  :disabled="index === form.assessmentTestCases.length - 1"
+                  aria-label="下移"
+                  @click="moveTestCase('assessment', index, 1)"
+                />
+                <el-button
+                  link
+                  type="danger"
+                  :icon="Delete"
+                  :disabled="form.assessmentTestCases.length <= 1"
+                  @click="removeTestCase('assessment', index)"
+                >
+                  删除
+                </el-button>
+              </div>
+            </div>
+            <el-input v-model="item.input" type="textarea" :rows="3" placeholder="输入（无输入时留空）" />
+            <el-input
+              v-model="item.expectedOutput"
+              type="textarea"
+              :rows="3"
+              placeholder="期望输出"
+              class="test-case-output"
+            />
+          </div>
+          <el-button
+            :icon="Plus"
+            :disabled="form.assessmentTestCases.length >= 100"
+            @click="addTestCase('assessment')"
+          >
+            添加正式考核测试点
+          </el-button>
+        </div>
+      </el-form-item>
+
+      <el-form-item label="题库练习测试点">
+        <div class="test-case-section">
+          <el-alert
+            type="success"
+            :closable="false"
+            show-icon
+            title="仅用于题库练习"
+            description="练习模式会向学员展示本组输入和期望输出；正式考核不会使用本组数据。"
+          />
+          <div v-if="form.practiceTestCases.length === 0" class="test-case-empty">
+            暂无练习测试点。学员仍可提交正式考核代码，但无法在练习模式查看样例测试点。
+          </div>
+          <div
+            v-for="(item, index) in form.practiceTestCases"
+            :key="`practice-${index}`"
+            class="test-case-card"
+          >
+            <div class="test-case-header">
+              <strong>练习测试点 {{ index + 1 }}</strong>
+              <div class="test-case-actions">
+                <el-button
+                  link
+                  :icon="ArrowUp"
+                  :disabled="index === 0"
+                  aria-label="上移"
+                  @click="moveTestCase('practice', index, -1)"
+                />
+                <el-button
+                  link
+                  :icon="ArrowDown"
+                  :disabled="index === form.practiceTestCases.length - 1"
+                  aria-label="下移"
+                  @click="moveTestCase('practice', index, 1)"
+                />
+                <el-button link type="danger" :icon="Delete" @click="removeTestCase('practice', index)">
+                  删除
+                </el-button>
+              </div>
+            </div>
+            <el-input v-model="item.input" type="textarea" :rows="3" placeholder="输入（无输入时留空）" />
+            <el-input
+              v-model="item.expectedOutput"
+              type="textarea"
+              :rows="3"
+              placeholder="期望输出"
+              class="test-case-output"
+            />
+          </div>
+          <el-button
+            :icon="Plus"
+            :disabled="form.practiceTestCases.length >= 100"
+            @click="addTestCase('practice')"
+          >
+            添加练习测试点
+          </el-button>
         </div>
       </el-form-item>
 
@@ -324,6 +480,47 @@ onMounted(load)
 
 .example-output {
   margin: 8px 0;
+}
+
+.test-case-section {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.test-case-card {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 7px;
+  background: var(--app-surface-soft);
+}
+
+.test-case-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.test-case-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.test-case-output {
+  margin-top: 8px;
+}
+
+.test-case-empty {
+  padding: 14px;
+  border: 1px dashed var(--app-border);
+  border-radius: 7px;
+  color: var(--app-text-secondary);
+  background: var(--app-surface-soft);
 }
 
 .form-actions {

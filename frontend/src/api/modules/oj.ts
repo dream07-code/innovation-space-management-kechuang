@@ -11,6 +11,7 @@ import type {
   Assessment,
   AssessmentCommandRequest,
   AssessmentProblem,
+  AssessmentProblemTestCases,
   AssessmentResult,
   AssessmentReview,
   AssessmentSubmission,
@@ -86,6 +87,12 @@ export async function createAssessmentProblem(
 
 export async function getAssessmentProblem(problemId: string): Promise<AssessmentProblem> {
   return get<AssessmentProblem>(`${PROBLEMS}/${problemId}`)
+}
+
+export async function getAssessmentProblemTestCases(
+  problemId: string,
+): Promise<AssessmentProblemTestCases> {
+  return get<AssessmentProblemTestCases>(`${PROBLEMS}/${problemId}/test-cases`)
 }
 
 export async function updateAssessmentProblem(

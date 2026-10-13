@@ -23,6 +23,7 @@ import {
   createSubmission,
   findAssessment,
   findProblem,
+  findProblemTestCases,
   findSubmission,
   ojNowIso,
   updateAssessment,
@@ -95,6 +96,23 @@ function validExamples(value: unknown): boolean {
 
 function validPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
+function validTestCases(value: unknown, options: { required?: boolean } = {}): boolean {
+  if (value === undefined && !options.required) return true
+  if (!Array.isArray(value) || value.length > 100) return false
+  if (options.required && value.length === 0) return false
+  return value.every((item) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return false
+    const testCase = item as JsonObject
+    return (
+      Object.keys(testCase).every((key) => key === 'input' || key === 'expectedOutput') &&
+      typeof testCase.input === 'string' &&
+      testCase.input.length <= 1_000_000 &&
+      typeof testCase.expectedOutput === 'string' &&
+      testCase.expectedOutput.length <= 1_000_000
+    )
+  })
 }
 
 function memberDirection(memberId: string): string | null {
@@ -274,16 +292,38 @@ export const ojHandlers = [
     return withIdempotency(request, (bodyText) => {
       const body = parseBody(bodyText)
       if (!body) return errors.invalidRequest()
-      const bad = rejectUnknownFields(body, ['title', 'summary', 'description', 'inputFormat', 'outputFormat', 'examples', 'difficulty', 'tags', 'timeLimitMs', 'memoryLimitKb', 'allowedLanguages'])
+      const bad = rejectUnknownFields(body, ['title', 'summary', 'description', 'inputFormat', 'outputFormat', 'examples', 'difficulty', 'tags', 'timeLimitMs', 'memoryLimitKb', 'allowedLanguages', 'assessmentTestCases', 'practiceTestCases'])
       if (bad) return bad
       if (
         typeof body.title !== 'string' || typeof body.summary !== 'string' || typeof body.description !== 'string' ||
         typeof body.inputFormat !== 'string' || typeof body.outputFormat !== 'string' ||
         !validExamples(body.examples) || !['EASY', 'MEDIUM', 'HARD'].includes(body.difficulty as string) ||
         !isStringArray(body.tags) || !isLanguageArray(body.allowedLanguages) ||
-        !validPositiveInteger(body.timeLimitMs) || !validPositiveInteger(body.memoryLimitKb)
+        !validPositiveInteger(body.timeLimitMs) || !validPositiveInteger(body.memoryLimitKb) ||
+        !validTestCases(body.assessmentTestCases, { required: true }) ||
+        !validTestCases(body.practiceTestCases)
       ) return errors.invalidRequest()
       return ok(createProblem(body as never), 201)
+    })
+  }),
+
+  http.get(`${PROBLEMS}/:problemId/test-cases`, ({ request, params }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    if (!account || account.user.role === 'STUDENT') return errors.forbidden()
+    const problem = findProblem(params.problemId as string)
+    const testCases = findProblemTestCases(params.problemId as string)
+    if (!problem || !testCases) return errors.notFound()
+    return ok({
+      assessmentTestCases: testCases.assessmentTestCases.map((item, index) => ({
+        position: index + 1,
+        ...item,
+      })),
+      practiceTestCases: testCases.practiceTestCases.map((item, index) => ({
+        position: index + 1,
+        ...item,
+      })),
     })
   }),
 
@@ -308,7 +348,7 @@ export const ojHandlers = [
     return (async () => {
       const body = parseBody(await request.text())
       if (!body) return errors.invalidRequest()
-      const bad = rejectUnknownFields(body, ['version', 'title', 'summary', 'description', 'inputFormat', 'outputFormat', 'examples', 'difficulty', 'tags', 'timeLimitMs', 'memoryLimitKb', 'allowedLanguages'])
+      const bad = rejectUnknownFields(body, ['version', 'title', 'summary', 'description', 'inputFormat', 'outputFormat', 'examples', 'difficulty', 'tags', 'timeLimitMs', 'memoryLimitKb', 'allowedLanguages', 'assessmentTestCases', 'practiceTestCases'])
       if (bad) return bad
       if (body.version !== problem.version) return errors.versionConflict()
       if ('allowedLanguages' in body && !isLanguageArray(body.allowedLanguages)) return errors.invalidRequest()
@@ -317,6 +357,12 @@ export const ojHandlers = [
       if ('timeLimitMs' in body && !validPositiveInteger(body.timeLimitMs)) return errors.invalidRequest()
       if ('memoryLimitKb' in body && !validPositiveInteger(body.memoryLimitKb)) return errors.invalidRequest()
       if ('difficulty' in body && !['EASY', 'MEDIUM', 'HARD'].includes(body.difficulty as string)) {
+        return errors.invalidRequest()
+      }
+      if ('assessmentTestCases' in body && !validTestCases(body.assessmentTestCases, { required: true })) {
+        return errors.invalidRequest()
+      }
+      if ('practiceTestCases' in body && !validTestCases(body.practiceTestCases)) {
         return errors.invalidRequest()
       }
       for (const key of ['title', 'summary', 'description', 'inputFormat', 'outputFormat'] as const) {

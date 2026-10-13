@@ -11,6 +11,7 @@ import type {
   AssessmentResult,
   AssessmentReview,
   AssessmentSubmission,
+  AssessmentProblemTestCaseInput,
   CreateAssessmentProblemRequest,
   CreateAssessmentRequest,
   CreateAssessmentReviewRequest,
@@ -296,12 +297,38 @@ export const OJ_SUBMISSIONS: AssessmentSubmission[] = INITIAL_SUBMISSIONS.map((i
 export const OJ_AI_EVALUATIONS: AiEvaluation[] = INITIAL_AI_EVALUATIONS.map((item) => ({ ...item }))
 export const OJ_REVIEWS: AssessmentReview[] = INITIAL_REVIEWS.map((item) => ({ ...item }))
 
+export interface StoredProblemTestCases {
+  assessmentTestCases: AssessmentProblemTestCaseInput[]
+  practiceTestCases: AssessmentProblemTestCaseInput[]
+}
+
+export const OJ_PROBLEM_TEST_CASES: Record<string, StoredProblemTestCases> = Object.fromEntries(
+  INITIAL_PROBLEMS.map((problem) => [
+    problem.id,
+    {
+      assessmentTestCases: [{ input: `hidden-${problem.id}`, expectedOutput: `accepted-${problem.id}` }],
+      practiceTestCases: [{ input: `practice-${problem.id}`, expectedOutput: `practice-${problem.id}` }],
+    },
+  ]),
+)
+
+export function findProblemTestCases(problemId: string): StoredProblemTestCases | undefined {
+  return OJ_PROBLEM_TEST_CASES[problemId]
+}
+
 export function resetOjData(): void {
   OJ_ASSESSMENTS.splice(0, OJ_ASSESSMENTS.length, ...INITIAL_ASSESSMENTS.map((item) => ({ ...item })))
   OJ_PROBLEMS.splice(0, OJ_PROBLEMS.length, ...INITIAL_PROBLEMS.map((item) => ({ ...item })))
   OJ_SUBMISSIONS.splice(0, OJ_SUBMISSIONS.length, ...INITIAL_SUBMISSIONS.map((item) => ({ ...item })))
   OJ_AI_EVALUATIONS.splice(0, OJ_AI_EVALUATIONS.length, ...INITIAL_AI_EVALUATIONS.map((item) => ({ ...item })))
   OJ_REVIEWS.splice(0, OJ_REVIEWS.length, ...INITIAL_REVIEWS.map((item) => ({ ...item })))
+  for (const key of Object.keys(OJ_PROBLEM_TEST_CASES)) delete OJ_PROBLEM_TEST_CASES[key]
+  for (const problem of INITIAL_PROBLEMS) {
+    OJ_PROBLEM_TEST_CASES[problem.id] = {
+      assessmentTestCases: [{ input: `hidden-${problem.id}`, expectedOutput: `accepted-${problem.id}` }],
+      practiceTestCases: [{ input: `practice-${problem.id}`, expectedOutput: `practice-${problem.id}` }],
+    }
+  }
 }
 
 registerResetHook(resetOjData)
@@ -400,15 +427,20 @@ export async function createSubmission(
 
 export function createProblem(payload: CreateAssessmentProblemRequest): AssessmentProblem {
   const now = ojNowIso()
+  const { assessmentTestCases, practiceTestCases = [], ...publicPayload } = payload
   const problem: AssessmentProblem = {
     id: String(9100 + OJ_PROBLEMS.length + 1),
-    ...payload,
+    ...publicPayload,
     status: 'DRAFT',
     version: 1,
     createdAt: now,
     updatedAt: now,
   }
   OJ_PROBLEMS.push(problem)
+  OJ_PROBLEM_TEST_CASES[problem.id] = {
+    assessmentTestCases: [...assessmentTestCases],
+    practiceTestCases: [...practiceTestCases],
+  }
   return problem
 }
 
@@ -416,7 +448,13 @@ export function updateProblem(
   problem: AssessmentProblem,
   payload: UpdateAssessmentProblemRequest,
 ): AssessmentProblem {
-  Object.assign(problem, payload, { version: problem.version + 1, updatedAt: ojNowIso() })
+  const { version: _version, assessmentTestCases, practiceTestCases, ...publicPayload } = payload
+  Object.assign(problem, publicPayload, { version: problem.version + 1, updatedAt: ojNowIso() })
+  const stored = OJ_PROBLEM_TEST_CASES[problem.id]
+  if (stored) {
+    if (assessmentTestCases) stored.assessmentTestCases = [...assessmentTestCases]
+    if (practiceTestCases) stored.practiceTestCases = [...practiceTestCases]
+  }
   return problem
 }
 

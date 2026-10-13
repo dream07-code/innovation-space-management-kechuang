@@ -922,6 +922,58 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/assessment-problems/{problemId}/test-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取题目测试点（仅工作人员）
+         * @description 返回正式考核隐藏测试点与题库练习测试点，学生访问返回 403。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemTestCasesResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-problems/{problemId}/retire": {
         parameters: {
             query?: never;
@@ -1954,6 +2006,27 @@ export interface components {
             timeLimitMs: number;
             memoryLimitKb: number;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            assessmentTestCases: components["schemas"]["AssessmentProblemTestCaseInput"][];
+            practiceTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
+        };
+        AssessmentProblemTestCaseInput: {
+            input: string;
+            expectedOutput: string;
+        };
+        AssessmentProblemTestCase: {
+            readonly position: number;
+            input: string;
+            expectedOutput: string;
+        };
+        AssessmentProblemTestCasesResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                assessmentTestCases: components["schemas"]["AssessmentProblemTestCase"][];
+                practiceTestCases: components["schemas"]["AssessmentProblemTestCase"][];
+            };
         };
         UpdateAssessmentProblemRequest: {
             version: number;
@@ -1969,6 +2042,8 @@ export interface components {
             timeLimitMs?: number;
             memoryLimitKb?: number;
             allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            assessmentTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
+            practiceTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
         };
         CreateAssessmentSubmissionRequest: {
             problemId: string;

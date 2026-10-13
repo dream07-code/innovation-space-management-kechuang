@@ -128,3 +128,53 @@ describe('OJ 人工批阅', () => {
     expect(list.body.data.items[0].score).toBe(88)
   })
 })
+
+describe('OJ 题目测试点隔离', () => {
+  it('工作人员可读取两套测试点，普通题目响应和学生读取不泄露', async () => {
+    const adminToken = await login('MOCK-ADMIN', 'Admin-Example9!')
+    const studentToken = await login('MOCK20260001', 'Example-Only9!')
+    const created = await request('/api/v1/assessment-problems', adminToken, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': 'oj-test-cases-contract-key' },
+      body: JSON.stringify({
+        title: '测试点隔离题',
+        summary: '验证两套测试点',
+        description: '输入一个整数',
+        inputFormat: '一行整数',
+        outputFormat: '相同整数',
+        examples: [],
+        difficulty: 'EASY',
+        tags: ['测试'],
+        timeLimitMs: 1000,
+        memoryLimitKb: 65536,
+        allowedLanguages: ['python'],
+        assessmentTestCases: [{ input: 'hidden', expectedOutput: 'hidden-result' }],
+        practiceTestCases: [{ input: 'practice', expectedOutput: 'practice-result' }],
+      }),
+    })
+
+    expect(created.status).toBe(201)
+    expect(created.body.data).not.toHaveProperty('assessmentTestCases')
+    expect(created.body.data).not.toHaveProperty('practiceTestCases')
+    expect(JSON.stringify(created.body)).not.toContain('hidden-result')
+
+    const problemId = created.body.data.id as string
+    const staffCases = await request(`/api/v1/assessment-problems/${problemId}/test-cases`, adminToken)
+    expect(staffCases.status).toBe(200)
+    expect(staffCases.body.data.assessmentTestCases).toEqual([
+      { position: 1, input: 'hidden', expectedOutput: 'hidden-result' },
+    ])
+    expect(staffCases.body.data.practiceTestCases).toEqual([
+      { position: 1, input: 'practice', expectedOutput: 'practice-result' },
+    ])
+
+    const studentCases = await request(
+      `/api/v1/assessment-problems/${problemId}/test-cases`,
+      studentToken,
+    )
+    expect(studentCases.status).toBe(403)
+
+    const studentProblem = await request(`/api/v1/assessment-problems/${problemId}`, studentToken)
+    expect(studentProblem.status).toBe(404)
+  })
+})
