@@ -2,12 +2,8 @@
 /**
  * 日报编辑页：新建草稿 / 编辑 / 查看 + 提交。
  *
- * 契约要点（docs/api/openapi.yaml 日报 tag）：
- *   - 每成员每日一份（含草稿），重复创建 409 REPORT_ALREADY_EXISTS；
- *   - 编辑需要 version 乐观锁，409 VERSION_CONFLICT 时重取后提示用户；
- *   - 提交 = 请求评分开始：status=SUBMITTED、scoreStatus=QUEUED、入账保底 1 分，
- *     finalScore 仍为 null（评分中是合法状态，不是 0 分）；
- *   - 仅 editable=true 时可编辑；POST 必须带 Idempotency-Key。
+ * 表单只包含学习内容、收获、遇到的问题。
+ * 日期由后端按当天生成；nextPlan/links 仅保留在旧 API 兼容层。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -21,12 +17,17 @@ import {
 } from '@/api/modules/reports'
 import { describeError, toApiError } from '@/api/errors'
 import { REPORT_STATUS_META, SCORE_STATUS_META } from '@/components/statusMeta'
+import {
+  buildCreateDailyReportPayload,
+  buildUpdateDailyReportPayload,
+  validateDailyReportForm,
+  type DailyReportFormValues,
+} from '@/views/member/dailyReportPayload'
 import type { DailyReport } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
 
-/** 无 reportId 参数即「新建」。 */
 const reportId = computed(() => (typeof route.params.reportId === 'string' ? route.params.reportId : null))
 const isNew = computed(() => reportId.value === null)
 
@@ -36,42 +37,37 @@ const saving = ref(false)
 const submitting = ref(false)
 
 const formRef = ref<FormInstance>()
-const form = reactive({
-  reportDate: '',
+const form = reactive<DailyReportFormValues>({
   learningContent: '',
   gains: '',
   problems: '',
-  nextPlan: '',
-  linksText: '',
 })
 
 const rules: FormRules = {
-  reportDate: [{ required: true, message: '请选择日期', trigger: 'change' }],
+  learningContent: [{ required: true, message: '请输入学习内容', trigger: 'blur' }],
 }
 
-/** 是否可编辑：草稿永远可以，已提交看 editable 标志（与截止时间）。 */
 const editable = computed(() => (isNew.value ? true : (report.value?.editable ?? false)))
 
-function today(): string {
-  const d = new Date(Date.now() + 8 * 3600_000)
-  return d.toISOString().slice(0, 10)
+async function validateForm(): Promise<boolean> {
+  const errors = validateDailyReportForm(form)
+  const firstError = errors.learningContent ?? errors.gains ?? errors.problems
+  if (firstError) {
+    ElMessage.warning(firstError)
+    return false
+  }
+  return (await formRef.value?.validate().catch(() => false)) ?? false
 }
 
 async function load(): Promise<void> {
-  if (isNew.value) {
-    form.reportDate = today()
-    return
-  }
+  if (isNew.value) return
   loading.value = true
   try {
-    const r = await getDailyReport(reportId.value!)
-    report.value = r
-    form.reportDate = r.reportDate
-    form.learningContent = r.learningContent
-    form.gains = r.gains
-    form.problems = r.problems ?? ''
-    form.nextPlan = r.nextPlan ?? ''
-    form.linksText = r.links.join('\n')
+    const loaded = await getDailyReport(reportId.value!)
+    report.value = loaded
+    form.learningContent = loaded.learningContent
+    form.gains = loaded.gains
+    form.problems = loaded.problems ?? ''
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -79,47 +75,32 @@ async function load(): Promise<void> {
   }
 }
 
-function parseLinks(): string[] {
-  return form.linksText
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-/** 生成幂等键：一次编辑会话内复用一个，提交动作每次换新。 */
 const editKey = crypto.randomUUID()
 
 async function saveDraft(): Promise<void> {
+  if (!editable.value || !(await validateForm())) return
+
   saving.value = true
   try {
-    const payload = {
-      learningContent: form.learningContent,
-      gains: form.gains,
-      problems: form.problems || null,
-      nextPlan: form.nextPlan || null,
-      links: parseLinks(),
-    }
     if (isNew.value) {
-      const valid = await formRef.value?.validate().catch(() => false)
-      if (!valid) return
-      const created = await createDailyReport({ reportDate: form.reportDate, ...payload }, editKey)
+      const created = await createDailyReport(buildCreateDailyReportPayload(form), editKey)
       report.value = created
       ElMessage.success('草稿已保存')
       await router.replace({ name: 'daily-report-detail', params: { reportId: created.id } })
-    } else {
-      const updated = await updateDailyReport(reportId.value!, {
-        version: report.value!.version,
-        ...payload,
-      })
-      report.value = updated
-      ElMessage.success('已保存')
+      return
     }
+
+    const updated = await updateDailyReport(
+      reportId.value!,
+      buildUpdateDailyReportPayload(report.value!.version, form),
+    )
+    report.value = updated
+    ElMessage.success('已保存')
   } catch (error) {
     const apiError = toApiError(error)
-    // 乐观锁冲突：重取后由用户决定是否重新提交，绝不盲目覆盖。
     if (apiError.isVersionConflict && !isNew.value) {
       await load()
-      ElMessage.warning('报告已被其他操作更新，已为你刷新到最新版本，请确认后再提交')
+      ElMessage.warning('报告已被其他操作更新，已为你刷新到最新版本，请确认后再保存')
     } else {
       ElMessage.error(describeError(apiError))
     }
@@ -133,10 +114,8 @@ async function submit(): Promise<void> {
     ElMessage.warning('请先保存草稿再提交')
     return
   }
-  if (!form.learningContent.trim() || !form.gains.trim()) {
-    ElMessage.warning('提交前请填写「学习内容」与「收获」')
-    return
-  }
+  if (!(await validateForm())) return
+
   try {
     await ElMessageBox.confirm(
       '提交后将入账保底积分并开始评分；评分完成前积分可能继续变动。',
@@ -144,40 +123,31 @@ async function submit(): Promise<void> {
       { confirmButtonText: '提交', cancelButtonText: '再想想', type: 'warning' },
     )
   } catch {
-    return // 用户取消
+    return
   }
 
   submitting.value = true
   try {
-    // 提交对报告内容的最后一次修改先落盘，再发提交。
-    // 若 version 已过期，update 会 409，此时重取并提示。
-    const updated = await updateDailyReport(reportId.value!, {
-      version: report.value!.version,
-      learningContent: form.learningContent,
-      gains: form.gains,
-      problems: form.problems || null,
-      nextPlan: form.nextPlan || null,
-      links: parseLinks(),
-    })
+    const updated = await updateDailyReport(
+      reportId.value!,
+      buildUpdateDailyReportPayload(report.value!.version, form),
+    )
     report.value = updated
 
-    const submitted = await submitDailyReport(
+    report.value = await submitDailyReport(
       reportId.value!,
       updated.version,
       crypto.randomUUID(),
     )
-    report.value = submitted
-    // 提交后表单重新同步为正式内容。
-    form.learningContent = submitted.learningContent
-    form.gains = submitted.gains
+    form.learningContent = report.value.learningContent
+    form.gains = report.value.gains
+    form.problems = report.value.problems ?? ''
     ElMessage.success('已正式提交，保底积分已入账，评分排队中')
   } catch (error) {
     const apiError = toApiError(error)
     if (apiError.isVersionConflict) {
       await load()
       ElMessage.warning('报告已被其他操作更新，已为你刷新，请确认后再提交')
-    } else if (apiError.isAlreadyExists) {
-      ElMessage.error(describeError(apiError))
     } else {
       ElMessage.error(describeError(apiError))
     }
@@ -206,45 +176,48 @@ onMounted(load)
     </template>
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-      <el-form-item label="报告日期" prop="reportDate">
-        <el-date-picker
-          v-model="form.reportDate"
-          type="date"
-          value-format="YYYY-MM-DD"
-          :disabled="!isNew"
-          placeholder="选择日期"
-        />
-        <div class="report__tip">每成员每天最多一份日报（含草稿）。</div>
-      </el-form-item>
-
-      <el-form-item label="学习内容（提交必填）" prop="learningContent">
+      <el-form-item label="学习内容（必填）" prop="learningContent">
         <el-input
           v-model="form.learningContent"
           type="textarea"
-          :rows="4"
+          :rows="5"
           :disabled="!editable"
+          maxlength="10000"
+          show-word-limit
+          placeholder="今天学习了什么？"
           data-test="learning-content"
         />
       </el-form-item>
 
-      <el-form-item label="收获（提交必填）" prop="gains">
-        <el-input v-model="form.gains" type="textarea" :rows="3" :disabled="!editable" />
+      <el-form-item label="收获（选填）">
+        <el-input
+          v-model="form.gains"
+          type="textarea"
+          :rows="4"
+          :disabled="!editable"
+          maxlength="10000"
+          show-word-limit
+          placeholder="理解了什么，有哪些收获？"
+          data-test="gains"
+        />
       </el-form-item>
 
-      <el-form-item label="遇到的问题">
-        <el-input v-model="form.problems" type="textarea" :rows="2" :disabled="!editable" />
-      </el-form-item>
-
-      <el-form-item label="下一步计划">
-        <el-input v-model="form.nextPlan" type="textarea" :rows="2" :disabled="!editable" />
-      </el-form-item>
-
-      <el-form-item label="相关链接（每行一个）">
-        <el-input v-model="form.linksText" type="textarea" :rows="2" :disabled="!editable" />
+      <el-form-item label="遇到的问题（选填）">
+        <el-input
+          v-model="form.problems"
+          type="textarea"
+          :rows="3"
+          :disabled="!editable"
+          maxlength="5000"
+          show-word-limit
+          placeholder="还有哪些问题需要继续解决？"
+          data-test="problems"
+        />
       </el-form-item>
 
       <template v-if="report">
-        <el-descriptions :column="3" border size="small">
+        <el-descriptions :column="4" border size="small">
+          <el-descriptions-item label="报告日期">{{ report.reportDate }}</el-descriptions-item>
           <el-descriptions-item label="保底积分">{{ report.awardedPoints }}</el-descriptions-item>
           <el-descriptions-item label="最终评分">
             {{ report.finalScore !== null ? `${report.finalScore} 分` : SCORE_STATUS_META[report.scoreStatus].label }}
@@ -279,14 +252,9 @@ onMounted(load)
   gap: 0.5rem;
 }
 
-.report__tip {
-  color: var(--el-text-color-secondary);
-  font-size: 0.75rem;
-}
-
 .report__actions {
-  margin-top: 1rem;
   display: flex;
   gap: 0.75rem;
+  margin-top: 1rem;
 }
 </style>

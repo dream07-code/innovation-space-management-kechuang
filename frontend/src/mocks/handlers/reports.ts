@@ -26,6 +26,7 @@ import {
   nowIso,
   paginate,
   parsePageParams,
+  todayBusiness,
   weekEndOf,
 } from '../data'
 import {
@@ -59,6 +60,25 @@ function rejectUnknownFields(body: Record<string, unknown>, allowed: readonly st
   return null
 }
 
+function validateDailyBody(body: Record<string, unknown>): Response | null {
+  const learningContent = body.learningContent
+  if (typeof learningContent !== 'string' || !learningContent.trim() || learningContent.trim().length > 10000) {
+    return errors.invalidRequest()
+  }
+  if ('gains' in body && body.gains !== undefined && (typeof body.gains !== 'string' || body.gains.length > 10000)) {
+    return errors.invalidRequest()
+  }
+  if (
+    'problems' in body &&
+    body.problems !== undefined &&
+    body.problems !== null &&
+    (typeof body.problems !== 'string' || body.problems.length > 5000)
+  ) {
+    return errors.invalidRequest()
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // 泛型报告逻辑
 // ---------------------------------------------------------------------------
@@ -74,6 +94,7 @@ interface ReportSpec<R extends AnyReport> {
   requiredFields: readonly (keyof R)[]
   createAllowed: readonly string[]
   updateAllowed: readonly string[]
+  automaticPeriod?: () => string
   makeDraft: (id: string, memberId: string, directionId: string, body: Record<string, unknown>) => R
 }
 
@@ -156,7 +177,10 @@ function createReport<R extends AnyReport>(spec: ReportSpec<R>, request: Request
     const bad = rejectUnknownFields(body, spec.createAllowed)
     if (bad) return bad
 
-    const periodValue = body[spec.periodKey]
+    const dailyInvalid = spec.reportType === 'DAILY' ? validateDailyBody(body) : null
+    if (dailyInvalid) return dailyInvalid
+
+    const periodValue = spec.automaticPeriod ? spec.automaticPeriod() : body[spec.periodKey]
     if (typeof periodValue !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(periodValue)) {
       return errors.invalidRequest()
     }
@@ -220,6 +244,8 @@ async function updateReport<R extends AnyReport>(spec: ReportSpec<R>, request: R
   if (bad) return bad
   if (Object.keys(body).length < 2) return errors.invalidRequest()
   if (body.version !== report.version) return errors.versionConflict()
+  const dailyInvalid = spec.reportType === 'DAILY' ? validateDailyBody(body) : null
+  if (dailyInvalid) return dailyInvalid
 
   // 合并后校验：SUBMITTED 修改必须保证必填内容非空白。
   const merged = { ...report, ...body } as R
@@ -300,11 +326,12 @@ const DAILY_SPEC: ReportSpec<DailyReport> = {
   nextId: nextDailyReportId,
   reportType: 'DAILY',
   periodKey: 'reportDate',
-  requiredFields: ['learningContent', 'gains'],
-  createAllowed: ['reportDate', 'learningContent', 'gains', 'problems', 'nextPlan', 'links'],
+  requiredFields: ['learningContent'],
+  createAllowed: ['learningContent', 'gains', 'problems', 'nextPlan', 'links'],
   updateAllowed: ['version', 'learningContent', 'gains', 'problems', 'nextPlan', 'links'],
+  automaticPeriod: todayBusiness,
   makeDraft(id, memberId, directionId, body) {
-    const reportDate = body.reportDate as string
+    const reportDate = todayBusiness()
     return {
       id,
       memberId,

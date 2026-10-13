@@ -368,7 +368,7 @@ export interface paths {
         put?: never;
         /**
          * 创建本人草稿
-         * @description 身份从token取，不能传memberId。仅在籍且ENABLED成员；每成员每日期/自然周仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
+         * @description 身份从token取，不能传memberId。reportDate 由服务端按当天生成，不接收日期字段；学习内容必填且 trim 后不得为空，收获和遇到的问题可以省略。每成员每天仅一份（含草稿），重复409 REPORT_ALREADY_EXISTS。草稿不计分、不更新连续未交日报计时。
          */
         post: operations["createDailyReport"];
         delete?: never;
@@ -396,7 +396,7 @@ export interface paths {
         head?: never;
         /**
          * 修改本人报告内容
-         * @description 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。草稿允许不完整。SUBMITTED 必须先合并PATCH与现有正文，再验证两项必填内容均非空白；失败400 INVALID_REQUEST，报告/积分/任务均不变。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
+         * @description 仅作者且editable=true，version必须一致；不得更改日期/作者/积分。当前日报表单只发送 learningContent、gains、problems，学习内容必填且 trim 后不得为空。有效更新产生新版本重评，不重复保底、不重置首次提交时间，完成后差额入账。当前为人工最终评分时不可编辑。
          */
         patch: operations["updateDailyReport"];
         trace?: never;
@@ -412,7 +412,7 @@ export interface paths {
         put?: never;
         /**
          * 正式提交本人报告并异步评分
-         * @description 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503 RULES_NOT_CONFIGURED。
+         * @description 校验作者、在籍、学习内容必填且非空白、version和已确认规则。请求体只发送 version。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503 RULES_NOT_CONFIGURED。
          */
         post: operations["submitDailyReport"];
         delete?: never;
@@ -2385,34 +2385,35 @@ export interface components {
             message: string;
             data: components["schemas"]["DailyReportPage"];
         };
-        /** @description 创建草稿；省略的正文初始化为空串、可空字段为 null、links 为空数组。周报 weekStart 必须为周一，weekEnd 服务端计算。 */
+        /** @description 创建日报草稿；reportDate 由服务端按业务当天生成。学习内容必填且 trim 后不得为空，收获和遇到的问题可以省略。 */
         CreateDailyReportRequest: {
-            /**
-             * Format: date
-             * @example 2026-10-11
-             */
-            reportDate: string;
-            /** @example 完成接口请求与参数校验练习。 */
-            learningContent?: string;
-            /** @example 理解了参数校验与异常映射。 */
+            /** @example 今天学习了 Spring Boot 接口设计 */
+            learningContent: string;
+            /** @example 理解了参数校验 */
             gains?: string;
+            /** @example 对事务边界还不熟悉 */
             problems?: string | null;
+            /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             nextPlan?: string | null;
+            /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             links?: string[];
         };
-        /** @description 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。 */
+        /** @description 只改正文，不改成员或日期。当前日报表单只发送 version、learningContent、gains、problems；日期不变，历史 nextPlan/links 仅保留 API 兼容。 */
         UpdateDailyReportRequest: {
             /**
              * Format: int32
              * @example 1
              */
             version: number;
-            /** @example 完成接口请求与参数校验练习。 */
-            learningContent?: string;
-            /** @example 理解了参数校验与异常映射。 */
+            /** @example 更新后的学习内容 */
+            learningContent: string;
+            /** @example 可选收获 */
             gains?: string;
+            /** @example 可选问题 */
             problems?: string | null;
+            /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             nextPlan?: string | null;
+            /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             links?: string[];
         };
         WeeklyReport: {
@@ -4627,7 +4628,9 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "reportDate": "2026-10-11"
+                 *       "learningContent": "今天学习了 Spring Boot 接口设计",
+                 *       "gains": "理解了参数校验",
+                 *       "problems": "对事务边界还不熟悉"
                  *     }
                  */
                 "application/json": components["schemas"]["CreateDailyReportRequest"];
@@ -4756,7 +4759,9 @@ export interface operations {
                 /**
                  * @example {
                  *       "version": 1,
-                 *       "learningContent": "完成接口请求与参数校验练习。"
+                 *       "learningContent": "更新后的学习内容",
+                 *       "gains": "可选收获",
+                 *       "problems": "可选问题"
                  *     }
                  */
                 "application/json": components["schemas"]["UpdateDailyReportRequest"];
