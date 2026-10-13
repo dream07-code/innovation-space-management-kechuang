@@ -9,9 +9,11 @@ import { ElMessage } from 'element-plus'
 import { listWeeklyReports } from '@/api/modules/reports'
 import { describeError, toApiError } from '@/api/errors'
 import { reportStatusMeta, scoreStatusMeta } from '@/components/statusMeta'
+import { useAuthStore } from '@/stores/auth'
 import type { PageData, WeeklyReport } from '@/api/types'
 
 const router = useRouter()
+const auth = useAuthStore()
 
 const data = ref<PageData<WeeklyReport> | null>(null)
 const loading = ref(false)
@@ -21,7 +23,11 @@ const size = ref(20)
 async function load(): Promise<void> {
   loading.value = true
   try {
-    data.value = await listWeeklyReports({ page: page.value, size: size.value })
+    data.value = await listWeeklyReports({
+      page: page.value,
+      size: size.value,
+      memberId: auth.user?.memberId ?? undefined,
+    })
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
