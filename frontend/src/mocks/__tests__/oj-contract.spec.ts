@@ -129,6 +129,53 @@ describe('OJ 人工批阅', () => {
   })
 })
 
+describe('OJ 题库批量导入 Mock', () => {
+  it('批量导入使用同一事务语义并返回安全结果', async () => {
+    const adminToken = await login('MOCK-ADMIN', 'Admin-Example9!')
+    const created = await request('/api/v1/assessment-problems/import', adminToken, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': 'oj-import-contract-key' },
+      body: JSON.stringify({
+        problems: [
+          {
+            title: 'Mock 导入 A',
+            summary: '导入摘要',
+            description: '导入题面',
+            inputFormat: '输入',
+            outputFormat: '输出',
+            examples: [],
+            difficulty: 'EASY',
+            tags: [],
+            timeLimitMs: 1000,
+            memoryLimitKb: 65536,
+            allowedLanguages: ['python'],
+            assessmentTestCases: [{ input: '1', expectedOutput: '1' }],
+          },
+          {
+            title: 'Mock 导入 B',
+            summary: '导入摘要',
+            description: '导入题面',
+            inputFormat: '输入',
+            outputFormat: '输出',
+            examples: [],
+            difficulty: 'EASY',
+            tags: [],
+            timeLimitMs: 1000,
+            memoryLimitKb: 65536,
+            allowedLanguages: ['python'],
+            assessmentTestCases: [{ input: '2', expectedOutput: '2' }],
+          },
+        ],
+      }),
+    })
+
+    expect(created.status).toBe(201)
+    expect(created.body.data.importedCount).toBe(2)
+    expect(created.body.data.problemIds).toHaveLength(2)
+    expect(created.body.data.errors).toEqual([])
+  })
+})
+
 describe('OJ 题目测试点隔离', () => {
   it('工作人员可读取两套测试点，普通题目响应和学生读取不泄露', async () => {
     const adminToken = await login('MOCK-ADMIN', 'Admin-Example9!')

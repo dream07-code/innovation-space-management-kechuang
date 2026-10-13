@@ -838,6 +838,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-problems/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量导入题目
+         * @description 单次最多 100 道题、请求不超过 5 MB；任何题目校验失败时整批回滚。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ImportAssessmentProblemsRequest"];
+                };
+            };
+            responses: {
+                /** @description 全部题目导入成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemImportResponse"];
+                    };
+                };
+                /** @description 导入校验失败；返回安全的逐题错误摘要，不写入任何题目。 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemImportResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-problems/{problemId}": {
         parameters: {
             query?: never;
@@ -2044,6 +2104,25 @@ export interface components {
             allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
             assessmentTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
             practiceTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
+        };
+        ImportAssessmentProblemsRequest: {
+            problems: components["schemas"]["CreateAssessmentProblemRequest"][];
+        };
+        AssessmentProblemImportError: {
+            index: number;
+            /** @enum {string} */
+            code: "INVALID_IMPORT" | "INVALID_PROBLEM" | "DUPLICATE_TITLE" | "TOO_MANY_PROBLEMS" | "REQUEST_TOO_LARGE";
+        };
+        AssessmentProblemImportResult: {
+            importedCount: number;
+            problemIds: string[];
+            errors: components["schemas"]["AssessmentProblemImportError"][];
+        };
+        AssessmentProblemImportResponse: {
+            /** @enum {string} */
+            code: "OK" | "INVALID_REQUEST";
+            message: string;
+            data: components["schemas"]["AssessmentProblemImportResult"];
         };
         CreateAssessmentSubmissionRequest: {
             problemId: string;

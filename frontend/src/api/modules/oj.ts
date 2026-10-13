@@ -16,6 +16,8 @@ import type {
   AssessmentReview,
   AssessmentSubmission,
   CreateAssessmentProblemRequest,
+  AssessmentProblemImportResponse,
+  ImportAssessmentProblemsRequest,
   CreateAssessmentRequest,
   CreateAssessmentReviewRequest,
   CreateAssessmentSubmissionRequest,
@@ -87,6 +89,13 @@ export async function createAssessmentProblem(
 
 export async function getAssessmentProblem(problemId: string): Promise<AssessmentProblem> {
   return get<AssessmentProblem>(`${PROBLEMS}/${problemId}`)
+}
+
+export async function importAssessmentProblems(
+  payload: ImportAssessmentProblemsRequest,
+  idempotencyKey: string,
+): Promise<AssessmentProblemImportResponse> {
+  return post<AssessmentProblemImportResponse>(`${PROBLEMS}/import`, payload, { idempotencyKey })
 }
 
 export async function getAssessmentProblemTestCases(

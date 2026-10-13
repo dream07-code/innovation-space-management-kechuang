@@ -6,7 +6,7 @@
  *   - 不返回私有测试数据、完整代码、OJ 原始错误或 AI 原始响应；
  *   - 角色按方向/成员做对象级过滤，学生只能看自己的提交。
  */
-import { http } from 'msw'
+import { HttpResponse, http } from 'msw'
 
 import { API_PREFIX } from '@/api/constants'
 import {
@@ -38,6 +38,7 @@ import {
   guardSession,
   ok,
 } from '../state'
+import { parseOjImportJson } from '@/utils/ojImport'
 import { withIdempotency } from './idempotency'
 
 const ASSESSMENTS = `${API_PREFIX}/assessments`
@@ -274,6 +275,29 @@ export const ojHandlers = [
   }),
 
   // -- problems --------------------------------------------------------------
+  http.post(`${PROBLEMS}/import`, ({ request }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    if (!account || account.user.role === 'STUDENT') return errors.forbidden()
+
+    return withIdempotency(request, (bodyText) => {
+      const preview = parseOjImportJson(bodyText)
+      if (!preview.payload) {
+        return HttpResponse.json(
+          {
+            code: 'INVALID_REQUEST',
+            message: 'Import validation failed',
+            data: { importedCount: 0, problemIds: [], errors: preview.errors },
+          },
+          { status: 400 },
+        )
+      }
+      const problemIds = preview.payload.problems.map((problem) => createProblem(problem).id)
+      return ok({ importedCount: problemIds.length, problemIds, errors: [] }, 201)
+    })
+  }),
+
   http.get(`${PROBLEMS}`, ({ request }) => {
     const denied = guardSession(request)
     if (denied) return denied
