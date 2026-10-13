@@ -65,7 +65,7 @@ class ReportHttpIT {
 
   @Test
   void dailyDraftSubmitIsUniqueAndSubmitIsIdempotent() throws Exception {
-    String body = "{\"reportDate\":\"" + today() + "\",\"learningContent\":\"learned\",\"gains\":\"gain\"}";
+    String body = "{\"learningContent\":\"learned\"}";
     var draft = send(token, "POST", "/api/v1/daily-reports", body, "11111111-1111-4111-8111-111111111111");
     assertEquals(201, draft.statusCode());
     ContractAssertions.response("POST", "/api/v1/daily-reports", draft);
@@ -86,14 +86,13 @@ class ReportHttpIT {
 
   @Test
   void createAndSubmitValidateContractAndUnregisteredRoutesStayAbsent() throws Exception {
-    assertEquals(400, send(token, "POST", "/api/v1/daily-reports", "{\"learningContent\":\"x\",\"gains\":\"y\"}", "33333333-3333-4333-8333-333333333333").statusCode());
+    assertEquals(400, send(token, "POST", "/api/v1/daily-reports", "{\"gains\":\"y\"}", "33333333-3333-4333-8333-333333333333").statusCode());
     assertEquals(400, send(token, "POST", "/api/v1/daily-reports", "{\"reportDate\":\"2000-01-01\",\"learningContent\":\"x\",\"gains\":\"y\"}", "33333333-3333-4333-8333-333333333334").statusCode());
     assertEquals(400, send(token, "POST", "/api/v1/weekly-reports", "{\"summary\":\"x\",\"achievements\":\"y\"}", "33333333-3333-4333-8333-333333333335").statusCode());
     var draft = send(token, "POST", "/api/v1/daily-reports", "{\"reportDate\":\"" + today() + "\",\"unknown\":\"x\"}", "33333333-3333-4333-8333-333333333336");
     assertEquals(400, draft.statusCode());
-    var invalid = send(token, "POST", "/api/v1/daily-reports", "{\"reportDate\":\"" + today() + "\"}", "33333333-3333-4333-8333-333333333337");
-    String id = HttpTestSupport.json(invalid).path("data").path("id").asText();
-    assertEquals(400, send(token, "POST", "/api/v1/daily-reports/" + id + "/submit", "{\"version\":1}", "33333333-3333-4333-8333-333333333338").statusCode());
+    String id = "999999";
+    assertEquals(404, send(token, "POST", "/api/v1/daily-reports/" + id + "/submit", "{\"version\":1}", "33333333-3333-4333-8333-333333333338").statusCode());
     assertEquals(404, send(token, "GET", "/api/v1/monthly-assessments", null, null).statusCode());
     assertEquals(404, send(token, "POST", "/api/v1/daily-reports/" + id + "/delete", null, null).statusCode());
     assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger", Integer.class));
@@ -117,7 +116,7 @@ class ReportHttpIT {
     assertEquals(409, send(token, "PATCH", "/api/v1/daily-reports/" + id, "{\"version\":1,\"learningContent\":\"stale\"}", null).statusCode());
     var submitted = send(token, "POST", "/api/v1/daily-reports/" + id + "/submit", "{\"version\":2}", "44444444-4444-4444-8444-444444444442");
     assertEquals(200, submitted.statusCode());
-    assertEquals(400, send(token, "PATCH", "/api/v1/daily-reports/" + id, "{\"version\":2,\"learningContent\":\"changed\",\"gains\":\"\"}", null).statusCode());
+    assertEquals(400, send(token, "PATCH", "/api/v1/daily-reports/" + id, "{\"version\":2,\"learningContent\":\"\"}", null).statusCode());
     assertEquals(2, HttpTestSupport.json(send(token, "GET", "/api/v1/daily-reports/" + id, null, null)).at("/data/version").asInt());
     assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger", Integer.class));
     assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM report_scoring_task", Integer.class));

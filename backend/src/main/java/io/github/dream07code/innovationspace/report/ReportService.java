@@ -66,12 +66,16 @@ public class ReportService {
     if (principal.memberId() == null) throw new ApiException(403, ErrorCode.FORBIDDEN);
     ReportScopePolicy.requireOwner(principal, principal.memberId());
     Map<String, Object> content = normalizeContent(request, type, true);
+    if (type == ReportType.DAILY
+        && (!(content.get("learningContent") instanceof String learning)
+            || learning.isBlank())) throw bad();
     LocalDate day = periods.dailyPeriod();
     ReportPeriodPolicy.WeekPeriod week = periods.weeklyPeriod();
     String reportDate = type == ReportType.DAILY ? day.toString() : null;
     String weekStart = type == ReportType.WEEKLY ? week.start().toString() : null;
     String weekEnd = type == ReportType.WEEKLY ? week.end().toString() : null;
     if (type == ReportType.DAILY
+        && request.get("reportDate") != null
         && (!day.toString().equals(request.get("reportDate")))) throw bad();
     if (type == ReportType.WEEKLY
         && (!week.start().toString().equals(request.get("weekStart")))) throw bad();

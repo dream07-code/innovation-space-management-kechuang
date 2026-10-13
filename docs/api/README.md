@@ -42,6 +42,10 @@
 - 学号在普通修改接口中不可改。更正必须走管理员专用接口，校验唯一、说明原因、保留原学号和操作者审计，并撤销旧会话；历史报告/积分继续关联不变的内部 ID，不物理迁移或重建数据。旧学号不再可登录。
 - 学院管理员账号也在统一 `account` 命名空间内，不能与任何学号冲突。管理员账户不在学生创建接口中产生；该接口没有 `role`/`password`/`points` 入参。
 
+## 2.2 日报表单字段（已确认）
+
+日报创建/编辑表单只展示 `learningContent`、`gains`、`problems`：学习内容必填，收获和遇到的问题选填。日期由服务端按 `Asia/Shanghai` 当天生成，不展示日期选择器；`nextPlan`、`links` 仅作为历史兼容字段，不作为常用表单项。
+
 ## 2.1 排行榜资格（已确认）
 
 - `GET /api/v1/rankings/overall` 和 `GET /api/v1/rankings/directions/{directionId}` 可由学院管理员、方向负责人和学生查看，但 `items`、`total`、rank、同分跳位只统计 `ACTIVE` 学生。

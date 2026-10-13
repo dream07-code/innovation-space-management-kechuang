@@ -12,7 +12,9 @@ class ReportScopePolicyTest {
  @Test void contentMustContainMandatoryFieldsOnlyWhenSubmitted(){
   assertTrue(ReportScopePolicy.validContent(ReportType.DAILY,java.util.Map.of(),false));
   assertFalse(ReportScopePolicy.validContent(ReportType.DAILY,java.util.Map.of(),true));
+  assertTrue(ReportScopePolicy.validContent(ReportType.DAILY,java.util.Map.of("learningContent","learn"),true));
   assertTrue(ReportScopePolicy.validContent(ReportType.DAILY,java.util.Map.of("learningContent","learn","gains","gain"),true));
+  assertFalse(ReportScopePolicy.validContent(ReportType.DAILY,java.util.Map.of("gains","gain"),true));
   assertFalse(ReportScopePolicy.validContent(ReportType.WEEKLY,java.util.Map.of("summary"," ","achievements","done"),true));
  }
 }
