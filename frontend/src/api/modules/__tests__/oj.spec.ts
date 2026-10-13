@@ -28,6 +28,26 @@ describe('OJ 题目测试点 API', () => {
     )
   })
 
+  it('学生读取练习测试点并执行练习判题', async () => {
+    const api = await import('@/api/modules/oj')
+    await api.getPracticeTestCases('9101')
+    await api.runPractice(
+      '9101',
+      { language: 'python', code: 'print(1)' },
+      'practice-key',
+    )
+
+    const client = await import('@/api/client')
+    expect(vi.mocked(client.get)).toHaveBeenCalledWith(
+      '/api/v1/assessment-problems/9101/practice-test-cases',
+    )
+    expect(vi.mocked(client.post)).toHaveBeenCalledWith(
+      '/api/v1/assessment-problems/9101/practice-run',
+      { language: 'python', code: 'print(1)' },
+      { idempotencyKey: 'practice-key' },
+    )
+  })
+
   it('以 staff 专用路径读取两套测试点', async () => {
     const api = await import('@/api/modules/oj')
 

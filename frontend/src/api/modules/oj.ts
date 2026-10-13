@@ -11,11 +11,14 @@ import type {
   Assessment,
   AssessmentCommandRequest,
   AssessmentProblem,
+  AssessmentProblemPracticeTestCases,
   AssessmentProblemTestCases,
   AssessmentResult,
   AssessmentReview,
   AssessmentSubmission,
   CreateAssessmentProblemRequest,
+  CreateOjPracticeRunRequest,
+  OjPracticeRunResult,
   AssessmentProblemImportResponse,
   ImportAssessmentProblemsRequest,
   CreateAssessmentRequest,
@@ -96,6 +99,22 @@ export async function importAssessmentProblems(
   idempotencyKey: string,
 ): Promise<AssessmentProblemImportResponse> {
   return post<AssessmentProblemImportResponse>(`${PROBLEMS}/import`, payload, { idempotencyKey })
+}
+
+export async function getPracticeTestCases(
+  problemId: string,
+): Promise<AssessmentProblemPracticeTestCases> {
+  return get<AssessmentProblemPracticeTestCases>(`${PROBLEMS}/${problemId}/practice-test-cases`)
+}
+
+export async function runPractice(
+  problemId: string,
+  payload: CreateOjPracticeRunRequest,
+  idempotencyKey: string,
+): Promise<OjPracticeRunResult> {
+  return post<OjPracticeRunResult>(`${PROBLEMS}/${problemId}/practice-run`, payload, {
+    idempotencyKey,
+  })
 }
 
 export async function getAssessmentProblemTestCases(

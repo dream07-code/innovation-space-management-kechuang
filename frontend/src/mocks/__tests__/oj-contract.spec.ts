@@ -129,6 +129,27 @@ describe('OJ 人工批阅', () => {
   })
 })
 
+describe('OJ 题库练习 Mock', () => {
+  it('学生读取并运行独立练习测试点', async () => {
+    const studentToken = await login('MOCK20260001', 'Example-Only9!')
+    const cases = await request('/api/v1/assessment-problems/9101/practice-test-cases', studentToken)
+    expect(cases.status).toBe(200)
+    expect(cases.body.data.practiceTestCases.length).toBeGreaterThan(0)
+    expect(JSON.stringify(cases.body)).not.toContain('hidden-9101')
+
+    const run = await request('/api/v1/assessment-problems/9101/practice-run', studentToken, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': 'oj-practice-mock-key' },
+      body: JSON.stringify({ language: 'python', code: 'print(1)' }),
+    })
+    expect(run.status).toBe(200)
+    expect(run.body.data.totalTestCases).toBe(cases.body.data.practiceTestCases.length)
+    expect(run.body.data.testCaseResults[0]).toHaveProperty('input')
+    expect(run.body.data.testCaseResults[0]).toHaveProperty('expectedOutput')
+    expect(JSON.stringify(run.body)).not.toContain('hidden-9101')
+  })
+})
+
 describe('OJ 题库批量导入 Mock', () => {
   it('批量导入使用同一事务语义并返回安全结果', async () => {
     const adminToken = await login('MOCK-ADMIN', 'Admin-Example9!')

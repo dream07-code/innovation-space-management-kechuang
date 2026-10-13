@@ -176,6 +176,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: STAFF_ROLES, title: '编辑 OJ 题目' },
       },
       {
+        path: 'problems/:problemId/practice',
+        name: 'oj-practice-code',
+        component: () => import('@/views/oj/CodeSubmitView.vue'),
+        meta: { roles: ['STUDENT'], title: 'OJ 题库练习' },
+      },
+      {
         path: 'assessments/:assessmentId/problems/:problemId/solve',
         name: 'oj-submit-code',
         component: () => import('@/views/oj/CodeSubmitView.vue'),

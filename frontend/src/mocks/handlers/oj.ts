@@ -95,6 +95,53 @@ function validExamples(value: unknown): boolean {
   })
 }
 
+function practiceRunResult(problemId: string, code: string) {
+  const testCases = findProblemTestCases(problemId)?.practiceTestCases ?? []
+  const failure = code.includes('compile-error')
+    ? 'COMPILATION_ERROR'
+    : code.includes('wrong-answer')
+      ? 'WRONG_ANSWER'
+      : code.includes('timeout')
+        ? 'TIME_LIMIT_EXCEEDED'
+        : code.includes('runtime-error')
+          ? 'RUNTIME_ERROR'
+          : 'ACCEPTED'
+  const passed = failure === 'ACCEPTED'
+    ? testCases.length
+    : failure === 'COMPILATION_ERROR'
+      ? 0
+      : Math.max(0, testCases.length - 1)
+  const testCaseResults = testCases.map((testCase, index) => {
+    const verdict = index < passed ? 'ACCEPTED' : failure
+    return {
+      position: index + 1,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      verdict,
+      timeMs: verdict === 'TIME_LIMIT_EXCEEDED' ? 30000 : verdict === 'ACCEPTED' ? 12 : 10,
+      memoryKb: verdict === 'ACCEPTED' ? 2048 : 1024,
+      safeError: verdict === 'ACCEPTED'
+        ? null
+        : verdict === 'WRONG_ANSWER'
+          ? 'synthetic wrong answer'
+          : verdict === 'TIME_LIMIT_EXCEEDED'
+            ? 'synthetic time limit exceeded'
+            : verdict === 'COMPILATION_ERROR'
+              ? 'synthetic compilation failure'
+              : 'synthetic runtime failure',
+    }
+  })
+  return {
+    verdict: failure,
+    passedTestCases: passed,
+    totalTestCases: testCases.length,
+    timeMs: Math.max(0, ...testCaseResults.map((item) => item.timeMs)),
+    memoryKb: Math.max(0, ...testCaseResults.map((item) => item.memoryKb)),
+    safeError: failure === 'ACCEPTED' ? null : testCaseResults.find((item) => item.safeError)?.safeError ?? null,
+    testCaseResults,
+  }
+}
+
 function validPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
 }
@@ -348,6 +395,39 @@ export const ojHandlers = [
         position: index + 1,
         ...item,
       })),
+    })
+  }),
+
+  http.get(`${PROBLEMS}/:problemId/practice-test-cases`, ({ request, params }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    if (!account || account.user.role !== 'STUDENT') return errors.forbidden()
+    const problem = findProblem(params.problemId as string)
+    if (!problem || problem.status !== 'PUBLISHED') return errors.notFound()
+    return ok({
+      practiceTestCases: (findProblemTestCases(params.problemId as string)?.practiceTestCases ?? [])
+        .map((item, index) => ({ position: index + 1, ...item })),
+    })
+  }),
+
+  http.post(`${PROBLEMS}/:problemId/practice-run`, ({ request, params }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    if (!account || account.user.role !== 'STUDENT') return errors.forbidden()
+    const problem = findProblem(params.problemId as string)
+    if (!problem || problem.status !== 'PUBLISHED') return errors.notFound()
+
+    return withIdempotency(request, (bodyText) => {
+      const body = parseBody(bodyText)
+      if (!body) return errors.invalidRequest()
+      const bad = rejectUnknownFields(body, ['language', 'code'])
+      if (bad) return bad
+      if (!isLanguage(body.language) || typeof body.code !== 'string' || !body.code.trim()) {
+        return errors.invalidRequest()
+      }
+      return ok(practiceRunResult(params.problemId as string, body.code))
     })
   }),
 

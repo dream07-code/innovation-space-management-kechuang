@@ -12,6 +12,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
   getAssessmentProblem,
+  getPracticeTestCases,
   listAssessments,
   retireAssessmentProblem,
 } from '@/api/modules/oj'
@@ -22,7 +23,7 @@ import {
   problemStatusMeta,
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
-import type { AssessmentProblem } from '@/api/types'
+import type { AssessmentProblem, AssessmentProblemTestCase } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +33,9 @@ const problemId = computed(() => route.params.problemId as string)
 const problem = ref<AssessmentProblem | null>(null)
 const loading = ref(false)
 const actionLoading = ref(false)
+const practiceLoading = ref(false)
+const practiceVisible = ref(false)
+const practiceTestCases = ref<AssessmentProblemTestCase[]>([])
 
 const canManage = computed(() => auth.isAdmin || auth.isLeader)
 
@@ -44,6 +48,23 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+async function showPracticeTestCases(): Promise<void> {
+  practiceLoading.value = true
+  try {
+    const response = await getPracticeTestCases(problemId.value)
+    practiceTestCases.value = response.practiceTestCases
+    practiceVisible.value = true
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    practiceLoading.value = false
+  }
+}
+
+function startPractice(): void {
+  void router.push({ name: 'oj-practice-code', params: { problemId: problemId.value } })
 }
 
 async function startSolve(): Promise<void> {
@@ -122,6 +143,23 @@ onMounted(load)
         <div v-if="problem" class="header-actions">
           <el-button
             v-if="auth.isStudent && problem.status === 'PUBLISHED'"
+            data-test="show-practice-test-cases"
+            :loading="practiceLoading"
+            @click="showPracticeTestCases"
+          >
+            查看练习测试点
+          </el-button>
+          <el-button
+            v-if="auth.isStudent && problem.status === 'PUBLISHED'"
+            data-test="practice-solve"
+            type="success"
+            plain
+            @click="startPractice"
+          >
+            练习做题
+          </el-button>
+          <el-button
+            v-if="auth.isStudent && problem.status === 'PUBLISHED'"
             type="success"
             :icon="Promotion"
             :loading="actionLoading"
@@ -198,10 +236,46 @@ onMounted(load)
         </el-row>
       </article>
     </template>
+
+    <el-dialog v-model="practiceVisible" title="题库练习测试点" width="680px">
+      <el-alert
+        type="success"
+        :closable="false"
+        show-icon
+        title="仅用于题库练习"
+        description="这些测试点不会用于正式考核判题，也不会向正式考核结果泄露。"
+      />
+      <el-table :data="practiceTestCases" max-height="360" class="practice-table">
+        <el-table-column prop="position" label="#" width="60" />
+        <el-table-column label="输入" min-width="220">
+          <template #default="{ row }"><pre class="practice-code">{{ row.input }}</pre></template>
+        </el-table-column>
+        <el-table-column label="期望输出" min-width="180">
+          <template #default="{ row }"><pre class="practice-code">{{ row.expectedOutput }}</pre></template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="practiceTestCases.length === 0" description="本题暂未配置练习测试点" />
+      <template #footer>
+        <el-button @click="practiceVisible = false">关闭</el-button>
+        <el-button type="success" data-test="dialog-practice-solve" @click="practiceVisible = false; startPractice()">
+          去练习
+        </el-button>
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
 <style scoped>
+.practice-table {
+  margin-top: 12px;
+}
+
+.practice-code {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+}
 .page__header {
   display: flex;
   align-items: center;

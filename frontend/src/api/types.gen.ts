@@ -898,6 +898,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-problems/{problemId}/practice-test-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取题库练习测试点（仅学生）
+         * @description 只返回公开给学生的题库练习测试点，不返回正式考核隐藏测试点。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentProblemPracticeTestCasesResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessment-problems/{problemId}/practice-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 执行题库练习判题（仅学生）
+         * @description 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateOjPracticeRunRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OjPracticeRunResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-problems/{problemId}": {
         parameters: {
             query?: never;
@@ -2132,6 +2240,46 @@ export interface components {
             code: "OK" | "INVALID_REQUEST";
             message: string;
             data: components["schemas"]["AssessmentProblemImportResult"];
+        };
+        AssessmentProblemPracticeTestCasesResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                practiceTestCases: components["schemas"]["AssessmentProblemTestCase"][];
+            };
+        };
+        CreateOjPracticeRunRequest: {
+            /** @enum {string} */
+            language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+            code: string;
+        };
+        OjPracticeTestCaseResult: {
+            position: number;
+            input: string;
+            expectedOutput: string;
+            /** @enum {string} */
+            verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            timeMs: number;
+            memoryKb: number;
+            safeError: string | null;
+        };
+        OjPracticeRunResult: {
+            /** @enum {string} */
+            verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            passedTestCases: number;
+            totalTestCases: number;
+            timeMs: number;
+            memoryKb: number;
+            safeError: string | null;
+            testCaseResults: components["schemas"]["OjPracticeTestCaseResult"][];
+        };
+        OjPracticeRunResponse: {
+            /** @enum {string} */
+            code: "OK" | "INVALID_REQUEST";
+            message: string;
+            data: components["schemas"]["OjPracticeRunResult"];
         };
         CreateAssessmentSubmissionRequest: {
             problemId: string;
