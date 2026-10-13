@@ -158,7 +158,10 @@ public class PointLedgerServiceImpl implements PointLedgerService {
     }
     int net = 0;
     for (var row : rows) {
-      if (reportId != null && !reportId.equals(((Number) row.get("report_id")).longValue())) continue;
+      Object reportRef = row.get("report_id");
+      if (reportId != null
+          && (!(reportRef instanceof Number number) || reportId.longValue() != number.longValue()))
+        continue;
       String rowSource = (String) row.get("source");
       boolean counted = source.equals(rowSource);
       if ("REVERSAL".equals(rowSource)) {

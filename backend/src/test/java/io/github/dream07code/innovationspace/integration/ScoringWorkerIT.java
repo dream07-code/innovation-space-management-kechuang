@@ -269,6 +269,23 @@ class ScoringWorkerIT {
   }
 
   @Test
+  void manualPointAdjustmentsDoNotBreakReportScoring() {
+    SessionPrincipal principal = new SessionPrincipal(10, 10L, "STUDENT", List.of(), false, 1, 1);
+    reports.create(dailyRequest("人工加分后评分", "不应影响报告评分"), principal, "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", ReportType.DAILY);
+    long id = jdbc.queryForObject("SELECT id FROM report", Long.class);
+    reports.submit(id, 1, principal, "ffffffff-ffff-4fff-8fff-ffffffffffff");
+    jdbc.update(
+        "INSERT INTO point_ledger(member_id,delta,source,business_effective_at,recorded_at,rule_version,event_key)"
+            + " VALUES(10,2,'MANUAL_ADJUSTMENT',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'MANUAL_ADMIN_ADD_V1','ADMIN_POINTS:10:manual-score-test')");
+
+    assertTrue(worker.processOne());
+
+    assertEquals(5, points.total(10));
+    assertEquals(2, jdbc.queryForObject("SELECT delta FROM point_ledger WHERE source='AI_ADJUSTMENT'", Integer.class));
+    assertEquals("SCORED", jdbc.queryForObject("SELECT status FROM report_scoring_task", String.class));
+  }
+
+  @Test
   void removedMemberLateScoreCannotAddPoints() {
     SessionPrincipal principal = new SessionPrincipal(10, 10L, "STUDENT", List.of(), false, 1, 1);
     reports.create(dailyRequest("移出后评分", "不应加分"), principal, "cdcdcdcd-cdcd-4cdd-8cdd-cdcdcdcdcdcd", ReportType.DAILY);
