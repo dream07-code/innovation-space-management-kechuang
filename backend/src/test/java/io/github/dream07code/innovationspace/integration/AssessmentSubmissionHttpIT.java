@@ -69,7 +69,7 @@ class AssessmentSubmissionHttpIT {
     otherStudentToken = sessions.issue(12).accessToken();
 
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"提交题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java","python"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"},{"input":"2","expectedOutput":"2"}]}
+        {"title":"提交题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java","python"],"assessmentTestCases":[{"input":"assessment-hidden-1","expectedOutput":"A1"},{"input":"assessment-hidden-2","expectedOutput":"A2"}],"practiceTestCases":[{"input":"practice-visible-1","expectedOutput":"P1"},{"input":"practice-visible-2","expectedOutput":"P2"}]}
         """, UUID.randomUUID().toString());
     assertEquals(201, problem.statusCode());
     problemId = HttpTestSupport.json(problem).at("/data/id").asText();
@@ -125,6 +125,41 @@ class AssessmentSubmissionHttpIT {
     assertTrue(auditRows.stream().anyMatch(row -> "OJ_JUDGED".equals(row.get("action"))));
     assertFalse(auditRows.toString().contains("private solution marker"));
     assertFalse(auditRows.toString().contains("class Main"));
+  }
+
+  @Test
+  void studentsCanReadOnlyPracticeTestCases() throws Exception {
+    var practice = send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/practice-test-cases", "", null);
+    assertEquals(200, practice.statusCode());
+    ContractAssertions.response("GET", "/api/v1/assessment-problems/" + problemId + "/practice-test-cases", practice);
+    assertEquals(2, HttpTestSupport.json(practice).at("/data/practiceTestCases").size());
+    assertEquals("practice-visible-1", HttpTestSupport.json(practice).at("/data/practiceTestCases/0/input").asText());
+    assertEquals("P2", HttpTestSupport.json(practice).at("/data/practiceTestCases/1/expectedOutput").asText());
+    assertFalse(practice.body().contains("assessment-hidden-1"));
+
+    assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
+    assertEquals(403, send(adminToken, "GET", "/api/v1/assessment-problems/" + problemId + "/practice-test-cases", "", null).statusCode());
+  }
+
+  @Test
+  void practiceRunUsesOnlyPracticeTestCasesAndReturnsVisibleDetails() throws Exception {
+    var run = send(studentToken, "POST", "/api/v1/assessment-problems/" + problemId + "/practice-run",
+        "{\"language\":\"java\",\"code\":\"class Main { /* practice marker */ }\"}",
+        "11111111-2222-4333-8444-555555555555");
+    assertEquals(200, run.statusCode());
+    ContractAssertions.response("POST", "/api/v1/assessment-problems/" + problemId + "/practice-run", run);
+    assertEquals("ACCEPTED", HttpTestSupport.json(run).at("/data/verdict").asText());
+    assertEquals(2, HttpTestSupport.json(run).at("/data/totalTestCases").asInt());
+    assertEquals(2, HttpTestSupport.json(run).at("/data/testCaseResults").size());
+    assertEquals("practice-visible-1", HttpTestSupport.json(run).at("/data/testCaseResults/0/input").asText());
+    assertEquals("P1", HttpTestSupport.json(run).at("/data/testCaseResults/0/expectedOutput").asText());
+    assertFalse(run.body().contains("assessment-hidden-1"));
+    assertFalse(run.body().contains("practice marker"));
+    assertFalse(run.body().contains("stdout"));
+    assertFalse(run.body().contains("stderr"));
+
+    assertEquals(403, send(adminToken, "POST", "/api/v1/assessment-problems/" + problemId + "/practice-run",
+        "{\"language\":\"java\",\"code\":\"class Main{}\"}", UUID.randomUUID().toString()).statusCode());
   }
 
   @Test

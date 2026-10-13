@@ -2675,6 +2675,86 @@ paths:
             schema:
               $ref: '#/components/schemas/ImportAssessmentProblemsRequest'
 
+  /api/v1/assessment-problems/{problemId}/practice-test-cases:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags:
+      - OJ题目
+      summary: 读取题库练习测试点（仅学生）
+      description: 只返回公开给学生的题库练习测试点，不返回正式考核隐藏测试点。
+      x-implementation-status: planned
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentProblemPracticeTestCasesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/assessment-problems/{problemId}/practice-run:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags:
+      - OJ题目
+      summary: 执行题库练习判题（仅学生）
+      description: 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。
+      x-implementation-status: planned
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OjPracticeRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOjPracticeRunRequest'
+
   /api/v1/assessment-problems/{problemId}:
     parameters:
     - $ref: '#/components/parameters/ProblemId'
@@ -5068,6 +5148,66 @@ components:
         code: {type: string, enum: [OK, INVALID_REQUEST]}
         message: {type: string}
         data: {$ref: '#/components/schemas/AssessmentProblemImportResult'}
+    AssessmentProblemPracticeTestCasesResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [practiceTestCases]
+          properties:
+            practiceTestCases:
+              type: array
+              items: {$ref: '#/components/schemas/AssessmentProblemTestCase'}
+              maxItems: 100
+          additionalProperties: false
+    CreateOjPracticeRunRequest:
+      type: object
+      required: [language, code]
+      properties:
+        language: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+        code: {type: string, minLength: 1, maxLength: 200000}
+      additionalProperties: false
+    OjPracticeTestCaseResult:
+      type: object
+      required: [position, input, expectedOutput, verdict, timeMs, memoryKb, safeError]
+      properties:
+        position: {type: integer, minimum: 1, maximum: 100}
+        input: {type: string, maxLength: 1000000}
+        expectedOutput: {type: string, maxLength: 1000000}
+        verdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        timeMs: {type: integer, minimum: 0}
+        memoryKb: {type: integer, minimum: 0}
+        safeError: {type: string, nullable: true, maxLength: 500}
+      additionalProperties: false
+    OjPracticeRunResult:
+      type: object
+      required: [verdict, passedTestCases, totalTestCases, timeMs, memoryKb, safeError, testCaseResults]
+      properties:
+        verdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        passedTestCases: {type: integer, minimum: 0}
+        totalTestCases: {type: integer, minimum: 0}
+        timeMs: {type: integer, minimum: 0}
+        memoryKb: {type: integer, minimum: 0}
+        safeError: {type: string, nullable: true, maxLength: 500}
+        testCaseResults:
+          type: array
+          items: {$ref: '#/components/schemas/OjPracticeTestCaseResult'}
+          maxItems: 100
+      additionalProperties: false
+    OjPracticeRunResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK, INVALID_REQUEST]}
+        message: {type: string}
+        data: {$ref: '#/components/schemas/OjPracticeRunResult'}
     CreateAssessmentSubmissionRequest:
       type: object
       required: [problemId, language, code]

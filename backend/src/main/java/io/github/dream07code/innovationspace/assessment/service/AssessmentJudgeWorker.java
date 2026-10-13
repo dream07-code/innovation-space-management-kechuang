@@ -206,10 +206,24 @@ public class AssessmentJudgeWorker {
         });
   }
 
+  public OjJudgeResult practice(long problemId, String language, String code) {
+    List<OjSubmission.TestCase> testCases =
+        problemTestCases(problemId, "assessment_problem_practice_test_case");
+    try {
+      return adapter.judge(new OjSubmission(language, code, testCases));
+    } catch (RuntimeException error) {
+      return internalResult(testCases);
+    }
+  }
+
   private List<OjSubmission.TestCase> assessmentTestCases(long problemId) {
+    return problemTestCases(problemId, "assessment_problem_assessment_test_case");
+  }
+
+  private List<OjSubmission.TestCase> problemTestCases(long problemId, String table) {
     var rows =
         jdbc.queryForList(
-            "SELECT input,expected_output FROM assessment_problem_assessment_test_case"
+            "SELECT input,expected_output FROM " + table
                 + " WHERE problem_id=? ORDER BY position",
             problemId);
     var result = new ArrayList<OjSubmission.TestCase>();

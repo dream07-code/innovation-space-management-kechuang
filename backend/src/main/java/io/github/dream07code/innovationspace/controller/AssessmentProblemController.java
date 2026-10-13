@@ -45,6 +45,17 @@ public class AssessmentProblemController {
     return ApiResponse.success(service.testCases(problemId, actor()));
   }
 
+  @GetMapping("/{problemId}/practice-test-cases")
+  public ApiResponse<Map<String, Object>> practiceTestCases(@PathVariable long problemId) {
+    return ApiResponse.success(service.practiceTestCases(problemId, actor()));
+  }
+
+  @PostMapping("/{problemId}/practice-run")
+  public ApiResponse<Map<String, Object>> practiceRun(
+      @PathVariable long problemId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(service.practiceRun(problemId, request, actor()));
+  }
+
   @PatchMapping("/{problemId}")
   public ApiResponse<Map<String, Object>> update(
       @PathVariable long problemId, @RequestBody Map<String, Object> request) {

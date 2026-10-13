@@ -1,6 +1,7 @@
 package io.github.dream07code.innovationspace.service.impl;
 import io.github.dream07code.innovationspace.service.AssessmentProblemService;
 import io.github.dream07code.innovationspace.assessment.*;
+import io.github.dream07code.innovationspace.assessment.service.AssessmentJudgeWorker;
 
 
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
@@ -35,14 +36,21 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   private final TransactionTemplate tx;
   private final AssessmentStatePolicy states = new AssessmentStatePolicy();
   private static final int IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+  private static final Set<String> LANGUAGES = Set.of("java", "python", "cpp", "javascript", "go", "rust");
+  private final AssessmentJudgeWorker judgeWorker;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public AssessmentProblemServiceImpl(
-      JdbcTemplate jdbc, IdempotencyService idem, Clock clock, PlatformTransactionManager manager) {
+      JdbcTemplate jdbc,
+      IdempotencyService idem,
+      Clock clock,
+      PlatformTransactionManager manager,
+      AssessmentJudgeWorker judgeWorker) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
+    this.judgeWorker = judgeWorker;
   }
 
   public IdempotencyService.StoredResponse create(
@@ -130,6 +138,52 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         readTestCases(id, "assessment_problem_assessment_test_case"),
         "practiceTestCases",
         readTestCases(id, "assessment_problem_practice_test_case"));
+  }
+
+  public Map<String, Object> practiceTestCases(long id, SessionPrincipal actor) {
+    requireStudent(actor);
+    var row = row(id);
+    requirePublished(row);
+    return Map.of("practiceTestCases", readTestCases(id, "assessment_problem_practice_test_case"));
+  }
+
+  public Map<String, Object> practiceRun(
+      long id, Map<String, Object> request, SessionPrincipal actor) {
+    requireStudent(actor);
+    var row = row(id);
+    requirePublished(row);
+    if (request == null || request.size() != 2 || !request.containsKey("language") || !request.containsKey("code"))
+      throw bad();
+    if (!(request.get("language") instanceof String language) || !LANGUAGES.contains(language))
+      throw bad();
+    if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000)
+      throw bad();
+    var result = judgeWorker.practice(id, language, code);
+    var cases = readTestCases(id, "assessment_problem_practice_test_case");
+    var details = new ArrayList<Map<String, Object>>();
+    for (var testCaseResult : result.testCaseResults()) {
+      int index = testCaseResult.position() - 1;
+      if (index < 0 || index >= cases.size()) continue;
+      var testCase = cases.get(index);
+      var detail = new LinkedHashMap<String, Object>();
+      detail.put("position", testCaseResult.position());
+      detail.put("input", testCase.get("input"));
+      detail.put("expectedOutput", testCase.get("expectedOutput"));
+      detail.put("verdict", testCaseResult.verdict().name());
+      detail.put("timeMs", testCaseResult.timeMs());
+      detail.put("memoryKb", testCaseResult.memoryKb());
+      detail.put("safeError", testCaseResult.safeError());
+      details.add(detail);
+    }
+    var out = new LinkedHashMap<String, Object>();
+    out.put("verdict", result.verdict().name());
+    out.put("passedTestCases", result.passedTestCases());
+    out.put("totalTestCases", result.totalTestCases());
+    out.put("timeMs", result.timeMs());
+    out.put("memoryKb", result.memoryKb());
+    out.put("safeError", result.safeError());
+    out.put("testCaseResults", details);
+    return out;
   }
 
   public Map<String, Object> list(SessionPrincipal actor, int page, int size) {
@@ -236,6 +290,15 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
                   return new IdempotencyService.StoredResponse(
                       200, json.writeValueAsString(ApiResponse.success(response(id))));
                 }));
+  }
+
+  private void requireStudent(SessionPrincipal actor) {
+    if (!"STUDENT".equals(actor.role()) || actor.memberId() == null)
+      throw new ApiException(403, ErrorCode.FORBIDDEN);
+  }
+
+  private static void requirePublished(Map<String, Object> row) {
+    if (!"PUBLISHED".equals(row.get("status"))) throw new ApiException(404, ErrorCode.NOT_FOUND);
   }
 
   private void requireManage(SessionPrincipal actor) {
