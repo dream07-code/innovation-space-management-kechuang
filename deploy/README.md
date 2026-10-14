@@ -63,7 +63,40 @@ unset ADMIN_ACCOUNT ADMIN_PASSWORD ADMIN_DISPLAY_NAME
 
 已有管理员不会被覆盖。学生和方向负责人由管理员或负责人通过业务接口添加，不提供用户注册。
 
-## 5. 启动与检查
+## 5. 一键部署
+
+在服务器仓库根目录执行：
+
+```bash
+cp deploy/.env.example deploy/.env
+chmod 600 deploy/.env
+# 编辑 deploy/.env，设置数据库密码、成员初始密码和管理员密码
+./deploy/one-click-deploy.sh
+```
+
+脚本默认执行：
+
+1. 校验 Docker、Docker Compose、环境文件；
+2. 构建后端和前端镜像；
+3. 启动 MySQL、后端、前端；
+4. 等待 `/actuator/health`；
+5. 用 `deploy/.env` 中的 `ADMIN_ACCOUNT`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME` 执行首个管理员初始化；
+6. 检查首页、登录接口和前端路由；
+7. 打印访问地址和停止命令。
+
+管理员密码只放在本机忽略的 `deploy/.env` 中，不写入脚本、Git、日志或命令输出。首次部署建议将 `ADMIN_PASSWORD` 设置为学院指定的私密密码。
+
+其他命令：
+
+```bash
+./deploy/one-click-deploy.sh check   # 只检查配置
+./deploy/one-click-deploy.sh down    # 停止服务，保留 MySQL 数据卷
+SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
+```
+
+当前默认 `OJ_PROVIDER=mock`。真实 Judge0 需要另行设置 `OJ_BASE_URL`、`OJ_API_TOKEN`，并在目标服务器完成判题验收。
+
+## 6. 启动与检查
 
 ```bash
 docker compose up -d
@@ -86,13 +119,13 @@ curl -fsS http://127.0.0.1/actuator/health
 FRONTEND_CONTEXT=/path/to/frontend/checkout ./deploy/smoke.sh
 ```
 
-## 6. TLS 与反向代理
+## 7. TLS 与反向代理
 
 生产域名必须使用 HTTPS。推荐在云负载均衡或前置 Nginx 终止 TLS，再转发到本 Compose 的 HTTP 入口。需要正确传递 `X-Forwarded-Proto` 和客户端 IP，并限制来源网络。
 
 当前应用不使用 Cookie，认证 Token 仅保存在前端内存中；页面刷新会重新登录。不要为了绕过该行为把 Token 写入 localStorage。
 
-## 7. 运维与安全
+## 8. 运维与安全
 
 - 每日备份 MySQL，并定期在隔离环境执行恢复演练。
 - 限制数据库账号权限，不允许应用账号执行 DROP、CREATE USER 或全局授权。
@@ -104,7 +137,7 @@ FRONTEND_CONTEXT=/path/to/frontend/checkout ./deploy/smoke.sh
 - 保持后端 `prod` 配置关闭 Swagger/Knife4j；关闭文档不是访问控制，公网入口仍需 TLS、网络策略和监控。
 - MySQL 8.0 已进入 EOL。上线审批必须包含继续使用期限、补丁策略或升级方案。
 
-## 8. 上线门槛
+## 9. 上线门槛
 
 | 项目 | 要求 |
 | --- | --- |
