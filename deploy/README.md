@@ -98,6 +98,7 @@ FRONTEND_CONTEXT=/path/to/frontend/checkout ./deploy/smoke.sh
 - 限制数据库账号权限，不允许应用账号执行 DROP、CREATE USER 或全局授权。
 - AI 仅由后端调用；API Key 使用部署平台密钥管理，禁止写入 Git、数据库审计或日志。
 - `OJ_PROVIDER=mock` 只用于开发。启用 Judge0 前必须完成隔离部署、私有测试数据保护和 GPL-3.0 合规审查。
+- Ubuntu 24.04/cgroup v2 可先用 `OJ_RLIMIT_FALLBACK=true` 验证 Judge0 1.13.1；该模式绕过旧 cgroup v1 控制组但降低资源隔离强度，必须在目标服务器完成超时、内存、编译错误和恶意代码样例验收。
 - 本地已验证 Judge0 1.13.1 可以启动 `/about`，但当前 cgroup v2 主机上的 isolate 作业无法创建 `/box`，因此默认仍使用 Mock；启用真实 Judge0 前必须在同等主机上完成 Python/Java 正确、超时、编译错误和无测试点样例验收，并确认 Judge0 不暴露公网、不共享业务 MySQL/Redis、不返回原始输出。
 - 当前登录/改密限流是单进程限流。扩容到多实例前必须设计共享限流。
 - 保持后端 `prod` 配置关闭 Swagger/Knife4j；关闭文档不是访问控制，公网入口仍需 TLS、网络策略和监控。

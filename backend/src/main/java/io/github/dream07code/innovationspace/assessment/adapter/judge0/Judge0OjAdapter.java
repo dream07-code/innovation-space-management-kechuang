@@ -89,6 +89,10 @@ public class Judge0OjAdapter implements OjAdapter {
     payload.put("expected_output", testCase.expectedOutput());
     payload.put("cpu_time_limit", properties.getCpuTimeLimitSeconds());
     payload.put("memory_limit", properties.getMemoryLimitKb());
+    if (properties.isUseRlimitFallback()) {
+      payload.put("enable_per_process_and_thread_time_limit", true);
+      payload.put("enable_per_process_and_thread_memory_limit", true);
+    }
     var request =
         HttpRequest.newBuilder(
                 URI.create(

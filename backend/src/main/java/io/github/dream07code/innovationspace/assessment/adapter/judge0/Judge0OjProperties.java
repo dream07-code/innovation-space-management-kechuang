@@ -13,6 +13,7 @@ public class Judge0OjProperties {
   private int cpuTimeLimitSeconds = 2;
   private int memoryLimitKb = 128000;
   private int maxResponseBytes = 1048576;
+  private boolean useRlimitFallback = false;
 
   public String getProvider() { return provider; }
   public void setProvider(String value) { provider = value; }
@@ -29,6 +30,8 @@ public class Judge0OjProperties {
   public int getMemoryLimitKb() { return memoryLimitKb; }
   public void setMemoryLimitKb(int value) { memoryLimitKb = value; }
   public int getMaxResponseBytes() { return maxResponseBytes; }
+  public boolean isUseRlimitFallback() { return useRlimitFallback; }
+  public void setUseRlimitFallback(boolean value) { useRlimitFallback = value; }
   public void setMaxResponseBytes(int value) { maxResponseBytes = value; }
 
   public void validate() {
@@ -64,6 +67,6 @@ public class Judge0OjProperties {
 
   @Override
   public String toString() {
-    return "Judge0OjProperties[provider=" + provider + ",baseUrl=<redacted>,apiToken=<redacted>]";
+    return "Judge0OjProperties[provider=" + provider + ",baseUrl=<redacted>,apiToken=<redacted>,useRlimitFallback=" + useRlimitFallback + "]";
   }
 }

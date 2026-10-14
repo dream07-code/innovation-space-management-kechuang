@@ -192,6 +192,17 @@ docker run -d --name innovation-judge0 --network innovation-judge0-net --privile
 curl -fsS http://127.0.0.1:2358/about
 ```
 
+cgroup v2 主机可启用当前 1.13.1 的兼容降级：
+
+```bash
+OJ_PROVIDER=judge0
+OJ_RLIMIT_FALLBACK=true
+OJ_BASE_URL=<Judge0 地址>
+OJ_API_TOKEN=<密钥管理中的 Token>
+```
+
+该开关会让 Judge0 请求启用逐进程/线程时间与内存限制，从而避开旧 isolate 的 cgroup v1 控制组路径；已在本机 cgroup v2 环境用真实 Judge0 提交 `print(1)` 验证返回 `Accepted`。代价是资源限制改用 rlimit，隔离强度低于 cgroup，正式上线仍需在目标服务器完成超时、内存、编译错误和恶意代码样例验收。若需要完整 cgroup v2 资源控制，应另行构建基于 Isolate 2.7 的 Judge0 镜像，而不是直接替换旧镜像。
+
 只有在 `/about` 健康且真实 Python/Java 样例能稳定返回 `ACCEPTED`、cgroup 隔离和磁盘配额经过验收后，才能设置 `OJ_PROVIDER=judge0`。Judge0 Token 只能通过服务端密钥管理注入；浏览器、Git、审计和日志不得接触 Token、原始 stdout/stderr 或正式考核隐藏测试点。
 
 AI 评分支持 `mock` 和 `openai-compatible` 两种服务端 Provider，厂商兼容端点、模型和 API Key 通过 `AI_BASE_URL`、`AI_MODEL`、`AI_API_KEY` 注入。人工 review 覆盖 AI 结果；AI 待定/失败时 `finalScore=null` 且 `scoreSource=PENDING/UNAVAILABLE`。OJ 结果不写入 `point_ledger`，不改变日报/周报积分或排行榜。积分排行榜及排名人数仅统计 `ACTIVE` 学生；方向负责人保留报告积分和流水，但不进入总榜、方向榜或个人排名，前端隐藏负责人的“我的排名”。

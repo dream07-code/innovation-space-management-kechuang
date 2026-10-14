@@ -43,6 +43,7 @@ services:
       OJ_PROVIDER: ${OJ_PROVIDER:-mock}
       OJ_BASE_URL: ${OJ_BASE_URL:-}
       OJ_API_TOKEN: ${OJ_API_TOKEN:-}
+      OJ_RLIMIT_FALLBACK: ${OJ_RLIMIT_FALLBACK:-false}
     depends_on:
       db:
         condition: service_healthy

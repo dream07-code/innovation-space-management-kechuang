@@ -107,6 +107,30 @@ class OpenSourceOjAdapterIT {
   }
 
   @Test
+  void rlimitFallbackDisablesCgroupsForCgroupV2Hosts() throws Exception {
+    var responses = new ArrayDeque<String>();
+    responses.add(response(3, "Accepted", "secret stdout", "secret stderr"));
+    var request = new AtomicReference<String>();
+    var server = start(responses, request, new AtomicReference<>());
+    try {
+      var properties = new Judge0OjProperties();
+      properties.setProvider("judge0");
+      properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+      properties.setUseRlimitFallback(true);
+      properties.setConnectTimeoutMs(1000);
+      properties.setRequestTimeoutMs(2000);
+      var result = new Judge0OjAdapter(properties)
+          .judge(new OjSubmission("java", "class Main {}", java.util.List.of(new OjSubmission.TestCase("", "x"))));
+      assertEquals(OjVerdict.ACCEPTED, result.verdict());
+      assertTrue(request.get().contains("\"enable_per_process_and_thread_time_limit\":true"));
+      assertTrue(request.get().contains("\"enable_per_process_and_thread_memory_limit\":true"));
+      assertFalse(String.valueOf(result).contains("secret stdout"));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void malformedAndUnavailableResponsesBecomeInternalError() throws Exception {
     var responses = new ArrayDeque<String>();
     responses.add("{not-json");

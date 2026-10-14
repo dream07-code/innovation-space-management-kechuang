@@ -68,6 +68,7 @@ app:
     cpu-time-limit-seconds: ${OJ_CPU_TIME_LIMIT_SECONDS:2}
     memory-limit-kb: ${OJ_MEMORY_LIMIT_KB:128000}
     max-response-bytes: ${OJ_MAX_RESPONSE_BYTES:1048576}
+    use-rlimit-fallback: ${OJ_RLIMIT_FALLBACK:false}
   membership:
     auto-removal-enabled: ${MEMBERSHIP_AUTO_REMOVAL_ENABLED:true}
     removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
