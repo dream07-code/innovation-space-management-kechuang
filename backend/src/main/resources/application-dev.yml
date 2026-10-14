@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: "dev & !prod"
+  web:
+    resources:
+      add-mappings: true
+
+springdoc:
+  packages-to-scan: io.github.dream07code.innovationspace
+  api-docs:
+    enabled: true
+    version: OPENAPI_3_0
+  swagger-ui:
+    enabled: true

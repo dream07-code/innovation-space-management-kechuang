@@ -1,0 +1,3 @@
+package io.github.dream07code.innovationspace.scoring;
+import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
+class ProviderRegistryTest { @Test void mockProviderReturnsValidScoreAndUnknownProviderFails(){var p=new ScoringProperties();p.setEnabled(true);p.setProvider("mock");p.validate();var registry=new ScoringProviderRegistry(p,java.util.List.of(new MockReportScoringProvider()));assertEquals(3,registry.provider().score(new ScoringInput("DAILY","1","rubric","content")).score());p.setProvider("unknown");assertThrows(IllegalArgumentException.class,registry::provider);}}

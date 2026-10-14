@@ -1,0 +1,92 @@
+spring:
+  application:
+    name: innovation-space-backend
+  datasource:
+    url: "jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:innovation_space}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8"
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      connection-timeout: 3000
+      validation-timeout: 1000
+      initialization-fail-timeout: -1
+      minimum-idle: 0
+      maximum-pool-size: 5
+  sql:
+    init:
+      mode: never
+  flyway:
+    enabled: false
+  web:
+    resources:
+      add-mappings: false
+    error:
+      include-message: never
+      include-binding-errors: never
+      include-stacktrace: never
+      include-exception: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+      probes:
+        enabled: false
+
+app:
+  migration:
+    mode: disabled
+    required-version: "9"
+  auth:
+    initial-password: ${MEMBER_INITIAL_PASSWORD:}
+  report:
+    points-policy-status: ${REPORT_POINTS_POLICY_STATUS:PENDING_CONFIRMATION}
+    points-mode: ${REPORT_POINTS_MODE:FINAL_SCORE}
+    max-final-score: ${REPORT_MAX_FINAL_SCORE:3}
+    daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
+    weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
+  oj:
+    provider: ${OJ_PROVIDER:mock}
+    base-url: ${OJ_BASE_URL:}
+    api-token: ${OJ_API_TOKEN:}
+    connect-timeout-ms: ${OJ_CONNECT_TIMEOUT_MS:3000}
+    request-timeout-ms: ${OJ_REQUEST_TIMEOUT_MS:30000}
+    cpu-time-limit-seconds: ${OJ_CPU_TIME_LIMIT_SECONDS:2}
+    memory-limit-kb: ${OJ_MEMORY_LIMIT_KB:128000}
+    max-response-bytes: ${OJ_MAX_RESPONSE_BYTES:1048576}
+    use-rlimit-fallback: ${OJ_RLIMIT_FALLBACK:false}
+  membership:
+    auto-removal-enabled: ${MEMBERSHIP_AUTO_REMOVAL_ENABLED:true}
+    removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
+    removal-batch-size: ${MEMBERSHIP_REMOVAL_BATCH_SIZE:500}
+  ai:
+    enabled: ${AI_SCORING_ENABLED:false}
+    provider: ${AI_PROVIDER:disabled}
+    base-url: ${AI_BASE_URL:}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:}
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:3000}
+    request-timeout-ms: ${AI_REQUEST_TIMEOUT_MS:30000}
+    max-retries: ${AI_MAX_RETRIES:2}
+    max-concurrency: ${AI_MAX_CONCURRENCY:2}
+    poll-interval-ms: ${AI_POLL_INTERVAL_MS:1000}
+    worker-scheduling-enabled: ${AI_WORKER_SCHEDULING_ENABLED:true}
+
+mybatis-plus:
+  configuration:
+    call-setters-on-nulls: true
+    local-cache-scope: STATEMENT

@@ -1,0 +1,21 @@
+package io.github.dream07code.innovationspace.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration(proxyBeanMethods = false)
+@org.springframework.boot.context.properties.EnableConfigurationProperties({
+    RateLimitProperties.class,
+    io.github.dream07code.innovationspace.report.ReportProperties.class,
+    io.github.dream07code.innovationspace.points.PointsPolicyProperties.class})
+public class PasswordConfiguration {
+  @Bean
+  public PasswordService passwordService() {
+    return new PasswordService();
+  }
+
+  @Bean
+  public TokenService tokenService() {
+    return new TokenService();
+  }
+}

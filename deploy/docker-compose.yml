@@ -1,0 +1,65 @@
+services:
+  db:
+    image: mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-innovation_space}
+      MYSQL_USER: ${DB_USERNAME:-innovation_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in deploy/.env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend:
+    image: ${BACKEND_IMAGE:-innovation-space-backend:local}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - java -jar /app/app.jar --app.migration.mode=migrate && exec java -jar /app/app.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: 8080
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-innovation_space}
+      DB_USERNAME: ${DB_USERNAME:-innovation_app}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      MEMBER_INITIAL_PASSWORD: ${MEMBER_INITIAL_PASSWORD:?set MEMBER_INITIAL_PASSWORD in deploy/.env}
+      REPORT_POINTS_POLICY_STATUS: ${REPORT_POINTS_POLICY_STATUS:-PENDING_CONFIRMATION}
+      REPORT_POINTS_MODE: ${REPORT_POINTS_MODE:-FINAL_SCORE}
+      REPORT_MAX_FINAL_SCORE: ${REPORT_MAX_FINAL_SCORE:-3}
+      REPORT_DAILY_BASE_POINTS: ${REPORT_DAILY_BASE_POINTS:-1}
+      REPORT_WEEKLY_BASE_POINTS: ${REPORT_WEEKLY_BASE_POINTS:-1}
+      AI_SCORING_ENABLED: ${AI_SCORING_ENABLED:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-disabled}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      OJ_PROVIDER: ${OJ_PROVIDER:-mock}
+      OJ_BASE_URL: ${OJ_BASE_URL:-}
+      OJ_API_TOKEN: ${OJ_API_TOKEN:-}
+      OJ_RLIMIT_FALLBACK: ${OJ_RLIMIT_FALLBACK:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-innovation-space-frontend:local}
+    ports:
+      - "${HTTP_PORT:-80}:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mysql-data:

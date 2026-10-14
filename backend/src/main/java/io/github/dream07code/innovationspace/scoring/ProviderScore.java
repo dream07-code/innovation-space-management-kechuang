@@ -1,0 +1,1 @@
+package io.github.dream07code.innovationspace.scoring; public record ProviderScore(int score,String reason,String provider,String model){public void validate(){if(score<1||score>3||reason==null||reason.isBlank()||reason.length()>300)throw new IllegalArgumentException("Invalid provider score");}}
