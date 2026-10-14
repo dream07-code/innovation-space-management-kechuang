@@ -70,6 +70,9 @@ class AuthenticationHttpIT {
         assertEquals(401,send("GET","/api/v1/auth/me",null,access).statusCode());
     }
     @Test void rateLimitIs429WithRetryAfterAndDoesNotEchoCredentials() throws Exception {
+        // PBKDF2 takes several seconds; start away from the fixed 60-second boundary so the
+        // eleventh request cannot reset into a new bucket and incorrectly return 401.
+        while (java.time.Instant.now().getEpochSecond() % 60 >= 50) Thread.sleep(100);
         HttpResponse<String> response=null;
         for(int i=0;i<11;i++)response=send("POST","/api/v1/auth/login","{\"account\":\"mock-rate-account\",\"password\":\"wrong-password\"}",null);
         assertEquals(429,response.statusCode());assertTrue(response.headers().firstValue("Retry-After").isPresent());assertFalse(response.body().contains("wrong-password"));

@@ -9,6 +9,7 @@
 - 后端 focused integration：`AssessmentSchemaIT`、`AssessmentSubmissionHttpIT`、`AssessmentEvaluationHttpIT`、`AssessmentManagementHttpIT`、`AssessmentResultHttpIT`、`AssessmentReviewHttpIT`、`OJApiContractIT`、`OpenSourceOjAdapterIT`、`OjAdapterTest` 全部通过。
 - 后端单元测试：`mvn test` 通过。
 - 后端完整验收：`mvn clean verify` 通过，114 个集成/单元测试全部通过。
+- 验收时发现 `AuthenticationHttpIT` 的固定窗口限流测试在跨越 60 秒边界时偶发返回 401；测试已改为避开窗口边界，重新完整验收通过。
 - V8/V9 迁移兼容性已同步修正 `FlywayMigrationIT`、`ReportPointsMigrationIT` 和 `JarBoundaryIT` 的迁移数量与 JAR 资源边界断言。
 - 前端：27 个测试文件、89 个用例通过；`type-check`、`lint`、`build` 通过。
 - 三份 OpenAPI 副本字节一致；V8/V9 迁移和 `app.migration.required-version=9` 已验证。
