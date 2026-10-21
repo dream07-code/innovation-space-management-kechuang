@@ -12,6 +12,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { createMember } from '@/api/modules/members'
 import { describeError, toApiError } from '@/api/errors'
 import { useDirectionsStore } from '@/stores/directions'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const router = useRouter()
 const directions = useDirectionsStore()
@@ -54,7 +55,7 @@ async function submit(): Promise<void> {
         grade: form.grade ?? undefined,
         contact: form.contact || undefined,
       },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     ElMessage.success(`学生 ${created.name} 已创建，初始密码为统一初始口令`)
     await router.push({ name: 'admin-member-detail', params: { memberId: created.id } })

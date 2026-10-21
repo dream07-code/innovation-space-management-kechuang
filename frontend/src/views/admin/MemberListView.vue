@@ -51,6 +51,10 @@ function goCreate(): void {
   void router.push({ name: 'admin-member-create' })
 }
 
+function goBatchImport(): void {
+  void router.push({ name: 'admin-member-batch-import' })
+}
+
 onMounted(async () => {
   await directions.ensureLoaded()
   await load()
@@ -62,6 +66,7 @@ onMounted(async () => {
     <template #header>
       <div class="page__header">
         <span>人员管理</span>
+        <el-button data-test="batch-import" @click="goBatchImport">批量导入</el-button>
         <el-button type="primary" data-test="create-member" @click="goCreate">添加学生</el-button>
       </div>
     </template>

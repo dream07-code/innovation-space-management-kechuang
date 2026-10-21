@@ -22,6 +22,7 @@ import {
 import { describeError, toApiError } from '@/api/errors'
 import { REPORT_STATUS_META, SCORE_STATUS_META } from '@/components/statusMeta'
 import type { WeeklyReport } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,7 +92,7 @@ function parseLinks(): string[] {
 }
 
 /** 生成幂等键：一次编辑会话内复用一个。 */
-const editKey = crypto.randomUUID()
+const editKey = newIdempotencyKey()
 
 async function saveDraft(): Promise<void> {
   saving.value = true
@@ -165,7 +166,7 @@ async function submit(): Promise<void> {
     const submitted = await submitWeeklyReport(
       reportId.value!,
       updated.version,
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     report.value = submitted
     form.summary = submitted.summary

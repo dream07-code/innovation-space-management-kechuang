@@ -29,6 +29,7 @@ import type {
   AssessmentReview,
   AssessmentSubmission,
 } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,7 +93,7 @@ async function save(): Promise<void> {
         score: form.score,
         comment: form.comment.trim(),
       },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     ElMessage.success('人工评分已确认，将优先于 AI 评分')
     void router.replace({ name: 'oj-submission-detail', params: { submissionId: submission.value.id } })

@@ -24,6 +24,7 @@ import {
   type DailyReportFormValues,
 } from '@/views/member/dailyReportPayload'
 import type { DailyReport } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -75,7 +76,7 @@ async function load(): Promise<void> {
   }
 }
 
-const editKey = crypto.randomUUID()
+const editKey = newIdempotencyKey()
 
 async function saveDraft(): Promise<void> {
   if (!editable.value || !(await validateForm())) return
@@ -137,7 +138,7 @@ async function submit(): Promise<void> {
     report.value = await submitDailyReport(
       reportId.value!,
       updated.version,
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     form.learningContent = report.value.learningContent
     form.gains = report.value.gains ?? ''

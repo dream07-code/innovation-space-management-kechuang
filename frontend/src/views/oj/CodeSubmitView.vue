@@ -28,6 +28,7 @@ import type {
   AssessmentSubmission,
   OjPracticeRunResult,
 } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -48,7 +49,7 @@ const submitting = ref(false)
 const runningPractice = ref(false)
 const isNarrow = ref(false)
 const activePane = ref<'problem' | 'code' | 'result'>('problem')
-let idempotencyKey = crypto.randomUUID()
+let idempotencyKey = newIdempotencyKey()
 let viewportQuery: MediaQueryList | null = null
 
 const isPractice = computed(() => assessmentId.value === null)
@@ -103,7 +104,7 @@ async function load(): Promise<void> {
 }
 
 function onCodeChanged(): void {
-  idempotencyKey = crypto.randomUUID()
+  idempotencyKey = newIdempotencyKey()
   if (isPractice.value) practiceResult.value = null
   else formalSubmission.value = null
 }
@@ -123,7 +124,7 @@ async function run(): Promise<void> {
     practiceResult.value = await runPractice(
       problem.value.id,
       { language: language.value, code: code.value },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     activePane.value = 'result'
     ElMessage.success('练习判题完成')
@@ -167,7 +168,7 @@ async function submit(): Promise<void> {
     formalSubmission.value = submission
     await pollFormalSubmission(submission.id)
     code.value = ''
-    idempotencyKey = crypto.randomUUID()
+    idempotencyKey = newIdempotencyKey()
     activePane.value = 'result'
     ElMessage.success('代码已提交，结果已更新')
   } catch (error) {

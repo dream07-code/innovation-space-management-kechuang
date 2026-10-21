@@ -12,6 +12,7 @@ import { getMember } from '@/api/modules/members'
 import { describeError, toApiError } from '@/api/errors'
 import { useDirectionsStore } from '@/stores/directions'
 import type { AppointLeaderRequest, Member, MemberPage, UpdateLeaderRequest } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const directions = useDirectionsStore()
 
@@ -61,7 +62,7 @@ async function handleAppoint(): Promise<void> {
       managedDirectionIds: managedDirectionIds.split(',').map((s) => s.trim()).filter(Boolean),
       reason: reason.trim(),
     }
-    await appointLeader(payload, crypto.randomUUID())
+    await appointLeader(payload, newIdempotencyKey())
     ElMessage.success('已任命')
     await load()
   } catch (error) {
@@ -112,7 +113,7 @@ async function handleRevoke(row: Member): Promise<void> {
   if (!reason) return
 
   try {
-    await revokeLeader(row.id, { version: row.version, reason }, crypto.randomUUID())
+    await revokeLeader(row.id, { version: row.version, reason }, newIdempotencyKey())
     ElMessage.success('已撤销')
     await load()
   } catch (error) {

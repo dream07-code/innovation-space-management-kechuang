@@ -20,6 +20,7 @@ import {
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
 import type { AssessmentProblem, PageData } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -112,7 +113,7 @@ async function confirmImport(): Promise<void> {
   importing.value = true
   importApiErrors.value = []
   try {
-    await importAssessmentProblems(payload, crypto.randomUUID())
+    await importAssessmentProblems(payload, newIdempotencyKey())
     ElMessage.success(`已导入 ${payload.problems.length} 道题目`)
     importVisible.value = false
     importPreview.value = null

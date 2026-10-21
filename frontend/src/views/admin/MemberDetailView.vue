@@ -23,6 +23,7 @@ import { describeError, toApiError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import type { Member, UpdateMemberRequest } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -120,7 +121,7 @@ async function handleRestore(): Promise<void> {
     const updated = await restoreMember(
       memberId.value,
       { version: member.value!.version, reason },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     member.value = updated
     ElMessage.success('已恢复，净积分已清零，开始新的 14 天观察期')
@@ -161,7 +162,7 @@ async function handleResetPassword(): Promise<void> {
     const updated = await resetMemberPassword(
       memberId.value,
       { version: member.value!.version, reason },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     member.value = updated
     ElMessage.success('密码已重置为统一初始口令，该成员需重新登录并修改密码')
@@ -189,7 +190,7 @@ async function handleCorrectNo(): Promise<void> {
     const updated = await correctStudentNumber(
       memberId.value,
       { version: member.value!.version, newStudentNo, reason },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     member.value = updated
     ElMessage.success('学号已更正，该成员的全部会话已失效')

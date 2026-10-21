@@ -25,6 +25,7 @@ import {
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
 import type { Assessment, AssessmentProblem } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,8 +69,8 @@ async function runCommand(command: 'publish' | 'close'): Promise<void> {
   try {
     const payload = { version: current.version }
     assessment.value = command === 'publish'
-      ? await publishAssessment(current.id, payload, crypto.randomUUID())
-      : await closeAssessment(current.id, payload, crypto.randomUUID())
+      ? await publishAssessment(current.id, payload, newIdempotencyKey())
+      : await closeAssessment(current.id, payload, newIdempotencyKey())
     ElMessage.success(command === 'publish' ? '考核已发布' : '考核已关闭')
     await load()
   } catch (error) {

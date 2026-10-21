@@ -25,6 +25,7 @@ import type {
   AssessmentProblem,
   UpdateAssessmentRequest,
 } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -109,7 +110,7 @@ async function save(): Promise<void> {
       problemIds: form.problemIds,
     }
     if (isNew.value) {
-      const created = await createAssessment(base, crypto.randomUUID())
+      const created = await createAssessment(base, newIdempotencyKey())
       ElMessage.success('考核草稿已创建')
       void router.replace({ name: 'oj-assessment-detail', params: { assessmentId: created.id } })
       return

@@ -246,6 +246,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: STAFF_ROLES, title: '添加学生' },
       },
       {
+        path: 'members/batch-import',
+        name: 'admin-member-batch-import',
+        component: () => import('@/views/admin/MemberBatchImportView.vue'),
+        meta: { roles: STAFF_ROLES, title: '批量导入学生' },
+      },
+      {
         path: 'members/:memberId',
         name: 'admin-member-detail',
         component: () => import('@/views/admin/MemberDetailView.vue'),

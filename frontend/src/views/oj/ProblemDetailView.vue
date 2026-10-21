@@ -24,6 +24,7 @@ import {
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
 import type { AssessmentProblem, AssessmentProblemTestCase } from '@/api/types'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -106,7 +107,7 @@ async function retire(): Promise<void> {
     problem.value = await retireAssessmentProblem(
       problem.value.id,
       { version: problem.value.version },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     ElMessage.success('题目已退役')
   } catch (error) {

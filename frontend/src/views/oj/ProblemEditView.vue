@@ -29,6 +29,7 @@ import {
   validateProblemTestCaseForm,
   type ProblemTestCaseRow,
 } from './problemPayload'
+import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
 const router = useRouter()
@@ -139,7 +140,7 @@ async function save(): Promise<void> {
     if (isNew.value) {
       const created = await createAssessmentProblem(
         buildCreateProblemPayload(form),
-        crypto.randomUUID(),
+        newIdempotencyKey(),
       )
       ElMessage.success('题目草稿已创建')
       void router.replace({ name: 'oj-problem-detail', params: { problemId: created.id } })
@@ -170,7 +171,7 @@ async function retire(): Promise<void> {
     await retireAssessmentProblem(
       problem.value.id,
       { version: problem.value.version },
-      crypto.randomUUID(),
+      newIdempotencyKey(),
     )
     ElMessage.success('题目已退役')
     await load()
