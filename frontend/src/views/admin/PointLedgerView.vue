@@ -13,6 +13,7 @@ import { collectPointEntries } from '@/api/modules/points'
 import { listMembers } from '@/api/modules/members'
 import { describeError, toApiError } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
+import { formatDateTime } from '@/utils/datetime'
 import type { Member, PageData, PointEntry, PointSource } from '@/api/types'
 
 const auth = useAuthStore()
@@ -33,7 +34,7 @@ const ledgerMemberIds = computed(() =>
 const SOURCE_LABELS: Record<PointSource, string> = {
   SUBMISSION_BASE: '提交保底',
   AI_ADJUSTMENT: '评分调整',
-  MANUAL_ADJUSTMENT: '管理员加分',
+  MANUAL_ADJUSTMENT: '人工调整',
   REVERSAL: '冲正',
 }
 
@@ -121,7 +122,9 @@ onMounted(async () => {
     </el-alert>
 
     <el-table v-loading="loading" :data="data?.items ?? []" row-key="id">
-      <el-table-column prop="recordedAt" label="记录时间" width="180" />
+      <el-table-column label="记录时间" width="150">
+        <template #default="{ row }">{{ formatDateTime(row.recordedAt) }}</template>
+      </el-table-column>
       <el-table-column label="成员" width="150">
         <template #default="{ row }">{{ memberLabel(row.memberId) }}</template>
       </el-table-column>
@@ -138,7 +141,9 @@ onMounted(async () => {
       <el-table-column label="关联报告" width="180">
         <template #default="{ row }">{{ row.reportType }} · {{ row.reportId }} · v{{ row.reportVersion }}</template>
       </el-table-column>
-      <el-table-column prop="effectiveAt" label="生效时间" width="180" />
+      <el-table-column label="生效时间" width="150">
+        <template #default="{ row }">{{ formatDateTime(row.effectiveAt) }}</template>
+      </el-table-column>
       <el-table-column prop="ruleVersion" label="规则版本" width="120" />
       <el-table-column prop="reason" label="说明" min-width="220" show-overflow-tooltip />
     </el-table>

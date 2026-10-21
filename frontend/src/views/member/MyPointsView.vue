@@ -10,6 +10,7 @@ import { ElMessage } from 'element-plus'
 
 import { getMyPoints, listPointEntries } from '@/api/modules/points'
 import { describeError, toApiError } from '@/api/errors'
+import { formatDateTime } from '@/utils/datetime'
 import type { PageData, PointEntry, PointsSummary } from '@/api/types'
 
 const summary = ref<PointsSummary | null>(null)
@@ -58,7 +59,7 @@ function onMonthChange(): void {
 const SOURCE_LABELS: Record<string, string> = {
   SUBMISSION_BASE: '提交保底',
   AI_ADJUSTMENT: '评分调整',
-  MANUAL_ADJUSTMENT: '管理员加分',
+  MANUAL_ADJUSTMENT: '人工调整',
   REVERSAL: '冲正',
 }
 
@@ -101,7 +102,9 @@ onMounted(() => {
       </template>
 
       <el-table v-loading="loading" :data="entries?.items ?? []" row-key="id">
-        <el-table-column prop="recordedAt" label="时间" width="180" />
+        <el-table-column label="时间" width="150">
+        <template #default="{ row }">{{ formatDateTime(row.recordedAt) }}</template>
+      </el-table-column>
         <el-table-column prop="delta" label="变动" width="80">
           <template #default="{ row }">
             <span :class="row.delta >= 0 ? 'points__positive' : 'points__negative'">

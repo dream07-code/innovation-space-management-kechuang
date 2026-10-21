@@ -14,11 +14,12 @@
  *   - 提交是异步评分的开始：HTTP 200 不代表评分完成，finalScore 可空表示评分中；
  *   - 周报 weekStart 必须为周一，weekEnd 由服务端计算。
  */
-import { API_PREFIX, get, patch, post } from '../client'
+import { API_PREFIX, get, patch, post, postWithoutIdempotency } from '../client'
 import type {
   CreateDailyReportRequest,
   CreateWeeklyReportRequest,
   DailyReport,
+  ManualScoreReportRequest,
   PageData,
   ScoreStatus,
   UpdateDailyReportRequest,
@@ -80,6 +81,20 @@ export async function submitDailyReport(
   return post<DailyReport>(`${DAILY}/${reportId}/submit`, { version }, { idempotencyKey })
 }
 
+/**
+ * 人工评分（学院管理员 / 方向负责人）。
+ *
+ * 仅对已提交报告生效；评分后 scoreStatus 变为 MANUAL，迟到的 AI 结果不会覆盖。
+ * 重复评分按最新分数调整积分差额，因此不需要幂等键。
+ */
+export async function scoreDailyReport(
+  reportId: string,
+  payload: ManualScoreReportRequest,
+): Promise<DailyReport> {
+  // 人工评分是「把最终分数设为 N」的幂等覆盖，重复提交同一分数差额为 0，不需要幂等键。
+  return postWithoutIdempotency<DailyReport>(`${DAILY}/${reportId}/score`, payload)
+}
+
 // ---------------------------------------------------------------------------
 // 周报
 // ---------------------------------------------------------------------------
@@ -115,4 +130,12 @@ export async function submitWeeklyReport(
   idempotencyKey: string,
 ): Promise<WeeklyReport> {
   return post<WeeklyReport>(`${WEEKLY}/${reportId}/submit`, { version }, { idempotencyKey })
+}
+
+/** 人工评分，语义同日报。 */
+export async function scoreWeeklyReport(
+  reportId: string,
+  payload: ManualScoreReportRequest,
+): Promise<WeeklyReport> {
+  return postWithoutIdempotency<WeeklyReport>(`${WEEKLY}/${reportId}/score`, payload)
 }

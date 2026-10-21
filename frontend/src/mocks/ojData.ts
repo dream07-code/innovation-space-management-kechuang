@@ -70,7 +70,7 @@ const INITIAL_ASSESSMENTS: Assessment[] = [
     directionName: 'AI 全栈',
     status: 'PUBLISHED',
     startAt: '2026-10-10T00:00:00+08:00',
-    endAt: '2026-10-20T23:59:59+08:00',
+    endAt: '2026-10-31T23:59:59+08:00',
     allowedLanguages: ['java', 'python', 'cpp', 'javascript'],
     problemIds: ['9101', '9102'],
     version: 2,

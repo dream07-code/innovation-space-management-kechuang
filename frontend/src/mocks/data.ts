@@ -208,7 +208,9 @@ export function appendPointEntry(
 let dailySeq = 400
 let weeklySeq = 500
 
-const INITIAL_DAILY_REPORTS: DailyReport[] = [
+type ReportSeed<T> = Omit<T, 'memberName' | 'memberStudentNo'>
+
+const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
   {
     id: '301', memberId: '201', directionId: '1', status: 'SUBMITTED', version: 2,
     scoreStatus: 'SCORED', awardedPoints: 3, finalScore: 3,
@@ -284,7 +286,7 @@ const INITIAL_DAILY_REPORTS: DailyReport[] = [
   },
 ]
 
-const INITIAL_WEEKLY_REPORTS: WeeklyReport[] = [
+const INITIAL_WEEKLY_REPORTS: ReportSeed<WeeklyReport>[] = [
   {
     id: '401', memberId: '201', directionId: '1', status: 'DRAFT', version: 1,
     scoreStatus: 'NOT_REQUESTED', awardedPoints: 0, finalScore: null, scoreReason: null,
@@ -322,8 +324,16 @@ export function currentWeekStart(): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
 }
 
-export const DAILY_REPORTS: DailyReport[] = INITIAL_DAILY_REPORTS.map((r) => ({ ...r }))
-export const WEEKLY_REPORTS: WeeklyReport[] = INITIAL_WEEKLY_REPORTS.map((r) => ({ ...r }))
+/** 报告列表同样返回成员姓名与学号，避免管理端只能看到成员 ID。 */
+function withMember<T extends { memberId: string }>(
+  report: T,
+): T & { memberName: string | null; memberStudentNo: string | null } {
+  const member = findMember(report.memberId)
+  return { ...report, memberName: member?.name ?? null, memberStudentNo: member?.studentNo ?? null }
+}
+
+export const DAILY_REPORTS: DailyReport[] = INITIAL_DAILY_REPORTS.map(withMember)
+export const WEEKLY_REPORTS: WeeklyReport[] = INITIAL_WEEKLY_REPORTS.map(withMember)
 
 export function nextDailyReportId(): string {
   dailySeq += 1
@@ -476,8 +486,8 @@ const INITIAL_LENGTHS = {
 function resetBusinessData(): void {
   MEMBERS.splice(0, MEMBERS.length, ...INITIAL_MEMBERS.map((m) => ({ ...m, managedDirectionIds: [...m.managedDirectionIds] })))
   POINT_ENTRIES.splice(0, POINT_ENTRIES.length, ...INITIAL_POINT_ENTRIES.map((e) => ({ ...e })))
-  DAILY_REPORTS.splice(0, DAILY_REPORTS.length, ...INITIAL_DAILY_REPORTS.map((r) => ({ ...r, links: [...r.links] })))
-  WEEKLY_REPORTS.splice(0, WEEKLY_REPORTS.length, ...INITIAL_WEEKLY_REPORTS.map((r) => ({ ...r, links: [...r.links] })))
+  DAILY_REPORTS.splice(0, DAILY_REPORTS.length, ...INITIAL_DAILY_REPORTS.map((r) => withMember({ ...r, links: [...r.links] })))
+  WEEKLY_REPORTS.splice(0, WEEKLY_REPORTS.length, ...INITIAL_WEEKLY_REPORTS.map((r) => withMember({ ...r, links: [...r.links] })))
   AUDITS.splice(0, AUDITS.length, ...INITIAL_AUDITS.map((a) => ({ ...a })))
   ACCOUNTS.splice(INITIAL_LENGTHS.accounts)
   memberSeq = 300

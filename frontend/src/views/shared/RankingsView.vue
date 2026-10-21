@@ -60,12 +60,21 @@ async function loadDirection(): Promise<void> {
   }
 }
 
+/** 业务时区（Asia/Shanghai）当前月份，形如 2026-10。 */
+function currentBusinessMonth(): string {
+  const now = new Date(Date.now() + 8 * 3600_000)
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
 async function loadMonthly(): Promise<void> {
   loading.value = true
   try {
-    const now = new Date(Date.now() + 8 * 3600_000)
-    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
-    monthly.value = await getOverallRanking({ period: 'MONTH', month, page: page.value, size: size.value })
+    monthly.value = await getOverallRanking({
+      period: 'MONTH',
+      month: currentBusinessMonth(),
+      page: page.value,
+      size: size.value,
+    })
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -75,13 +84,13 @@ async function loadMonthly(): Promise<void> {
 
 async function loadMyRankings(): Promise<void> {
   if (!showPersonalRankings.value) return
-  try {
-    const [o, m] = await Promise.all([getMyRanking({ period: 'ALL_TIME' }), getMyRanking({ period: 'MONTH' })])
-    myOverall.value = o
-    myMonthly.value = m
-  } catch {
-    // 个人排名失败不阻断榜单展示。
-  }
+  // 月度排名必须带 month，否则后端 400；用 allSettled 避免一个失败拖垮总排名。
+  const [overallResult, monthlyResult] = await Promise.allSettled([
+    getMyRanking({ period: 'ALL_TIME' }),
+    getMyRanking({ period: 'MONTH', month: currentBusinessMonth() }),
+  ])
+  if (overallResult.status === 'fulfilled') myOverall.value = overallResult.value
+  if (monthlyResult.status === 'fulfilled') myMonthly.value = monthlyResult.value
 }
 
 function onPageChange(next: number): void {

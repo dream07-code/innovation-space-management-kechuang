@@ -421,6 +421,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/daily-reports/{reportId}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 人工评分（学院管理员/方向负责人）
+         * @description 仅已提交报告，1–3 分。学院管理员可评全部方向；方向负责人仅可评所辖方向，且不能评本人报告。评分后 scoreStatus=MANUAL，迟到的 AI 结果不覆盖；积分只追加差额流水，重复评分按最新分数调整差额。
+         */
+        post: operations["scoreDailyReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/weekly-reports": {
         parameters: {
             query?: never;
@@ -483,6 +503,26 @@ export interface paths {
          * @description 校验作者、在籍、日期/周窗口、正文两项必填且非空白、version和已确认规则。成功原子持久化SUBMITTED/QUEUED及保底，HTTP200不是AI评分完成。相同report当前version已SUBMITTED返回现状不加分。未确认评分/窗口规则503 RULES_NOT_CONFIGURED。
          */
         post: operations["submitWeeklyReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/weekly-reports/{reportId}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 人工评分（学院管理员/方向负责人）
+         * @description 仅已提交报告，1–3 分。学院管理员可评全部方向；方向负责人仅可评所辖方向，且不能评本人报告。评分后 scoreStatus=MANUAL，迟到的 AI 结果不覆盖；积分只追加差额流水，重复评分按最新分数调整差额。
+         */
+        post: operations["scoreWeeklyReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2615,6 +2655,16 @@ export interface components {
              */
             memberId: string;
             /**
+             * @description 成员姓名；列表与详情均返回，便于管理人员识别，避免只看到成员 ID。
+             * @example 张三
+             */
+            memberName: string | null;
+            /**
+             * @description 成员学号，与 memberName 一同返回。
+             * @example MOCK20260001
+             */
+            memberStudentNo: string | null;
+            /**
              * @description 草稿为当前方向；正式提交后固定为提交时方向。
              * @example 201
              */
@@ -2748,6 +2798,16 @@ export interface components {
              */
             memberId: string;
             /**
+             * @description 成员姓名；列表与详情均返回，便于管理人员识别，避免只看到成员 ID。
+             * @example 张三
+             */
+            memberName: string | null;
+            /**
+             * @description 成员学号，与 memberName 一同返回。
+             * @example MOCK20260001
+             */
+            memberStudentNo: string | null;
+            /**
              * @description 草稿为当前方向；正式提交后固定为提交时方向。
              * @example 201
              */
@@ -2804,6 +2864,16 @@ export interface components {
             reflections: string | null;
             nextWeekPlan: string | null;
             links: string[];
+        };
+        /** @description 人工评分只接受 score 与 reason；报告必须为已提交状态。评分后 scoreStatus=MANUAL，finalScore 为人工分数，awardedPoints 为实际入账总分。 */
+        ManualScoreReportRequest: {
+            /**
+             * Format: int32
+             * @example 2
+             */
+            score: number;
+            /** @example 内容较完整，人工核定 2 分。 */
+            reason?: string | null;
         };
         WeeklyReportResponse: {
             /** @enum {string} */
@@ -5209,6 +5279,78 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    scoreDailyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "score": 2,
+                 *       "reason": "内容较完整，人工核定 2 分。"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ManualScoreReportRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；响应为完整资源现状。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "OK",
+                     *       "message": "Success",
+                     *       "data": {
+                     *         "id": "201",
+                     *         "memberId": "201",
+                     *         "memberName": "张三",
+                     *         "memberStudentNo": "MOCK20260001",
+                     *         "directionId": "1",
+                     *         "status": "SUBMITTED",
+                     *         "version": 2,
+                     *         "scoreStatus": "MANUAL",
+                     *         "awardedPoints": 2,
+                     *         "finalScore": 2,
+                     *         "scoreReason": "内容较完整，人工核定 2 分。",
+                     *         "firstSubmittedAt": "2026-10-11T09:00:00+08:00",
+                     *         "updatedAt": "2026-10-11T09:00:00+08:00",
+                     *         "editable": true,
+                     *         "editableUntil": "2026-10-11T23:59:59+08:00",
+                     *         "ruleVersion": "mock-rule-1",
+                     *         "reportDate": "2026-10-11",
+                     *         "learningContent": "完成接口请求与参数校验练习。",
+                     *         "gains": "理解了参数校验与异常映射。",
+                     *         "problems": null,
+                     *         "nextPlan": null,
+                     *         "links": []
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DailyReportResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     listWeeklyReports: {
         parameters: {
             query?: {
@@ -5507,6 +5649,79 @@ export interface operations {
                      *         "awardedPoints": 1,
                      *         "finalScore": null,
                      *         "scoreReason": null,
+                     *         "firstSubmittedAt": "2026-10-11T09:00:00+08:00",
+                     *         "updatedAt": "2026-10-11T09:00:00+08:00",
+                     *         "editable": true,
+                     *         "editableUntil": "2026-10-11T23:59:59+08:00",
+                     *         "ruleVersion": "mock-rule-1",
+                     *         "weekStart": "2026-10-05",
+                     *         "weekEnd": "2026-10-11",
+                     *         "summary": "本周完成基础 API 学习。",
+                     *         "achievements": "完成了独立练习和复盘。",
+                     *         "reflections": null,
+                     *         "nextWeekPlan": null,
+                     *         "links": []
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["WeeklyReportResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    scoreWeeklyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "score": 2,
+                 *       "reason": "内容较完整，人工核定 2 分。"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ManualScoreReportRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；响应为完整资源现状。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "OK",
+                     *       "message": "Success",
+                     *       "data": {
+                     *         "id": "201",
+                     *         "memberId": "201",
+                     *         "memberName": "张三",
+                     *         "memberStudentNo": "MOCK20260001",
+                     *         "directionId": "1",
+                     *         "status": "SUBMITTED",
+                     *         "version": 2,
+                     *         "scoreStatus": "MANUAL",
+                     *         "awardedPoints": 2,
+                     *         "finalScore": 2,
+                     *         "scoreReason": "内容较完整，人工核定 2 分。",
                      *         "firstSubmittedAt": "2026-10-11T09:00:00+08:00",
                      *         "updatedAt": "2026-10-11T09:00:00+08:00",
                      *         "editable": true,

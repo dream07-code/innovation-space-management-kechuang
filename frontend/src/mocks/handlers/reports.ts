@@ -316,10 +316,80 @@ function submitReport<R extends AnyReport>(spec: ReportSpec<R>, request: Request
   })
 }
 
+/**
+ * 人工评分：学院管理员可评全部方向，方向负责人仅可评所辖方向且不能评本人报告。
+ * 评分后 scoreStatus=MANUAL，积分按差额调整。
+ */
+function scoreReport<R extends AnyReport>(
+  spec: ReportSpec<R>,
+  request: Request,
+  reportId: string,
+): Promise<Response> {
+  const denied = guardSession(request)
+  if (denied) return Promise.resolve(denied)
+  const account = caller(request)
+  if (!account) return Promise.resolve(errors.unauthorized())
+
+  const report = spec.store.find((r) => r.id === reportId)
+  if (!report) return Promise.resolve(errors.notFound())
+  if (account.user.role !== 'COLLEGE_ADMIN' && account.user.role !== 'DIRECTION_LEADER') {
+    return Promise.resolve(errors.forbidden())
+  }
+  if (
+    account.user.role === 'DIRECTION_LEADER' &&
+    (report.memberId === account.user.memberId ||
+      !account.user.managedDirectionIds.includes(report.directionId))
+  ) {
+    return Promise.resolve(errors.forbidden())
+  }
+
+  return request.text().then((bodyText) => {
+    const body = parseJson(bodyText)
+    if (!body) return errors.invalidRequest()
+    const bad = rejectUnknownFields(body, ['score', 'reason'])
+    if (bad) return bad
+    const score = body.score
+    if (typeof score !== 'number' || !Number.isInteger(score) || score < 1 || score > 3) {
+      return errors.invalidRequest()
+    }
+    if (
+      body.reason !== undefined &&
+      body.reason !== null &&
+      (typeof body.reason !== 'string' || body.reason.length > 1000)
+    ) {
+      return errors.invalidRequest()
+    }
+    if (report.status !== 'SUBMITTED') return errors.invalidState()
+
+    const delta = score - report.awardedPoints
+    report.finalScore = score
+    report.scoreStatus = 'MANUAL'
+    report.scoreReason =
+      typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null
+    report.awardedPoints = score
+    report.updatedAt = nowIso()
+    if (delta !== 0) {
+      appendPointEntry(report.memberId, delta, 'MANUAL_ADJUSTMENT', '人工评分调整', {
+        reportType: spec.reportType,
+        reportId: report.id,
+        reportVersion: report.version,
+      })
+    }
+    appendAudit(
+      account.user.userId,
+      'REPORT_MANUAL_SCORE',
+      'REPORT',
+      report.id,
+      report.scoreReason,
+      `人工评分 ${score} 分`,
+    )
+    return ok(report)
+  })
+}
+
 // ---------------------------------------------------------------------------
 // 日报与周报的具体定义
 // ---------------------------------------------------------------------------
-
 const DAILY_SPEC: ReportSpec<DailyReport> = {
   base: `${API_PREFIX}/daily-reports`,
   store: DAILY_REPORTS,
@@ -332,9 +402,12 @@ const DAILY_SPEC: ReportSpec<DailyReport> = {
   automaticPeriod: todayBusiness,
   makeDraft(id, memberId, directionId, body) {
     const reportDate = todayBusiness()
+    const member = findMember(memberId)
     return {
       id,
       memberId,
+      memberName: member?.name ?? null,
+      memberStudentNo: member?.studentNo ?? null,
       directionId,
       status: 'DRAFT',
       version: 1,
@@ -368,9 +441,12 @@ const WEEKLY_SPEC: ReportSpec<WeeklyReport> = {
   updateAllowed: ['version', 'summary', 'achievements', 'reflections', 'nextWeekPlan', 'links'],
   makeDraft(id, memberId, directionId, body) {
     const weekStart = body.weekStart as string
+    const member = findMember(memberId)
     return {
       id,
       memberId,
+      memberName: member?.name ?? null,
+      memberStudentNo: member?.studentNo ?? null,
       directionId,
       status: 'DRAFT',
       version: 1,
@@ -403,10 +479,12 @@ export const reportHandlers = [
   http.get(`${DAILY_SPEC.base}/:reportId`, ({ request, params }) => getReport(DAILY_SPEC, request, params.reportId as string)),
   http.patch(`${DAILY_SPEC.base}/:reportId`, ({ request, params }) => updateReport(DAILY_SPEC, request, params.reportId as string)),
   http.post(`${DAILY_SPEC.base}/:reportId/submit`, ({ request, params }) => submitReport(DAILY_SPEC, request, params.reportId as string)),
+  http.post(`${DAILY_SPEC.base}/:reportId/score`, ({ request, params }) => scoreReport(DAILY_SPEC, request, params.reportId as string)),
 
   http.get(WEEKLY_SPEC.base, ({ request }) => listReports(WEEKLY_SPEC, request)),
   http.post(WEEKLY_SPEC.base, ({ request }) => createReport(WEEKLY_SPEC, request)),
   http.get(`${WEEKLY_SPEC.base}/:reportId`, ({ request, params }) => getReport(WEEKLY_SPEC, request, params.reportId as string)),
   http.patch(`${WEEKLY_SPEC.base}/:reportId`, ({ request, params }) => updateReport(WEEKLY_SPEC, request, params.reportId as string)),
   http.post(`${WEEKLY_SPEC.base}/:reportId/submit`, ({ request, params }) => submitReport(WEEKLY_SPEC, request, params.reportId as string)),
+  http.post(`${WEEKLY_SPEC.base}/:reportId/score`, ({ request, params }) => scoreReport(WEEKLY_SPEC, request, params.reportId as string)),
 ]

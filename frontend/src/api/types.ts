@@ -86,6 +86,8 @@ export type UpdateDailyReportRequest = Schemas['UpdateDailyReportRequest']
 export type CreateWeeklyReportRequest = Schemas['CreateWeeklyReportRequest']
 export type UpdateWeeklyReportRequest = Schemas['UpdateWeeklyReportRequest']
 export type VersionRequest = Schemas['VersionRequest']
+/** 人工评分请求：1–3 分，reason 可选。 */
+export type ManualScoreReportRequest = Schemas['ManualScoreReportRequest']
 
 export type ReportStatus = DailyReport['status']
 export type ScoreStatus = DailyReport['scoreStatus']

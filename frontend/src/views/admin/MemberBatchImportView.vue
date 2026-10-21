@@ -8,7 +8,7 @@
  * - 前端先做与后端 validateProfile 对齐的本地校验，尽量在提交前拦下格式错误，
  *   但学号重复等只能由后端判定的错误会在逐行提交时捕获并汇总展示。
  */
-import { computed, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
