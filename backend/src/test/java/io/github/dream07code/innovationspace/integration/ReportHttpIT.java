@@ -179,6 +179,90 @@ class ReportHttpIT {
     assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM report_scoring_task", Integer.class));
   }
 
+  @Test
+  void staffCanManuallyScoreSubmittedReportWithinScopeOnly() throws Exception {
+    var created =
+        send(
+            token,
+            "POST",
+            "/api/v1/daily-reports",
+            "{\"reportDate\":\"" + today() + "\",\"learningContent\":\"manual score\"}",
+            "88888888-8888-4888-8888-888888888881");
+    assertEquals(201, created.statusCode());
+    String id = HttpTestSupport.json(created).path("data").path("id").asText();
+    assertEquals(
+        200,
+        send(
+                token,
+                "POST",
+                "/api/v1/daily-reports/" + id + "/submit",
+                "{\"version\":1}",
+                "88888888-8888-4888-8888-888888888882")
+            .statusCode());
+
+    // 学生本人不能给自己评分。
+    assertEquals(
+        403,
+        send(token, "POST", "/api/v1/daily-reports/" + id + "/score", "{\"score\":2}", null)
+            .statusCode());
+
+    // 其他方向的负责人越权评分被拒绝。
+    insertMember(12, "MOCK012", 2, "二方向负责人", "DIRECTION_LEADER");
+    jdbc.update(
+        "INSERT INTO leader_direction_scope(user_id,direction_id,granted_at) VALUES(12,2,UTC_TIMESTAMP(6))");
+    String otherLeader = sessions.issue(12).accessToken();
+    assertEquals(
+        403,
+        send(otherLeader, "POST", "/api/v1/daily-reports/" + id + "/score", "{\"score\":2}", null)
+            .statusCode());
+
+    // 学院管理员可评任意方向。
+    insertMember(11, "MOCK011", 1, "学院管理员", "COLLEGE_ADMIN");
+    String admin = sessions.issue(11).accessToken();
+    var scored =
+        send(
+            admin,
+            "POST",
+            "/api/v1/daily-reports/" + id + "/score",
+            "{\"score\":2,\"reason\":\"内容较完整\"}",
+            null);
+    assertEquals(200, scored.statusCode());
+    ContractAssertions.response("POST", "/api/v1/daily-reports/" + id + "/score", scored);
+    var body = HttpTestSupport.json(scored).path("data");
+    assertEquals(2, body.path("finalScore").asInt());
+    assertEquals("MANUAL", body.path("scoreStatus").asText());
+    assertEquals("内容较完整", body.path("scoreReason").asText());
+    assertEquals("报告同学", body.path("memberName").asText());
+    assertEquals(2, jdbc.queryForObject(
+        "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=?",
+        Integer.class, Long.valueOf(id)));
+
+    // 重新评分只追加差额流水，不重复累计。
+    var rescored =
+        send(
+            admin,
+            "POST",
+            "/api/v1/daily-reports/" + id + "/score",
+            "{\"score\":3}",
+            null);
+    assertEquals(200, rescored.statusCode());
+    assertEquals(3, jdbc.queryForObject(
+        "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=?",
+        Integer.class, Long.valueOf(id)));
+    assertEquals(3, HttpTestSupport.json(rescored).path("data").path("finalScore").asInt());
+    assertEquals(1, jdbc.queryForObject(
+        "SELECT COUNT(*) FROM audit_log WHERE action='REPORT_MANUAL_SCORE'", Integer.class));
+
+    // 超出 1–3 分范围被拒绝，评分与积分保持不变。
+    assertEquals(
+        400,
+        send(admin, "POST", "/api/v1/daily-reports/" + id + "/score", "{\"score\":4}", null)
+            .statusCode());
+    assertEquals(3, jdbc.queryForObject(
+        "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=?",
+        Integer.class, Long.valueOf(id)));
+  }
+
   private void insertMember(int id, String studentNo, int directionId, String name, String role) {
     jdbc.update("INSERT INTO member(id,student_no,direction_id,name,joined_at,membership_started_at,created_at,updated_at) VALUES(?,?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", id, studentNo, directionId, name);
     jdbc.update("INSERT INTO app_user(id,member_id,account,password_hash,role,must_change_password,status,display_name,created_at,updated_at) VALUES(?,?,?,?,'" + role + "',false,'ENABLED',?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))", id, id, studentNo, passwords.encode("synthetic-password12"), name);

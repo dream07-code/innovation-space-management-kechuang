@@ -16,6 +16,11 @@ public class ScoringConfiguration {
   }
 
   @Bean
+  HeuristicReportScoringProvider heuristicReportScoringProvider() {
+    return new HeuristicReportScoringProvider();
+  }
+
+  @Bean
   OpenAiCompatibleReportScoringProvider openAiCompatibleReportScoringProvider(ScoringProperties properties) {
     return new OpenAiCompatibleReportScoringProvider(properties);
   }

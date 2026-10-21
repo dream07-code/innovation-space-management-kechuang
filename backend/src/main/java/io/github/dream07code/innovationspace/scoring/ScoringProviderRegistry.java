@@ -20,6 +20,12 @@ public class ScoringProviderRegistry {
           .findFirst()
           .orElseThrow();
     }
+    if ("heuristic".equals(props.getProvider())) {
+      return providers.stream()
+          .filter(HeuristicReportScoringProvider.class::isInstance)
+          .findFirst()
+          .orElseThrow();
+    }
     if ("openai-compatible".equals(props.getProvider())) {
       return providers.stream()
           .filter(OpenAiCompatibleReportScoringProvider.class::isInstance)

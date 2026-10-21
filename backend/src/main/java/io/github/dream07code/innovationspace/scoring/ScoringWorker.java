@@ -108,9 +108,10 @@ public class ScoringWorker {
                   "AI_SCORE:" + taskId + ":" + score.score(),
                   effectiveAt);
             jdbc.update(
-                "UPDATE report SET score_status='SCORED',final_score=?,score_reason=?,updated_at=? WHERE id=?",
+                "UPDATE report SET score_status='SCORED',final_score=?,score_reason=?,rubric_version=?,updated_at=? WHERE id=?",
                 score.score(),
                 score.reason(),
+                ScoringRubric.VERSION,
                 Timestamp.from(clock.instant()),
                 context.reportId());
             transition(
@@ -167,7 +168,7 @@ public class ScoringWorker {
     return new ScoringInput(
         (String) row.get("report_type"),
         String.valueOf(context.versionId()),
-        "v1",
+        ScoringRubric.VERSION,
         String.valueOf(row.get("content_json")));
   }
 

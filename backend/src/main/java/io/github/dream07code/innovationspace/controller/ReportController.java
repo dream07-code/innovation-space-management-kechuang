@@ -82,6 +82,18 @@ public class ReportController {
     return ApiResponse.success(service.update(reportId, request, actor(), ReportType.WEEKLY));
   }
 
+  @PostMapping("/api/v1/daily-reports/{reportId}/score")
+  public ApiResponse<Map<String, Object>> dailyScore(
+      @PathVariable("reportId") long reportId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(service.manualScore(reportId, request, actor(), ReportType.DAILY));
+  }
+
+  @PostMapping("/api/v1/weekly-reports/{reportId}/score")
+  public ApiResponse<Map<String, Object>> weeklyScore(
+      @PathVariable("reportId") long reportId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(service.manualScore(reportId, request, actor(), ReportType.WEEKLY));
+  }
+
   @PostMapping("/api/v1/daily-reports/{reportId}/submit")
   public ResponseEntity<String> dailySubmit(
       @PathVariable("reportId") long reportId,

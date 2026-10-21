@@ -162,7 +162,7 @@ Content-Type: application/json
 | 查看正式报告 | 全方向 | 提交时方向属于授权范围 | 本人 |
 | 查看他人草稿 | 否 | 否 | 否 |
 | 复核申请 | 管理账号不申请 | 本人报告 | 本人报告 |
-| 人工确认评分 | 是 | 否 | 否 |
+| 人工评分（1–3 分） | 全方向 | 所辖方向学生，不能评本人报告 | 否 |
 | 积分流水 | 全方向 | 当前所辖成员 | 本人 |
 | 排行榜 | 允许的最小展示字段 | 同左 | 同左 |
 | 月度规则/执行、任务重试、审计 | 是 | 否 | 否 |
@@ -189,8 +189,8 @@ Content-Type: application/json
 | 密码重置 | `POST /members/{memberId}/password-reset` | 学院管理员重置学生/负责人密码 |
 | 成员恢复 | `POST /members/{memberId}/restore` | 管理员恢复自动移出的学生；手动提前移出不在本期范围 |
 | 负责人 | `GET/POST /direction-leaders`、`PATCH /direction-leaders/{memberId}`、`POST /direction-leaders/{memberId}/revoke` | 列表、任命、修改资料/授权、撤销任命 |
-| 日报 | `GET/POST /daily-reports`、`GET/PATCH /daily-reports/{reportId}`、`POST /daily-reports/{reportId}/submit` | 创建草稿、修改、正式提交 |
-| 周报 | 与日报一致，将 daily-reports 换为 weekly-reports | 自然周报告 |
+| 日报 | `GET/POST /daily-reports`、`GET/PATCH /daily-reports/{reportId}`、`POST /daily-reports/{reportId}/submit`、`POST /daily-reports/{reportId}/score` | 创建草稿、修改、正式提交、人工评分 |
+| 周报 | 与日报一致，将 daily-reports 换为 weekly-reports | 自然周报告，含人工评分 |
 | 复核 | `GET/POST /score-reviews`、`POST /score-reviews/{reviewId}/resolve` | 申请、处理评分争议 |
 | 积分 | `GET /points/me`、`GET /points/ledger` | 本人概览、权限内流水 |
 | 管理员加分 | `POST /members/{memberId}/points` | 管理员直接给学生增加正整数积分 |

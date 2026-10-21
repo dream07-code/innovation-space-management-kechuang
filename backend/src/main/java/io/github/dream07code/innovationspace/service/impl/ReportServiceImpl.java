@@ -1,6 +1,7 @@
 package io.github.dream07code.innovationspace.service.impl;
 import io.github.dream07code.innovationspace.service.ReportService;
 import io.github.dream07code.innovationspace.report.*;
+import io.github.dream07code.innovationspace.scoring.ScoringRubric;
 import io.github.dream07code.innovationspace.points.*;
 
 
@@ -238,9 +239,10 @@ public class ReportServiceImpl implements ReportService {
           Instant now = clock.instant();
           Instant editableUntil = periodEnd(type, row).atZone(BUSINESS_ZONE).toInstant();
           jdbc.update(
-              "UPDATE report SET status='SUBMITTED',first_submitted_at=?,editable_until=?,score_status='QUEUED',rubric_version='v1',updated_at=? WHERE id=?",
+              "UPDATE report SET status='SUBMITTED',first_submitted_at=?,editable_until=?,score_status='QUEUED',rubric_version=?,updated_at=? WHERE id=?",
               Timestamp.from(now),
               Timestamp.from(editableUntil),
+              ScoringRubric.VERSION,
               Timestamp.from(now),
               id);
           int base = type == ReportType.DAILY ? props.getDailyBasePoints() : props.getWeeklyBasePoints();
@@ -296,8 +298,9 @@ public class ReportServiceImpl implements ReportService {
           insertVersion(id, newVersion, principal.userId(), merged, now);
           if (reportStatus == ReportStatus.SUBMITTED) {
             jdbc.update(
-                "UPDATE report SET current_version=?,score_status='QUEUED',final_score=NULL,score_reason=NULL,updated_at=? WHERE id=?",
+                "UPDATE report SET current_version=?,score_status='QUEUED',final_score=NULL,score_reason=NULL,rubric_version=?,updated_at=? WHERE id=?",
                 newVersion,
+                ScoringRubric.VERSION,
                 Timestamp.from(now),
                 id);
             long versionId =
@@ -318,6 +321,79 @@ public class ReportServiceImpl implements ReportService {
         });
   }
 
+  /**
+   * 学院管理员或方向负责人对已提交报告人工评分（1–3 分）。
+   *
+   * <p>人工评分是最终结果：写入 score_status=MANUAL 后，迟到的 AI 结果不会覆盖；已入账积分只追加差额流水，
+   * 不删除历史流水。重复评分按最新分数调整差额。
+   */
+  public Map<String, Object> manualScore(
+      long id, Map<String, Object> request, SessionPrincipal principal, ReportType type) {
+    int score = manualScoreValue(request.get("score"));
+    String reason = manualReason(request.get("reason"));
+    if (!Set.of("score", "reason").containsAll(request.keySet())) throw bad();
+    return tx.execute(
+        status -> {
+          lockMemberRow(id);
+          Map<String, Object> row = locked(id, true);
+          if (ReportType.valueOf((String) row.get("report_type")) != type)
+            throw new ApiException(404, ErrorCode.NOT_FOUND);
+          requireManualScoreScope(principal, row);
+          if (!"SUBMITTED".equals(row.get("status")))
+            throw new ApiException(409, ErrorCode.INVALID_STATE);
+          long memberId = ((Number) row.get("member_id")).longValue();
+          long version = ((Number) row.get("current_version")).longValue();
+          long versionId =
+              jdbc.queryForObject(
+                  "SELECT id FROM report_version WHERE report_id=? AND version=?",
+                  Long.class,
+                  id,
+                  version);
+          int currentPoints =
+              jdbc.queryForObject(
+                  "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=?",
+                  Integer.class,
+                  id);
+          int target = manualTarget(type, score);
+          int delta = target - currentPoints;
+          Instant now = clock.instant();
+          if (delta != 0)
+            points.appendIfAbsent(
+                memberId,
+                id,
+                versionId,
+                delta,
+                "MANUAL_ADJUSTMENT",
+                "MANUAL_SCORE:" + id + ":" + version + ":" + score + ":" + now.toEpochMilli(),
+                now);
+          jdbc.update(
+              "UPDATE report SET score_status='MANUAL',final_score=?,score_reason=?,updated_at=? WHERE id=?",
+              score,
+              reason,
+              Timestamp.from(now),
+              id);
+          // 尚未执行的 AI 任务直接作废，避免迟到结果覆盖人工结论。
+          jdbc.update(
+              "UPDATE report_scoring_task SET status='STALE',finished_at=COALESCE(finished_at,?),updated_at=?"
+                  + " WHERE report_id=? AND status IN ('QUEUED','RETRYING','PROCESSING')",
+              Timestamp.from(now),
+              Timestamp.from(now),
+              id);
+          jdbc.update(
+              "INSERT INTO audit_log(actor_user_id,action,resource_type,resource_id,reason,summary,result,occurred_at)"
+                  + " VALUES(?,?,?,?,?,?,?,?)",
+              principal.userId(),
+              "REPORT_MANUAL_SCORE",
+              "REPORT",
+              id,
+              reason,
+              "人工评分 " + score + " 分",
+              "SUCCESS",
+              Timestamp.from(now));
+          return response(id);
+        });
+  }
+
   public Map<String, Object> response(long id) {
     Map<String, Object> row = locked(id, false);
     long version = ((Number) row.get("current_version")).longValue();
@@ -325,6 +401,14 @@ public class ReportServiceImpl implements ReportService {
     Map<String, Object> out = new LinkedHashMap<>();
     out.put("id", String.valueOf(row.get("id")));
     out.put("memberId", String.valueOf(row.get("member_id")));
+    Map<String, Object> member =
+        jdbc.queryForList(
+                "SELECT name,student_no FROM member WHERE id=?", row.get("member_id"))
+            .stream()
+            .findFirst()
+            .orElse(Map.of());
+    out.put("memberName", member.get("name"));
+    out.put("memberStudentNo", member.get("student_no"));
     out.put("directionId", String.valueOf(row.get("direction_id")));
     out.put("status", row.get("status"));
     out.put("version", version);
@@ -386,9 +470,10 @@ public class ReportServiceImpl implements ReportService {
 
   private void insertTask(long reportId, long versionId, Instant now) {
     jdbc.update(
-        "INSERT IGNORE INTO report_scoring_task(report_id,report_version_id,status,attempt,rubric_version,created_at,updated_at) VALUES(?,?, 'QUEUED',0,'v1',?,?)",
+        "INSERT IGNORE INTO report_scoring_task(report_id,report_version_id,status,attempt,rubric_version,created_at,updated_at) VALUES(?,?, 'QUEUED',0,?,?,?)",
         reportId,
         versionId,
+        ScoringRubric.VERSION,
         Timestamp.from(now),
         Timestamp.from(now));
   }
@@ -400,6 +485,43 @@ public class ReportServiceImpl implements ReportService {
         "SELECT COUNT(*) FROM member WHERE id=? AND membership_status='ACTIVE' FOR UPDATE",
         Integer.class, memberId);
     if (active == null || active != 1) throw new ApiException(409, ErrorCode.INVALID_STATE);
+  }
+
+  /** 与评分任务保持「先锁成员、再锁报告」的顺序，避免并发死锁；人工评分不要求成员仍在册。 */
+  private void lockMemberRow(long reportId) {
+    List<Long> rows = jdbc.queryForList("SELECT member_id FROM report WHERE id=?", Long.class, reportId);
+    if (rows.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
+    jdbc.queryForObject("SELECT id FROM member WHERE id=? FOR UPDATE", Long.class, rows.getFirst());
+  }
+
+  private void requireManualScoreScope(SessionPrincipal principal, Map<String, Object> row) {
+    if ("COLLEGE_ADMIN".equals(principal.role())) return;
+    long memberId = ((Number) row.get("member_id")).longValue();
+    long directionId = ((Number) row.get("direction_id")).longValue();
+    if ("DIRECTION_LEADER".equals(principal.role())
+        && (principal.memberId() == null || principal.memberId() != memberId)
+        && principal.managedDirectionIds().contains(directionId)) return;
+    throw new ApiException(403, ErrorCode.FORBIDDEN);
+  }
+
+  private static int manualScoreValue(Object value) {
+    if (!(value instanceof Number number)) throw bad();
+    int score = number.intValue();
+    if (number.doubleValue() != score || score < 1 || score > 3) throw bad();
+    return score;
+  }
+
+  private static String manualReason(Object value) {
+    if (value == null) return null;
+    if (!(value instanceof String text) || text.length() > 1000) throw bad();
+    String trimmed = text.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private int manualTarget(ReportType type, int score) {
+    if (!"BASE_PLUS_AI".equals(pointsPolicy.getPointsMode())) return score;
+    int base = type == ReportType.DAILY ? props.getDailyBasePoints() : props.getWeeklyBasePoints();
+    return base + score;
   }
 
   private Map<String, Object> locked(long id, boolean lock) {

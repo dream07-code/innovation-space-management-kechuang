@@ -19,6 +19,7 @@ public interface ReportService {
   Map<String, Object> list( ReportType type, SessionPrincipal principal, int page, int size, Long memberId, Long directionId, String fromDate, String toDate, String status, String scoreStatus);
   IdempotencyService.StoredResponse submit( long id, long version, SessionPrincipal principal, String key);
   Map<String, Object> update( long id, Map<String, Object> request, SessionPrincipal principal, ReportType type);
+  Map<String, Object> manualScore( long id, Map<String, Object> request, SessionPrincipal principal, ReportType type);
   Map<String, Object> response(long id);
   static ApiException bad() {
     return new ApiException(400, ErrorCode.INVALID_REQUEST);

@@ -133,7 +133,7 @@ java -jar target/innovation-space-backend-0.1.0-SNAPSHOT.jar --app.migration.mod
 
 ```text
 AI_SCORING_ENABLED=false
-AI_PROVIDER=disabled|mock|openai-compatible
+AI_PROVIDER=disabled|mock|heuristic|openai-compatible
 AI_BASE_URL=
 AI_API_KEY=
 AI_MODEL=
@@ -148,6 +148,8 @@ MEMBERSHIP_AUTO_REMOVAL_ENABLED=true
 MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS=3600000
 MEMBERSHIP_REMOVAL_BATCH_SIZE=500
 ```
+
+评分规则见 `ScoringRubric`，当前版本 `v2`：日报/周报分别给出 1–3 分档位，只看内容的具体性、可检验收获与反思，不按篇幅或文风加减分；正文按不可信数据处理。`heuristic` 为本地确定性近似（按档位规则打分，不调用外部服务，适合联调演示），`mock` 固定返回 3 分仅供测试。
 
 默认关闭，未配置 Key 不调用外部服务；`AI_WORKER_SCHEDULING_ENABLED=true
 REPORT_POINTS_POLICY_STATUS=PENDING_CONFIRMATION

@@ -36,7 +36,9 @@ public class ScoringProperties {
 
   public void validate() {
     if (!enabled) return;
-    if (!"mock".equals(provider) && !"openai-compatible".equals(provider))
+    if (!"mock".equals(provider)
+        && !"heuristic".equals(provider)
+        && !"openai-compatible".equals(provider))
       throw new IllegalArgumentException("Unsupported AI provider");
     if (model != null && !model.isBlank() && model.length() > 128)
       throw new IllegalArgumentException("AI model is invalid");
