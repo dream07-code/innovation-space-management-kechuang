@@ -12,13 +12,10 @@
 
 ## 2. 构建镜像
 
-前后端目前使用独立分支，可在各自检出目录分别构建：
+`main` 已包含前后端代码，在仓库根目录直接构建即可（一键脚本会自动完成）：
 
 ```bash
-# backend/refactor/layered-service-impl 检出目录
 docker build -f backend/Dockerfile -t innovation-space-backend:local backend
-
-# frontend/frontend 检出目录
 docker build -f frontend/Dockerfile -t innovation-space-frontend:local frontend
 ```
 
@@ -65,9 +62,10 @@ unset ADMIN_ACCOUNT ADMIN_PASSWORD ADMIN_DISPLAY_NAME
 
 ## 5. 一键部署
 
-在服务器仓库根目录执行：
+在服务器仓库根目录先同步到目标版本，再执行：
 
 ```bash
+git pull --ff-only
 cp deploy/.env.example deploy/.env
 chmod 600 deploy/.env
 # 编辑 deploy/.env，设置数据库密码、成员初始密码和管理员密码
@@ -93,6 +91,8 @@ chmod 600 deploy/.env
 ./deploy/one-click-deploy.sh down    # 停止服务，保留 MySQL 数据卷
 SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 ```
+
+升级已有部署时无需手工迁移：后端启动命令会先执行 Flyway，再启动服务；本次评分规则升级（`rubricVersion=v2`）不涉及表结构变更，历史报告的旧分数不会被重算。AI 评分默认关闭，如需启用：`AI_SCORING_ENABLED=true`，并用 `AI_PROVIDER=heuristic`（离线近似，无需密钥）或 `openai-compatible`（真实模型，需 `AI_BASE_URL`/`AI_API_KEY`/`AI_MODEL`）。
 
 当前默认 `OJ_PROVIDER=mock`。真实 Judge0 需要另行设置 `OJ_BASE_URL`、`OJ_API_TOKEN`，并在目标服务器完成判题验收。
 
