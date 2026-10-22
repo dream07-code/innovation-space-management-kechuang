@@ -4,6 +4,10 @@ set -Eeuo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ENV_FILE=${ENV_FILE:-"$ROOT/deploy/.env"}
 COMPOSE_FILE="$ROOT/deploy/docker-compose.yml"
+COMPOSE_FILES=(-f "$COMPOSE_FILE")
+if [[ -f "$ROOT/deploy/docker-compose.override.yml" ]]; then
+  COMPOSE_FILES+=(-f "$ROOT/deploy/docker-compose.override.yml")
+fi
 MODE=${1:-deploy}
 
 usage() {
@@ -72,7 +76,7 @@ set +a
 [[ "$ADMIN_PASSWORD" != *$'\n'* ]] || die "ADMIN_PASSWORD 不能包含换行"
 
 compose() {
-  "${COMPOSE_BIN[@]}" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  "${COMPOSE_BIN[@]}" --env-file "$ENV_FILE" "${COMPOSE_FILES[@]}" "$@"
 }
 
 if [[ "$MODE" == "check" ]]; then
@@ -113,7 +117,7 @@ if [[ "$INIT_ADMIN" == "true" ]]; then
 fi
 
 index_code=$(curl --max-time 5 -sS -o /tmp/innovation-index.html -w '%{http_code}' "http://127.0.0.1:${HTTP_PORT}/" || true)
-login_code=$(curl --max-time 5 -sS -o /tmp/innovation-login.json -w '%{http_code}' \
+login_code=$(curl --max-time 15 -sS -o /tmp/innovation-login.json -w '%{http_code}' \
   -X POST "http://127.0.0.1:${HTTP_PORT}/api/v1/auth/login" \
   -H 'Content-Type: application/json' --data '{}' || true)
 route_code=$(curl --max-time 5 -sS -o /tmp/innovation-route.html -w '%{http_code}' \

@@ -5,6 +5,12 @@
 *.pem
 *.key
 
+# Judge0 runtime secrets
+deploy/judge0/judge0.conf
+
+# Server-local compose overlay (networks, firewalld bridge names)
+deploy/docker-compose.override.yml
+
 # Local runtime output
 node_modules/
 dist/
