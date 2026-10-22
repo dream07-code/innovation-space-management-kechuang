@@ -36,6 +36,9 @@ docker compose up -d
 # 4. 验证（需要 AUTHN_TOKEN）
 TOKEN=$(grep '^AUTHN_TOKEN=' judge0.conf | cut -d= -f2)
 curl -H "X-Auth-Token: $TOKEN" http://127.0.0.1:2358/about
+
+# 5. 一键自检：API、鉴权、语言支持、真实判题（含非 ASCII 用例）
+./check.sh
 ```
 
 首次启动会执行数据库建表与 seed，约需 1 分钟。
@@ -49,7 +52,11 @@ OJ_PROVIDER=judge0
 OJ_BASE_URL=http://judge0:2358
 OJ_API_TOKEN=<与 judge0.conf 的 AUTHN_TOKEN 一致>
 OJ_RLIMIT_FALLBACK=true
+OJ_REQUEST_TIMEOUT_MS=120000
 ```
+
+`OJ_REQUEST_TIMEOUT_MS` 默认 30s。低配机器在负载高时单次判题可能超过 30s
+（实测曾有 37s），超时会被记为 `INTERNAL_ERROR`，因此建议调到 60000–120000。
 
 `deploy/docker-compose.override.yml`（本地环境文件，未纳入仓库）需要把后端接入 `judge0-link`：
 
