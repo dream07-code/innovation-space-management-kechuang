@@ -102,7 +102,13 @@ SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 ./deploy/judge0/check.sh
 ```
 
-脚本会依次检查 `/about`、默认 cgroup 模式判题和逐进程 rlimit 模式判题，并直接给出该开启哪个配置。
+脚本会依次检查 `/about`、默认 cgroup 模式判题和逐进程 rlimit 模式判题，并直接给出该开启哪个配置；最后还会提交一段 Java 代码，
+验证当前隔离模式是否支持 JVM。
+
+> 注意：cgroup v2 主机只能用 rlimit（`RLIMIT_AS`）模式，JVM 和 Node 启动时需要预留 1GB 以上虚拟地址空间，
+> 因此 **Java、JavaScript 在该模式下必然编译/运行失败**（页面显示“编译错误”或“运行错误”，与代码无关）。
+> 需要这两门语言时，请把 Judge0 迁到 cgroup v1 内核或改在独立的 cgroup v1 机器上部署，详见
+> [deploy/judge0/README.md](judge0/README.md)。
 
 ## 6. 启动与检查
 

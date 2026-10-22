@@ -39,6 +39,11 @@ public class Judge0OjAdapter implements OjAdapter {
   public Judge0OjAdapter(Judge0OjProperties properties) {
     properties.validate();
     this.properties = properties;
+    if (properties.isUseRlimitFallback())
+      log.warn(
+          "OJ rlimit fallback is enabled: isolate uses RLIMIT_AS, so JVM/Node based languages"
+              + " (java, javascript) cannot reserve their virtual address space and will fail."
+              + " Use cgroup v1 or disable those languages; see deploy/judge0/README.md");
     this.client =
         HttpClient.newBuilder()
             .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
@@ -112,6 +117,15 @@ public class Judge0OjAdapter implements OjAdapter {
               submission.language(),
               index + 1,
               statusDescription(root));
+        } else if (current == OjVerdict.COMPILATION_ERROR || current == OjVerdict.RUNTIME_ERROR) {
+          String diagnostic = compilerDiagnostic(root);
+          if (diagnostic != null)
+            log.warn(
+                "Judge0 {} for language {} test #{}: {}",
+                current,
+                submission.language(),
+                index + 1,
+                diagnostic);
         }
         results.add(
             new OjJudgeResult.TestCaseResult(
@@ -214,6 +228,27 @@ public class Judge0OjAdapter implements OjAdapter {
       if (!names.isEmpty()) return "fields=" + String.join(",", names);
     }
     return "unparsed response";
+  }
+
+  /**
+   * 只保留编译器/运行时的错误行，例如 "Main.java:12: error: ..." 或
+   * "Could not reserve enough space for object heap"，不回写源码行。
+   */
+  private static String compilerDiagnostic(JsonNode root) {
+    if (root == null) return null;
+    String raw = root.path("compile_output").asText("");
+    if (raw.isBlank()) raw = root.path("stderr").asText("");
+    if (raw.isBlank()) return null;
+    String text = decodeIfBase64(raw);
+    for (String line : text.split("\n")) {
+      String trimmed = line.trim();
+      if (trimmed.isEmpty()) continue;
+      if (trimmed.contains("error:") || trimmed.contains("Error occurred")
+          || trimmed.contains("Could not reserve") || trimmed.contains("OutOfMemory")
+          || trimmed.contains("Compilation time limit") || trimmed.contains("Killed"))
+        return truncate(trimmed);
+    }
+    return null;
   }
 
   private static String decodeIfBase64(String value) {

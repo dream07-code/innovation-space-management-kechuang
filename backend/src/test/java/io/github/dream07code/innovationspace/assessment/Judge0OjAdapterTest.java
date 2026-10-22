@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,6 +78,29 @@ class Judge0OjAdapterTest {
     assertEquals(1, requestBodies.size());
     assertFalse(String.valueOf(result).contains("secret-marker"));
     assertFalse(String.valueOf(result).contains("Unauthorized"));
+  }
+
+  @Test
+  void surfacesCompilationErrorWhenJvmCannotStart() throws Exception {
+    String diagnostic =
+        Base64.getEncoder()
+            .encodeToString(
+                ("Error occurred during initialization of VM\n"
+                        + "Could not reserve enough space for 262144KB object heap\n")
+                    .getBytes(StandardCharsets.UTF_8));
+    start(
+        new Reply(
+            200,
+            "{\"status\":{\"id\":6,\"description\":\"Compilation Error\"},"
+                + "\"compile_output\":\""
+                + diagnostic
+                + "\"}"));
+
+    var result = adapter(true).judge(new OjSubmission("java", "class Main {}", ONE_CASE));
+
+    assertEquals(OjVerdict.COMPILATION_ERROR, result.verdict());
+    assertEquals(0, result.passedTestCases());
+    assertEquals(1, requestBodies.size());
   }
 
   private Judge0OjAdapter adapter(boolean rlimitFallback) throws IOException {

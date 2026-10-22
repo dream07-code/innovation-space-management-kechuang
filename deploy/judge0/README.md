@@ -105,6 +105,36 @@ networks:
    docker compose logs --tail=100 backend | grep -i judge0
    ```
 
+## Java / JavaScript 在 rlimit 模式下不可用
+
+在 cgroup v2 主机上启用 `OJ_RLIMIT_FALLBACK=true` 后，判题使用 isolate 的 `-m`
+（`RLIMIT_AS`，限制虚拟地址空间）。C/C++/Python 的进程只占几十 MB 虚拟内存，可以正常运行；
+**JVM 和 Node 启动时会预留 1GB 以上虚拟地址空间**（压缩类空间、堆、代码缓存），于是：
+
+- Java 编译阶段（`javac`）直接失败，Judge0 返回状态 6，页面显示“编译错误”，
+  实际报错是 `Error occurred during initialization of VM / Could not reserve enough space for object heap`；
+- Java 运行阶段同样会在 128MB 限制下崩溃；
+- Node 在同样限制下也会异常退出。
+
+这不是代码问题，也不是判题服务挂了，而是 rlimit 隔离模式与运行时语言的冲突。可选处理：
+
+1. **推荐**：让 Judge0 跑在 cgroup v1 内核上，恢复 cgroups 限制：
+
+   ```bash
+   sudo sed -i 's/^GRUB_CMDLINE_LINUX=.*/& systemd.unified_cgroup_hierarchy=0/' /etc/default/grub
+   sudo update-grub && sudo reboot
+   mount | grep cgroup   # 应看到多个 cgroup v1 挂载点
+   ```
+
+   然后 `deploy/.env` 改 `OJ_RLIMIT_FALLBACK=false`，重建后端并重跑 `./deploy/judge0/check.sh`。
+   这条路同时恢复 Java、JavaScript 的真实内存限制。
+
+2. 把 Judge0 单独部署到 cgroup v1 的机器/虚拟机上，业务后端通过 `judge0-link` 访问。
+
+3. 暂时从考核的允许语言中去掉 Java 与 JavaScript，只保留 C++、Python（必要时 Rust）。
+
+`check.sh` 会自动提交一段 Java 代码验证该问题，并打印对应结论。
+
 ## 本机注意事项
 
 - **cgroup v2**：本机没有 cgroup v1 的 `/sys/fs/cgroup/memory`，因此应用侧必须设置
