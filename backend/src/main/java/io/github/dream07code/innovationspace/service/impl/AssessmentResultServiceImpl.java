@@ -67,8 +67,11 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     evaluations.refreshResult(submissionId);
     var rows =
         jdbc.queryForList(
-            "SELECT r.*,s.assessment_id,s.problem_id,s.member_id FROM assessment_result r"
-                + " JOIN assessment_submission s ON s.id=r.submission_id WHERE r.submission_id=?",
+            "SELECT r.*,s.assessment_id,s.problem_id,s.member_id,m.name AS member_name,m.student_no AS member_student_no"
+                + " FROM assessment_result r"
+                + " JOIN assessment_submission s ON s.id=r.submission_id"
+                + " LEFT JOIN member m ON m.id=s.member_id"
+                + " WHERE r.submission_id=?",
             submissionId);
     if (rows.isEmpty()) throw notFound();
     var row = rows.getFirst();
@@ -77,6 +80,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     out.put("submissionId", String.valueOf(row.get("submission_id")));
     out.put("problemId", String.valueOf(row.get("problem_id")));
     out.put("memberId", String.valueOf(row.get("member_id")));
+    out.put("memberName", row.get("member_name"));
+    out.put("memberStudentNo", row.get("member_student_no"));
     out.put("technicalVerdict", row.get("technical_verdict"));
     out.put("passedTestCases", row.get("passed_test_cases"));
     out.put("totalTestCases", row.get("total_test_cases"));

@@ -86,7 +86,14 @@ onMounted(load)
     </el-form>
 
     <el-table :data="items" row-key="submissionId">
-      <el-table-column prop="memberId" label="成员" width="90" />
+      <el-table-column label="成员" min-width="150">
+        <template #default="{ row }">
+          <div class="member-cell">
+            <span class="member-cell__name">{{ row.memberName || row.memberId }}</span>
+            <span v-if="row.memberStudentNo" class="member-cell__meta">{{ row.memberStudentNo }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="题目" min-width="180">
         <template #default="{ row }">{{ problemNames.get(row.problemId) ?? row.problemId }}</template>
       </el-table-column>
@@ -146,5 +153,21 @@ onMounted(load)
 
 .page__filter {
   margin-bottom: 16px;
+}
+
+.member-cell {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+
+.member-cell__name {
+  color: var(--app-ink);
+  font-weight: 500;
+}
+
+.member-cell__meta {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>

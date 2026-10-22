@@ -94,6 +94,8 @@ class AssessmentSubmissionHttpIT {
     ContractAssertions.response("POST", "/api/v1/assessments/" + assessmentId + "/submissions", created);
     String id = HttpTestSupport.json(created).at("/data/id").asText();
     assertEquals("10", HttpTestSupport.json(created).at("/data/memberId").asText());
+    assertEquals("成员10", HttpTestSupport.json(created).at("/data/memberName").asText());
+    assertEquals("MOCK10", HttpTestSupport.json(created).at("/data/memberStudentNo").asText());
     assertFalse(created.body().contains("private solution marker"));
     assertFalse(created.body().contains("codeLocator"));
     assertFalse(created.body().contains("codeText"));

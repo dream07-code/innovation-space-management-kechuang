@@ -95,6 +95,9 @@ class AssessmentResultHttpIT {
     ContractAssertions.response("GET", "/api/v1/assessments/" + assessmentId + "/results", studentResults);
     var studentData = HttpTestSupport.json(studentResults).at("/data");
     assertEquals(1, studentData.at("/total").asInt());
+    assertEquals("10", studentData.at("/items/0/memberId").asText());
+    assertEquals("成员10", studentData.at("/items/0/memberName").asText());
+    assertEquals("MOCK10", studentData.at("/items/0/memberStudentNo").asText());
     assertEquals("ACCEPTED", studentData.at("/items/0/technicalVerdict").asText());
     assertEquals("PENDING", studentData.at("/items/0/scoreSource").asText());
     assertEquals("PENDING", studentData.at("/items/0/resultStatus").asText());

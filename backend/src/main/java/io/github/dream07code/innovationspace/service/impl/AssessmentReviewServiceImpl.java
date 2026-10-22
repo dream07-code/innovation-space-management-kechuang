@@ -136,7 +136,11 @@ public class AssessmentReviewServiceImpl implements AssessmentReviewService {
   private Map<String, Object> response(long submissionId, long version) {
     var rows =
         jdbc.queryForList(
-            "SELECT * FROM assessment_review WHERE submission_id=? AND version=?",
+            "SELECT r.*,m.name AS member_name,m.student_no AS member_student_no,"
+                + "u.display_name AS reviewer_name FROM assessment_review r"
+                + " LEFT JOIN member m ON m.id=r.member_id"
+                + " LEFT JOIN app_user u ON u.id=r.reviewer_id"
+                + " WHERE r.submission_id=? AND r.version=?",
             submissionId,
             version);
     if (rows.isEmpty()) throw notFound();
@@ -145,7 +149,10 @@ public class AssessmentReviewServiceImpl implements AssessmentReviewService {
     out.put("id", String.valueOf(row.get("id")));
     out.put("submissionId", String.valueOf(row.get("submission_id")));
     out.put("memberId", String.valueOf(row.get("member_id")));
+    out.put("memberName", row.get("member_name"));
+    out.put("memberStudentNo", row.get("member_student_no"));
     out.put("reviewerId", String.valueOf(row.get("reviewer_id")));
+    out.put("reviewerName", row.get("reviewer_name"));
     out.put("score", row.get("score"));
     out.put("comment", row.get("comment"));
     out.put("status", row.get("status"));

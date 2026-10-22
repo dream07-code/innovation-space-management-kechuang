@@ -20,6 +20,7 @@ import {
 import { describeError, toApiError } from '@/api/errors'
 import {
   aiStatusMeta,
+  memberNameLabel,
   languageLabel,
   reviewStatusMeta,
   scoreLabel,
@@ -109,7 +110,7 @@ onMounted(load)
       <el-descriptions :column="2" border>
         <el-descriptions-item label="考核">{{ assessment?.title ?? submission.assessmentId }}</el-descriptions-item>
         <el-descriptions-item label="题目">{{ problem?.title ?? submission.problemId }}</el-descriptions-item>
-        <el-descriptions-item label="成员">{{ submission.memberId }}</el-descriptions-item>
+        <el-descriptions-item label="成员">{{ memberNameLabel(submission) }}</el-descriptions-item>
         <el-descriptions-item label="语言">{{ languageLabel(submission.language) }}</el-descriptions-item>
         <el-descriptions-item label="提交状态">
           <el-tag :type="submissionStatusMeta(submission.status).type" effect="plain">
@@ -206,7 +207,9 @@ onMounted(load)
         <el-divider content-position="left">批阅历史</el-divider>
         <el-table :data="reviews" row-key="id">
           <el-table-column prop="createdAt" label="时间" width="180" />
-          <el-table-column prop="reviewerId" label="批阅人" width="100" />
+          <el-table-column label="批阅人" width="140">
+            <template #default="{ row }">{{ row.reviewerName || row.reviewerId }}</template>
+          </el-table-column>
           <el-table-column prop="score" label="分数" width="80" />
           <el-table-column prop="comment" label="意见" min-width="240" show-overflow-tooltip />
           <el-table-column label="状态" width="110">

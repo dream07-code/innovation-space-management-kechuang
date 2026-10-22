@@ -22,6 +22,7 @@ import type {
   UpdateAssessmentProblemRequest,
   UpdateAssessmentRequest,
 } from '@/api/types'
+import { MEMBERS, findMember } from './data'
 import { DIRECTIONS, registerResetHook } from './state'
 
 function pad(n: number): string {
@@ -166,12 +167,19 @@ const INITIAL_PROBLEMS: AssessmentProblem[] = [
   },
 ]
 
+/** 模拟后端 JOIN member 的结果：提交/结果 DTO 同时带上姓名与学号。 */
+function memberFields(memberId: string): Pick<AssessmentSubmission, 'memberName' | 'memberStudentNo'> {
+  const member = findMember(memberId)
+  return { memberName: member?.name ?? null, memberStudentNo: member?.studentNo ?? null }
+}
+
 const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
   {
     id: '9201',
     assessmentId: '9001',
     problemId: '9101',
     memberId: '201',
+    ...memberFields('201'),
     language: 'python',
     status: 'JUDGED',
     judgeResult: {
@@ -193,6 +201,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
     assessmentId: '9001',
     problemId: '9102',
     memberId: '201',
+    ...memberFields('201'),
     language: 'java',
     status: 'JUDGED',
     judgeResult: {
@@ -214,6 +223,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
     assessmentId: '9001',
     problemId: '9101',
     memberId: '206',
+    ...memberFields('206'),
     language: 'cpp',
     status: 'JUDGED',
     judgeResult: {
@@ -235,6 +245,7 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
     assessmentId: '9003',
     problemId: '9102',
     memberId: '206',
+    ...memberFields('206'),
     language: 'python',
     status: 'NEEDS_REVIEW',
     judgeResult: {
@@ -301,7 +312,10 @@ const INITIAL_REVIEWS: AssessmentReview[] = [
     id: '9401',
     submissionId: '9201',
     memberId: '201',
+    memberName: '示例同学',
+    memberStudentNo: 'MOCK20260001',
     reviewerId: '102',
+    reviewerName: '示例负责人',
     score: 90,
     comment: '人工复核通过，结果以本评分为准。',
     status: 'ACTIVE',
@@ -387,6 +401,7 @@ export function buildResult(submission: AssessmentSubmission): AssessmentResult 
     submissionId: submission.id,
     problemId: submission.problemId,
     memberId: submission.memberId,
+    ...memberFields(submission.memberId),
     technicalVerdict: judge?.verdict ?? 'INTERNAL_ERROR',
     passedTestCases: judge?.passedTestCases ?? 0,
     totalTestCases: judge?.totalTestCases ?? 0,
@@ -416,6 +431,7 @@ export async function createSubmission(
     assessmentId: assessment.id,
     problemId: payload.problemId,
     memberId,
+    ...memberFields(memberId),
     language: payload.language,
     status: 'JUDGED',
     judgeResult: {
@@ -519,7 +535,9 @@ export function createReview(
     id: String(9400 + OJ_REVIEWS.length + 1),
     submissionId: submission.id,
     memberId: submission.memberId,
+    ...memberFields(submission.memberId),
     reviewerId,
+    reviewerName: MEMBERS.find((member) => member.userId === reviewerId)?.name ?? null,
     score: payload.score,
     comment: payload.comment,
     status: 'ACTIVE',

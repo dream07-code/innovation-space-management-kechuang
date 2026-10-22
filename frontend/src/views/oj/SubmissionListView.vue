@@ -100,7 +100,14 @@ onMounted(load)
 
     <el-table v-loading="loading" :data="items" row-key="id">
       <el-table-column prop="submittedAt" label="提交时间" width="180" />
-      <el-table-column prop="memberId" label="成员" width="90" />
+      <el-table-column label="成员" min-width="140">
+        <template #default="{ row }">
+          <div class="member-cell">
+            <span class="member-cell__name">{{ row.memberName || row.memberId }}</span>
+            <span v-if="row.memberStudentNo" class="member-cell__meta">{{ row.memberStudentNo }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="考核/题目" min-width="250">
         <template #default="{ row }">
           {{ assessmentNames.get(row.assessmentId) ?? row.assessmentId }} /
@@ -143,5 +150,21 @@ onMounted(load)
 <style scoped>
 .page__filter {
   margin-bottom: 16px;
+}
+
+.member-cell {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+
+.member-cell__name {
+  color: var(--app-ink);
+  font-weight: 500;
+}
+
+.member-cell__meta {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>

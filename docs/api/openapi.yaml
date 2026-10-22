@@ -4905,6 +4905,8 @@ components:
       - assessmentId
       - problemId
       - memberId
+      - memberName
+      - memberStudentNo
       - language
       - status
       - version
@@ -4930,6 +4932,18 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+        memberName:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+          example: 张三
+        memberStudentNo:
+          type: string
+          nullable: true
+          maxLength: 64
+          description: 成员学号，用于区分同名成员；成员档案缺失时为 null。
+          example: '2024001'
         language:
           type: string
           enum: [java, python, cpp, javascript, go, rust]
@@ -5003,7 +5017,10 @@ components:
       - id
       - submissionId
       - memberId
+      - memberName
+      - memberStudentNo
       - reviewerId
+      - reviewerName
       - score
       - comment
       - status
@@ -5026,11 +5043,29 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+        memberName:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+          example: 张三
+        memberStudentNo:
+          type: string
+          nullable: true
+          maxLength: 64
+          description: 成员学号，用于区分同名成员；成员档案缺失时为 null。
+          example: '2024001'
         reviewerId:
           type: string
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+        reviewerName:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: 批阅人显示名；账号档案缺失时为 null，前端回退展示 reviewerId。
+          example: 李老师
         score:
           type: integer
           minimum: 0
@@ -5059,6 +5094,8 @@ components:
       - submissionId
       - problemId
       - memberId
+      - memberName
+      - memberStudentNo
       - technicalVerdict
       - passedTestCases
       - totalTestCases
@@ -5091,6 +5128,18 @@ components:
           description: 十进制字符串 ID，不转换为 JavaScript Number。
           pattern: ^[1-9][0-9]{0,18}$
           example: '201'
+        memberName:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+          example: 张三
+        memberStudentNo:
+          type: string
+          nullable: true
+          maxLength: 64
+          description: 成员学号，用于区分同名成员；成员档案缺失时为 null。
+          example: '2024001'
         technicalVerdict:
           type: string
           enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]

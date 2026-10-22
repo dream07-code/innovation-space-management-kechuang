@@ -2085,6 +2085,16 @@ export interface components {
              * @example 201
              */
             memberId: string;
+            /**
+             * @description 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+             * @example 张三
+             */
+            memberName: string | null;
+            /**
+             * @description 成员学号，用于区分同名成员；成员档案缺失时为 null。
+             * @example 2024001
+             */
+            memberStudentNo: string | null;
             /** @enum {string} */
             language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
             /** @enum {string} */
@@ -2134,10 +2144,25 @@ export interface components {
              */
             memberId: string;
             /**
+             * @description 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+             * @example 张三
+             */
+            memberName: string | null;
+            /**
+             * @description 成员学号，用于区分同名成员；成员档案缺失时为 null。
+             * @example 2024001
+             */
+            memberStudentNo: string | null;
+            /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
              * @example 201
              */
             reviewerId: string;
+            /**
+             * @description 批阅人显示名；账号档案缺失时为 null，前端回退展示 reviewerId。
+             * @example 李老师
+             */
+            reviewerName: string | null;
             score: number;
             comment: string;
             /** @enum {string} */
@@ -2169,6 +2194,16 @@ export interface components {
              * @example 201
              */
             memberId: string;
+            /**
+             * @description 成员姓名；成员档案缺失时为 null，前端回退展示 memberId。
+             * @example 张三
+             */
+            memberName: string | null;
+            /**
+             * @description 成员学号，用于区分同名成员；成员档案缺失时为 null。
+             * @example 2024001
+             */
+            memberStudentNo: string | null;
             /** @enum {string} */
             technicalVerdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
             passedTestCases: number;

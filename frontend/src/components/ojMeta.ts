@@ -133,3 +133,15 @@ export function difficultyMetaLabel(
 export function scoreLabel(score: number | null): string {
   return score === null ? '待评分' : `${score} 分`
 }
+
+/** 考核结果/提交记录中的成员展示：优先姓名，缺失姓名时回退内部 ID。 */
+export function memberNameLabel(member: {
+  memberId: string
+  memberName?: string | null
+  memberStudentNo?: string | null
+}): string {
+  const name = member.memberName?.trim()
+  if (!name) return member.memberId
+  const studentNo = member.memberStudentNo?.trim()
+  return studentNo ? `${name}（${studentNo}）` : name
+}

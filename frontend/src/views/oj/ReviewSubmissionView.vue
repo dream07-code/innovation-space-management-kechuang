@@ -19,6 +19,7 @@ import {
 import { describeError, toApiError } from '@/api/errors'
 import {
   aiStatusMeta,
+  memberNameLabel,
   scoreLabel,
   submissionStatusMeta,
   verdictMeta,
@@ -124,7 +125,7 @@ onMounted(load)
     <template v-if="submission">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="题目">{{ problem?.title ?? submission.problemId }}</el-descriptions-item>
-        <el-descriptions-item label="成员">{{ submission.memberId }}</el-descriptions-item>
+        <el-descriptions-item label="成员">{{ memberNameLabel(submission) }}</el-descriptions-item>
         <el-descriptions-item label="提交状态">
           <el-tag :type="submissionStatusMeta(submission.status).type" effect="plain">
             {{ submissionStatusMeta(submission.status).label }}

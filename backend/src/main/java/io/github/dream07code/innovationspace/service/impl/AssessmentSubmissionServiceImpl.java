@@ -204,8 +204,10 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
   private Map<String, Object> response(long id) {
     var rows =
         jdbc.queryForList(
-            "SELECT s.*,r.verdict,r.passed_test_cases,r.total_test_cases,r.time_ms,r.memory_kb,r.safe_error,r.created_at AS judged_at"
-                + " FROM assessment_submission s LEFT JOIN oj_judge_result r ON r.submission_id=s.id WHERE s.id=?",
+            "SELECT s.*,r.verdict,r.passed_test_cases,r.total_test_cases,r.time_ms,r.memory_kb,r.safe_error,r.created_at AS judged_at,"
+                + "m.name AS member_name,m.student_no AS member_student_no"
+                + " FROM assessment_submission s LEFT JOIN oj_judge_result r ON r.submission_id=s.id"
+                + " LEFT JOIN member m ON m.id=s.member_id WHERE s.id=?",
             id);
     if (rows.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
     var row = rows.getFirst();
@@ -214,6 +216,8 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     out.put("assessmentId", String.valueOf(row.get("assessment_id")));
     out.put("problemId", String.valueOf(row.get("problem_id")));
     out.put("memberId", String.valueOf(row.get("member_id")));
+    out.put("memberName", row.get("member_name"));
+    out.put("memberStudentNo", row.get("member_student_no"));
     out.put("language", row.get("language"));
     out.put("status", row.get("status"));
     out.put("codeHash", hex((byte[]) row.get("code_hash")));

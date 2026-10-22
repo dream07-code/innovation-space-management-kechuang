@@ -107,6 +107,9 @@ class AssessmentReviewHttpIT {
     ContractAssertions.response("POST", "/api/v1/assessment-submissions/" + submissionId + "/reviews", created);
     String reviewId = HttpTestSupport.json(created).at("/data/id").asText();
     assertEquals("ACTIVE", HttpTestSupport.json(created).at("/data/status").asText());
+    assertEquals("成员10", HttpTestSupport.json(created).at("/data/memberName").asText());
+    assertEquals("MOCK10", HttpTestSupport.json(created).at("/data/memberStudentNo").asText());
+    assertEquals("成员11", HttpTestSupport.json(created).at("/data/reviewerName").asText());
     assertFalse(created.body().contains("private review code marker"));
 
     var replay = send(leaderToken, "POST", "/api/v1/assessment-submissions/" + submissionId + "/reviews", body, key);
