@@ -1,0 +1,73 @@
+name: judge0
+
+services:
+  db:
+    image: postgres:16.2
+    env_file: judge0.conf
+    volumes:
+      - judge0-db-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0 -d judge0"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2.4
+    command:
+      - bash
+      - -c
+      - 'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
+    env_file: judge0.conf
+    networks:
+      - internal
+    restart: unless-stopped
+
+  server:
+    image: judge0/judge0:1.13.1
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    ports:
+      - "127.0.0.1:2358:2358"
+    networks:
+      internal:
+      link:
+        aliases:
+          - judge0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  workers:
+    image: judge0/judge0:1.13.1
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    networks:
+      - internal
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_started
+    restart: unless-stopped
+
+networks:
+  internal:
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.name: judge0int0
+  link:
+    external: true
+    name: judge0-link
+
+volumes:
+  judge0-db-data:
