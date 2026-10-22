@@ -15,15 +15,26 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 public class Judge0OjAdapter implements OjAdapter {
+  private static final Logger log = LoggerFactory.getLogger(Judge0OjAdapter.class);
   private static final Map<String, Integer> LANGUAGE_IDS =
       Map.of("java", 62, "python", 71, "cpp", 54, "javascript", 63, "go", 60, "rust", 73);
+  /** Judge0 在 cgroup v1 缺失或 isolate 无法建立 /box 时返回的内部错误状态码。 */
+  private static final int JUDGE0_INTERNAL_ERROR_STATUS = 13;
+
   private final Judge0OjProperties properties;
   private final HttpClient client;
   private final JsonMapper json = JsonMapper.builder().build();
+  /**
+   * 已验证可用的 rlimit 模式；null 表示尚未确认，按配置值尝试。
+   * 只在请求成功（且不是 Judge0 内部错误）后记录，避免两种模式来回抖动。
+   */
+  private volatile Boolean workingRlimitMode;
 
   public Judge0OjAdapter(Judge0OjProperties properties) {
     properties.validate();
@@ -45,15 +56,63 @@ public class Judge0OjAdapter implements OjAdapter {
     OjVerdict verdict = OjVerdict.ACCEPTED;
     String safeError = null;
     var results = new ArrayList<OjJudgeResult.TestCaseResult>();
+    // 逐进程 rlimit 兼容开关：部署在 cgroup v2 主机时必须在首次请求就打开，
+    // 否则 isolate 无法创建控制组，整批判题都会变成内部错误。
+    boolean useRlimit =
+        workingRlimitMode != null ? workingRlimitMode : properties.isUseRlimitFallback();
     try {
       for (int index = 0; index < submission.testCases().size(); index++) {
         var testCase = submission.testCases().get(index);
-        var root = submit(submission, languageId, testCase);
-        var status = root.path("status");
-        int statusId = status.path("id").asInt(-1);
-        var current = verdict(statusId);
+        var attempt = submit(submission, languageId, testCase, useRlimit);
+
+        if (attempt.httpStatus() == 422 && useRlimit) {
+          // judge0.conf 未允许 enable_per_process_and_thread_* 时会拒绝请求，
+          // 退回默认隔离模式重试一次，并提示运维补齐配置。
+          log.warn(
+              "Judge0 rejected per-process rlimit fields (http 422), retrying without them;"
+                  + " set ALLOW_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT and"
+                  + " ALLOW_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT in judge0.conf if the host uses cgroup v2");
+          useRlimit = false;
+          attempt = submit(submission, languageId, testCase, false);
+        } else if (statusId(attempt.body()) == JUDGE0_INTERNAL_ERROR_STATUS && !useRlimit) {
+          // 典型原因是 cgroup v2 主机上 isolate 无法创建 /box；改用 rlimit 重试。
+          log.warn(
+              "Judge0 returned internal error (status 13) for language {}; retrying with per-process"
+                  + " rlimit. On cgroup v2 hosts also set OJ_RLIMIT_FALLBACK=true",
+              submission.language());
+          useRlimit = true;
+          attempt = submit(submission, languageId, testCase, true);
+        }
+
+        int resolvedStatus = statusId(attempt.body());
+        if (attempt.httpStatus() / 100 == 2 && resolvedStatus >= 0 && resolvedStatus != JUDGE0_INTERNAL_ERROR_STATUS)
+          workingRlimitMode = useRlimit;
+
+        if (attempt.httpStatus() / 100 != 2) {
+          log.warn(
+              "Judge0 request failed: httpStatus={} detail={}",
+              attempt.httpStatus(),
+              safeDetail(attempt.body()));
+          return internal(submission.testCases());
+        }
+        var root = attempt.body();
+        if (statusId(root) < 0) {
+          log.warn(
+              "Judge0 response without status field: httpStatus={} detail={}",
+              attempt.httpStatus(),
+              safeDetail(root));
+          return internal(submission.testCases());
+        }
+        var current = verdict(statusId(root));
         int timeMs = millis(root.path("time").asText("0"));
         int memoryKb = root.path("memory").asInt(0);
+        if (current == OjVerdict.INTERNAL_ERROR) {
+          log.warn(
+              "Judge0 reported internal error for language {} test #{}: description={}",
+              submission.language(),
+              index + 1,
+              statusDescription(root));
+        }
         results.add(
             new OjJudgeResult.TestCaseResult(
                 index + 1, current, timeMs, memoryKb, safeOrNull(current)));
@@ -69,6 +128,10 @@ public class Judge0OjAdapter implements OjAdapter {
         maxMemoryKb = Math.max(maxMemoryKb, memoryKb);
       }
     } catch (Exception error) {
+      log.warn(
+          "Judge0 request failed for language {}: {}",
+          submission.language(),
+          error.getClass().getSimpleName());
       return internal(submission.testCases());
     }
     return new OjJudgeResult(
@@ -81,8 +144,9 @@ public class Judge0OjAdapter implements OjAdapter {
         results);
   }
 
-  private JsonNode submit(
-      OjSubmission submission, int languageId, OjSubmission.TestCase testCase) throws Exception {
+  private Attempt submit(
+      OjSubmission submission, int languageId, OjSubmission.TestCase testCase, boolean useRlimit)
+      throws Exception {
     var payload = new LinkedHashMap<String, Object>();
     // Always use base64 mode: with base64_encoded=false Judge0 fails to render
     // responses whose source/stdout/expected output contains non-ASCII text and
@@ -93,7 +157,7 @@ public class Judge0OjAdapter implements OjAdapter {
     payload.put("expected_output", encode(testCase.expectedOutput()));
     payload.put("cpu_time_limit", properties.getCpuTimeLimitSeconds());
     payload.put("memory_limit", properties.getMemoryLimitKb());
-    if (properties.isUseRlimitFallback()) {
+    if (useRlimit) {
       payload.put("enable_per_process_and_thread_time_limit", true);
       payload.put("enable_per_process_and_thread_memory_limit", true);
     }
@@ -112,12 +176,56 @@ public class Judge0OjAdapter implements OjAdapter {
             request.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build(),
             HttpResponse.BodyHandlers.ofByteArray());
     byte[] bytes = response.body();
-    if (response.statusCode() / 100 != 2 || bytes.length > properties.getMaxResponseBytes())
-      throw new IllegalStateException("Judge0 response unavailable");
-    var root = json.readTree(new String(bytes, StandardCharsets.UTF_8));
-    if (!root.path("status").path("id").isInt())
-      throw new IllegalStateException("Judge0 status unavailable");
-    return root;
+    if (bytes != null && bytes.length > properties.getMaxResponseBytes())
+      throw new IllegalStateException("Judge0 response too large");
+    JsonNode root = null;
+    if (bytes != null && bytes.length > 0) {
+      try {
+        root = json.readTree(new String(bytes, StandardCharsets.UTF_8));
+      } catch (RuntimeException error) {
+        root = null;
+      }
+    }
+    return new Attempt(response.statusCode(), root);
+  }
+
+  private static int statusId(JsonNode root) {
+    if (root == null) return -1;
+    var status = root.path("status");
+    return status.path("id").isInt() ? status.path("id").asInt() : -1;
+  }
+
+  private static String statusDescription(JsonNode root) {
+    if (root == null) return "unavailable";
+    String raw = root.path("status").path("description").asText("");
+    return raw.isBlank() ? "unavailable" : decodeIfBase64(raw);
+  }
+
+  /**
+   * 只提取错误字段名或 error 文本，避免把源码、stdin、期望输出写进日志。
+   */
+  private static String safeDetail(JsonNode root) {
+    if (root == null || root.isNull()) return "empty body";
+    var error = root.path("error");
+    if (error.isTextual()) return truncate(error.asText());
+    if (root.isObject()) {
+      var names = new ArrayList<String>();
+      for (var field : root.properties()) names.add(field.getKey());
+      if (!names.isEmpty()) return "fields=" + String.join(",", names);
+    }
+    return "unparsed response";
+  }
+
+  private static String decodeIfBase64(String value) {
+    try {
+      return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+    } catch (IllegalArgumentException error) {
+      return value;
+    }
+  }
+
+  private static String truncate(String value) {
+    return value.length() <= 200 ? value : value.substring(0, 200);
   }
 
   private static String encode(String value) {
@@ -180,4 +288,6 @@ public class Judge0OjAdapter implements OjAdapter {
         "synthetic judge0 response unavailable",
         results);
   }
+
+  private record Attempt(int httpStatus, JsonNode body) {}
 }

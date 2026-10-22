@@ -6,6 +6,8 @@ import io.github.dream07code.innovationspace.assessment.OjVerdict;
 import io.github.dream07code.innovationspace.assessment.adapter.OjAdapter;
 import io.github.dream07code.innovationspace.service.AssessmentEvaluationService;
 import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -23,6 +25,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class AssessmentJudgeWorker {
+  private static final Logger log = LoggerFactory.getLogger(AssessmentJudgeWorker.class);
+
   private final JdbcTemplate jdbc;
   private final OjAdapter adapter;
   private final Clock clock;
@@ -86,8 +90,17 @@ public class AssessmentJudgeWorker {
               : new String((byte[]) codeValue, StandardCharsets.UTF_8);
       result = adapter.judge(new OjSubmission((String) languageValue, code, testCases));
     } catch (RuntimeException error) {
+      log.warn(
+          "Submission {} judge request failed: {}",
+          submissionId,
+          error.getClass().getSimpleName());
       result = internalResult(testCases);
     }
+    if (result.verdict() == OjVerdict.INTERNAL_ERROR)
+      log.warn(
+          "Submission {} judged INTERNAL_ERROR across {} test cases; check OJ provider logs",
+          submissionId,
+          result.totalTestCases());
     persist(submissionId, result);
     evaluations.evaluateAfterJudge(submissionId);
   }

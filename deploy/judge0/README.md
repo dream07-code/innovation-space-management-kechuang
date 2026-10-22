@@ -66,6 +66,38 @@ networks:
     name: judge0-link
 ```
 
+## 排障：提交后显示“内部错误”
+
+页面出现 `内部错误`、通过用例 `0/N`、资源 `0 ms / 0 MB`，说明 Judge0 没有真正执行代码，按顺序排查：
+
+1. 先运行自检脚本，它会直接给出结论：
+
+   ```bash
+   ./deploy/judge0/check.sh
+   ```
+
+2. `/about` 不通：容器未启动，或业务后端没接入 `judge0-link`。可用
+   `docker network inspect judge0-link` 确认后端容器在列表中；缺失时按上文“应用侧配置”补
+   `docker-compose.override.yml` 并重建后端。
+3. HTTP 401：`judge0.conf` 的 `AUTHN_TOKEN` 与 `deploy/.env` 的 `OJ_API_TOKEN` 不一致。
+   修改后必须 `docker compose up -d backend` 让容器读到新值。
+4. HTTP 422 且错误里出现 `enable_per_process_and_thread_time_limit`：judge0 未允许逐进程
+   rlimit 字段，在 `judge0.conf` 增加并重启 judge0：
+
+   ```dotenv
+   ALLOW_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=true
+   ALLOW_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=true
+   ```
+
+5. 判题状态 13，或 judge0 日志出现 `Failed to create control group` / `/box`：cgroup v2 主机上
+   isolate 无法创建控制组。在 `deploy/.env` 设置 `OJ_RLIMIT_FALLBACK=true` 并重建后端；
+   后端适配器也会在首次遇到状态 13 时自动改用 rlimit 重试。
+6. 查看后端日志确认原因（只包含状态码和字段名，不含源码）：
+
+   ```bash
+   docker compose logs --tail=100 backend | grep -i judge0
+   ```
+
 ## 本机注意事项
 
 - **cgroup v2**：本机没有 cgroup v1 的 `/sys/fs/cgroup/memory`，因此应用侧必须设置
