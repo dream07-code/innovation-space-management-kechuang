@@ -72,7 +72,7 @@ for mode in false true; do
     echo "   排查: judge0.conf 的 AUTHN_TOKEN 与 deploy/.env 的 OJ_API_TOKEN 必须完全一致，修改后需重建后端容器"
     exit 2
   fi
-  if [[ "$http_code" != "200" ]]; then
+  if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
     echo "   ✗ 请求失败 HTTP $http_code: $(printf '%s' "$body" | head -c 200)"
     exit 2
   fi
@@ -86,6 +86,9 @@ for mode in false true; do
   echo "   ✗ 判题未通过，status=${status:-未知}"
   if [[ "$status" == "13" ]]; then
     echo "     状态 13 表示 Judge0 内部错误，cgroup v2 主机上通常是 isolate 无法创建 /box"
+    if [[ "$mode" == "false" ]]; then
+      echo "     继续尝试逐进程 rlimit 模式"
+    fi
   fi
 done
 
