@@ -13,6 +13,7 @@ deploy/docker-compose.override.yml
 
 # Local runtime output
 node_modules/
+.pnpm-store/
 dist/
 build/
 target/

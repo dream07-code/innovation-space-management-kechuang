@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import ElementPlus from 'element-plus'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -12,6 +13,33 @@ const mocks = vi.hoisted(() => ({
   runPractice: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
   createAssessmentSubmission: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
 }))
+
+// CodeMirror 依赖真实浏览器排版，单元测试用等价 textarea 替身验证业务逻辑。
+vi.mock('@/components/CodeEditor.vue', async () => {
+  const { defineComponent, h } = await import('vue')
+  return {
+    default: defineComponent({
+      name: 'CodeEditorStub',
+      props: {
+        modelValue: { type: String, default: '' },
+        language: { type: String, default: '' },
+      },
+      emits: ['update:modelValue', 'change'],
+      setup(props, { emit }) {
+        return () =>
+          h('textarea', {
+            'data-test': 'code-editor',
+            value: props.modelValue,
+            onInput: (event: Event) => {
+              const value = (event.target as HTMLTextAreaElement).value
+              emit('update:modelValue', value)
+              emit('change', value)
+            },
+          })
+      },
+    }),
+  }
+})
 
 vi.mock('@/api/modules/oj', () => ({
   getAssessmentProblem: mocks.getAssessmentProblem,
@@ -218,5 +246,46 @@ describe('CodeSubmitView 正式考核轮询', () => {
     expect(wrapper.text()).toContain('正式考核判定')
     expect(wrapper.text()).toContain('1 / 1')
     expect(wrapper.text()).toContain('查看提交详情')
+  })
+})
+
+describe('CodeSubmitView 起始代码', () => {
+  it('按语言载入可编译框架，并在切换语言时保留已写代码', async () => {
+    routeParams = { problemId: '9101' }
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '多语言题',
+      summary: '摘要',
+      description: '题面',
+      inputFormat: '输入',
+      outputFormat: '输出',
+      examples: [],
+      difficulty: 'EASY',
+      tags: [],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['cpp', 'python'],
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-14T00:00:00+08:00',
+      updatedAt: '2026-10-14T00:00:00+08:00',
+    })
+    mocks.getPracticeTestCases.mockResolvedValue({ practiceTestCases: [] })
+
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    const editor = wrapper.get('textarea')
+    expect((editor.element as HTMLTextAreaElement).value).toContain('#include <bits/stdc++.h>')
+
+    await editor.setValue('int main() { return 0; }')
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    select.vm.$emit('change', 'python')
+    await nextTick()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toContain('sys.stdin')
+
+    select.vm.$emit('change', 'cpp')
+    await nextTick()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('int main() { return 0; }')
   })
 })

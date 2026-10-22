@@ -7,8 +7,10 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Upload } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { RefreshLeft, Upload } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+import CodeEditor from '@/components/CodeEditor.vue'
 
 import {
   createAssessmentSubmission,
@@ -29,6 +31,7 @@ import type {
   OjPracticeRunResult,
 } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
+import { languageRuntime, starterCode } from './languageTemplates'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,6 +47,8 @@ const practiceResult = ref<OjPracticeRunResult | null>(null)
 const formalSubmission = ref<AssessmentSubmission | null>(null)
 const language = ref<AssessmentLanguage>('python')
 const code = ref('')
+/** 每个语言各自保留编辑中的代码，切换语言不丢失已写内容。 */
+const codeByLanguage = ref<Partial<Record<AssessmentLanguage, string>>>({})
 const loading = ref(false)
 const submitting = ref(false)
 const runningPractice = ref(false)
@@ -64,6 +69,7 @@ const allowedLanguages = computed<AssessmentLanguage[]>(() => {
 })
 
 const lineCount = computed(() => (code.value ? code.value.split('\n').length : 0))
+const runtime = computed(() => languageRuntime(language.value))
 
 function syncViewport(): void {
   isNarrow.value =
@@ -96,6 +102,8 @@ async function load(): Promise<void> {
       practiceTestCases.value = practice.practiceTestCases
     }
     language.value = allowedLanguages.value[0] ?? 'python'
+    code.value = starterCode(language.value)
+    codeByLanguage.value[language.value] = code.value
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -107,6 +115,38 @@ function onCodeChanged(): void {
   idempotencyKey = newIdempotencyKey()
   if (isPractice.value) practiceResult.value = null
   else formalSubmission.value = null
+}
+
+/** 切换语言时缓存当前代码，并载入目标语言上次的代码或起始框架。 */
+function changeLanguage(next: string): void {
+  if (next === language.value) return
+  const target = next as AssessmentLanguage
+  codeByLanguage.value[language.value] = code.value
+  language.value = target
+  code.value = codeByLanguage.value[target] ?? starterCode(target)
+  codeByLanguage.value[target] = code.value
+  onCodeChanged()
+}
+
+function applyStarterCode(): void {
+  code.value = starterCode(language.value)
+  codeByLanguage.value[language.value] = code.value
+  onCodeChanged()
+}
+
+async function resetToTemplate(): Promise<void> {
+  if (code.value.trim() === starterCode(language.value).trim()) return
+  try {
+    await ElMessageBox.confirm(
+      '当前语言的代码会被起始框架替换，替换后无法撤销。',
+      '重置为起始代码',
+      { type: 'warning', confirmButtonText: '重置', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  applyStarterCode()
+  ElMessage.success('已恢复该语言的起始代码框架')
 }
 
 async function run(): Promise<void> {
@@ -167,7 +207,7 @@ async function submit(): Promise<void> {
     )
     formalSubmission.value = submission
     await pollFormalSubmission(submission.id)
-    code.value = ''
+    // 提交后保留编辑器里的代码，方便成员对照结果修改后重新提交。
     idempotencyKey = newIdempotencyKey()
     activePane.value = 'result'
     ElMessage.success('代码已提交，结果已更新')
@@ -253,7 +293,9 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
             <h3>示例</h3>
             <article v-for="(item, index) in problem.examples" :key="index" class="example-card">
               <div class="example-title">示例 {{ index + 1 }}</div>
+              <div class="example-label">输入</div>
               <pre class="code-block">{{ item.input }}</pre>
+              <div class="example-label">输出</div>
               <pre class="code-block">{{ item.output }}</pre>
             </article>
           </div>
@@ -275,9 +317,15 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
 
       <section class="workspace__editor">
         <div class="editor-form" :class="{ 'editor-form--hidden-mobile': isNarrow && activePane === 'result' }">
-          <el-form label-position="top">
-            <el-form-item label="语言">
-              <el-select v-model="language" style="width: 220px" @change="onCodeChanged">
+          <div class="editor-shell">
+            <div class="editor-toolbar">
+              <el-select
+                :model-value="language"
+                size="small"
+                class="language-select"
+                data-test="language-select"
+                @change="changeLanguage"
+              >
                 <el-option
                   v-for="item in allowedLanguages"
                   :key="item"
@@ -285,46 +333,56 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
                   :value="item"
                 />
               </el-select>
-            </el-form-item>
-            <el-form-item label="代码">
-              <el-input
-                v-model="code"
-                type="textarea"
-                :rows="22"
-                class="code-editor"
-                placeholder="请输入完整源代码"
-                maxlength="200000"
-                @input="onCodeChanged"
-              />
-            </el-form-item>
-            <div class="editor-footer">
-              <span>{{ code.length }} 字符 · {{ lineCount }} 行</span>
-              <div>
-                <el-button @click="router.back()">返回</el-button>
-                <el-button
-                  v-if="isPractice"
-                  data-test="practice-run"
-                  type="primary"
-                  :icon="Upload"
-                  :loading="runningPractice"
-                  @click="run"
-                >
-                  运行练习
-                </el-button>
-                <el-button
-                  v-else
-                  data-test="formal-submit"
-                  type="primary"
-                  :icon="Upload"
-                  :loading="submitting"
-                  :disabled="assessment?.status !== 'PUBLISHED'"
-                  @click="submit"
-                >
-                  提交代码
-                </el-button>
-              </div>
+              <span v-if="runtime" class="editor-runtime">{{ runtime.runtime }}</span>
+              <span class="editor-spacer" />
+              <span class="editor-stats">{{ lineCount }} 行 · {{ code.length }} 字符</span>
+              <el-button
+                link
+                size="small"
+                :icon="RefreshLeft"
+                data-test="reset-template"
+                @click="resetToTemplate"
+              >
+                重置代码
+              </el-button>
             </div>
-          </el-form>
+            <CodeEditor
+              v-model="code"
+              :language="language"
+              :height="isNarrow ? '340px' : '460px'"
+              @change="onCodeChanged"
+            />
+            <p v-if="runtime" class="editor-hint">{{ runtime.submitHint }}</p>
+          </div>
+          <div class="editor-footer">
+            <span>
+              {{ isPractice ? '点击“运行练习”使用本题练习测试点即时判题' : '提交后由受控判题沙箱判定，结果以服务器返回为准' }}
+            </span>
+            <div>
+              <el-button @click="router.back()">返回</el-button>
+              <el-button
+                v-if="isPractice"
+                data-test="practice-run"
+                type="primary"
+                :icon="Upload"
+                :loading="runningPractice"
+                @click="run"
+              >
+                运行练习
+              </el-button>
+              <el-button
+                v-else
+                data-test="formal-submit"
+                type="primary"
+                :icon="Upload"
+                :loading="submitting"
+                :disabled="assessment?.status !== 'PUBLISHED'"
+                @click="submit"
+              >
+                提交代码
+              </el-button>
+            </div>
+          </div>
         </div>
 
         <div
@@ -496,11 +554,60 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
   font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
 }
 
-.code-editor :deep(textarea) {
-  font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
-  font-size: 14px;
-  line-height: 1.6;
-  tab-size: 4;
+.editor-shell {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-control-radius);
+  background: var(--app-surface);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.language-select {
+  width: 148px;
+}
+
+.editor-runtime {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.editor-spacer {
+  flex: 1;
+}
+
+.editor-stats {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-hint {
+  margin: 0;
+  padding: 6px 10px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.editor-shell .code-editor {
+  border: none;
+  border-radius: 0;
+}
+
+.example-label {
+  margin: 6px 0 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .editor-footer {
