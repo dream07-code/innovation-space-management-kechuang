@@ -16,6 +16,7 @@ CONF=${JUDGE0_CONF:-"$DIR/judge0.conf"}
 URL=${JUDGE0_URL:-http://127.0.0.1:2358}
 LANGUAGE_PYTHON=71
 LANGUAGE_JAVA=62
+RUNTIME_MEMORY=${OJ_RUNTIME_MEMORY_LIMIT_KB:-1500000}
 
 TOKEN=""
 if [[ -f "$CONF" ]]; then
@@ -42,17 +43,17 @@ echo "   ✓ /about 可访问"
 
 b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
 
-# submit <language_id> <source> <expected_output> <rlimit:true|false>
+# submit <language_id> <source> <expected_output> <rlimit:true|false> <memory_kb>
 # 输出: 第一行 body，最后一行 HTTP 状态码
 submit() {
-  local language=$1 source=$2 expected=$3 rlimit=$4
+  local language=$1 source=$2 expected=$3 rlimit=$4 memory=${5:-128000}
   local payload
   if [[ "$rlimit" == "true" ]]; then
-    payload=$(printf '{"source_code":"%s","language_id":%d,"stdin":"","expected_output":"%s","cpu_time_limit":2,"memory_limit":128000,"enable_per_process_and_thread_time_limit":true,"enable_per_process_and_thread_memory_limit":true}' \
-      "$(b64 "$source")" "$language" "$(b64 "$expected")")
+    payload=$(printf '{"source_code":"%s","language_id":%d,"stdin":"","expected_output":"%s","cpu_time_limit":2,"memory_limit":%d,"enable_per_process_and_thread_time_limit":true,"enable_per_process_and_thread_memory_limit":true}' \
+      "$(b64 "$source")" "$language" "$(b64 "$expected")" "$memory")
   else
-    payload=$(printf '{"source_code":"%s","language_id":%d,"stdin":"","expected_output":"%s","cpu_time_limit":2,"memory_limit":128000}' \
-      "$(b64 "$source")" "$language" "$(b64 "$expected")")
+    payload=$(printf '{"source_code":"%s","language_id":%d,"stdin":"","expected_output":"%s","cpu_time_limit":2,"memory_limit":%d}' \
+      "$(b64 "$source")" "$language" "$(b64 "$expected")" "$memory")
   fi
   curl -sS -w '\n%{http_code}' "${auth[@]}" -H 'Content-Type: application/json' \
     -d "$payload" "$URL/submissions?base64_encoded=true&wait=true" || true
@@ -62,12 +63,12 @@ status_of() {
   printf '%s' "$1" | tr -d '\n' | sed -n 's/.*"status":[[:space:]]*{[[:space:]]*"id":[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1
 }
 
-# probe <language_id> <source> <expected> <rlimit> <label>
+# probe <language_id> <source> <expected> <rlimit> <label> [memory_kb]
 # 返回 0 表示 Accepted，非 0 为判题状态码或 1（非判题失败）
 probe() {
-  local language=$1 source=$2 expected=$3 rlimit=$4 label=$5
+  local language=$1 source=$2 expected=$3 rlimit=$4 label=$5 memory=${6:-128000}
   local response http_code body status
-  response=$(submit "$language" "$source" "$expected" "$rlimit")
+  response=$(submit "$language" "$source" "$expected" "$rlimit" "$memory")
   http_code=$(printf '%s' "$response" | tail -1)
   body=$(printf '%s' "$response" | sed '$d')
   status=$(status_of "$body")
@@ -93,6 +94,12 @@ for mode in false true; do
   if [[ "$PROBE_HTTP" == "401" ]]; then
     echo "   ✗ Judge0 拒绝鉴权（HTTP 401）"
     echo "   排查: judge0.conf 的 AUTHN_TOKEN 与 deploy/.env 的 OJ_API_TOKEN 必须完全一致，修改后需重建后端容器"
+    exit 2
+  fi
+  if [[ "$PROBE_HTTP" == "422" ]]; then
+    echo "   ✗ Judge0 拒绝了请求参数（HTTP 422）"
+    echo "   排查: judge0.conf 的 MAX_MEMORY_LIMIT 是否 >= deploy/.env 的 OJ_RUNTIME_MEMORY_LIMIT_KB，"
+    echo "         并确认 judge0.conf 允许 enable_per_process_and_thread_* 字段"
     exit 2
   fi
   if [[ "$PROBE_HTTP" != "200" && "$PROBE_HTTP" != "201" ]]; then
@@ -123,16 +130,18 @@ fi
 # 而 rlimit 用 RLIMIT_AS 限制内存，javac/java 会直接启动失败（表现为编译错误）。
 echo "4) 检查 Java（language 62）"
 java_source='public class Main { public static void main(String[] args) { System.out.print(1); } }'
-if probe "$LANGUAGE_JAVA" "$java_source" "1" "$working_mode" "Java 13"; then
+if probe "$LANGUAGE_JAVA" "$java_source" "1" "$working_mode" "Java 13" "$RUNTIME_MEMORY"; then
   echo "   ✓ Java 判题通过"
 else
+  echo "   ✗ Java 未通过（status=${PROBE_STATUS:-未知}），按顺序检查："
+  echo "     1) deploy/judge0/docker-compose.yml 是否把 ./seeds.rb 挂载到 /api/db/seeds.rb"
+  echo "        （seeds.rb 给 javac/java 加了 -Xmx 等参数，没有它 JVM 无法在 RLIMIT_AS 下启动）"
+  echo "     2) judge0.conf 的 MAX_MEMORY_LIMIT 是否 >= deploy/.env 的 OJ_RUNTIME_MEMORY_LIMIT_KB"
+  echo "     3) 改完后重启 judge0 server，让启动时的 db:seed 重新写入语言命令："
+  echo "        docker compose -f deploy/judge0/docker-compose.yml up -d server"
+  echo "     4) 仍失败时可把 Judge0 迁到 cgroup v1 内核（GRUB 加 systemd.unified_cgroup_hierarchy=0）"
   if [[ "$PROBE_STATUS" == "6" ]]; then
-    echo "   ✗ Java 编译失败。rlimit 模式用 RLIMIT_AS 限制内存，JVM 启动需要预留 1GB 以上虚拟地址，"
-    echo "     会报 'Could not reserve enough space for object heap'，与提交的代码无关。"
-    echo "     解决: 让 Judge0 跑在 cgroup v1 内核上（GRUB 加 systemd.unified_cgroup_hierarchy=0 后重启），"
-    echo "           再关闭 OJ_RLIMIT_FALLBACK；或在修好之前从考核允许语言中去掉 Java。"
-  else
-    echo "   ✗ Java 未通过（status=${PROBE_STATUS:-未知}），可用后端日志确认原因"
+    echo "     后端日志会给出具体编译错误：docker compose logs --tail=50 backend | grep -i judge0"
   fi
 fi
 

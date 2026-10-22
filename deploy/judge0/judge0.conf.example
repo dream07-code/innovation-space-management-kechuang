@@ -10,6 +10,10 @@ ENABLE_ADDITIONAL_FILES=false
 ENABLE_SUBMISSION_DELETE=false
 ALLOW_ENABLE_NETWORK=false
 ENABLE_NETWORK=false
+# 编译阶段使用该值作为 isolate 的内存上限（rlimit 模式下是 RLIMIT_AS）。
+# cgroup v2 主机上 JVM/Node 需要 1GB 以上虚拟地址空间，默认 512000 会让 Java 编译失败。
+# 应用侧的 OJ_RUNTIME_MEMORY_LIMIT_KB 必须不大于该值。
+MAX_MEMORY_LIMIT=1600000
 INTERVAL=0.1
 COUNT=1
 MAX_QUEUE_SIZE=50

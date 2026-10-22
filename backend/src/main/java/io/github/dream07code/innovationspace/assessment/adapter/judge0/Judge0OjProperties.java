@@ -12,6 +12,14 @@ public class Judge0OjProperties {
   private int requestTimeoutMs = 30000;
   private int cpuTimeLimitSeconds = 2;
   private int memoryLimitKb = 128000;
+  /**
+   * 运行时语言（Java/Node/Go）的虚拟内存上限。
+   *
+   * isolate 在 rlimit 模式用 RLIMIT_AS 限制内存，JVM/Node/Go 启动需要预留 1GB 以上
+   * 虚拟地址空间；它们自身已通过 -Xmx / --max-old-space-size 限制真实堆大小。
+   * 该值必须不超过 judge0.conf 的 MAX_MEMORY_LIMIT。
+   */
+  private int runtimeMemoryLimitKb = 1500000;
   private int maxResponseBytes = 1048576;
   private boolean useRlimitFallback = false;
 
@@ -29,6 +37,8 @@ public class Judge0OjProperties {
   public void setCpuTimeLimitSeconds(int value) { cpuTimeLimitSeconds = value; }
   public int getMemoryLimitKb() { return memoryLimitKb; }
   public void setMemoryLimitKb(int value) { memoryLimitKb = value; }
+  public int getRuntimeMemoryLimitKb() { return runtimeMemoryLimitKb; }
+  public void setRuntimeMemoryLimitKb(int value) { runtimeMemoryLimitKb = value; }
   public int getMaxResponseBytes() { return maxResponseBytes; }
   public boolean isUseRlimitFallback() { return useRlimitFallback; }
   public void setUseRlimitFallback(boolean value) { useRlimitFallback = value; }
@@ -67,6 +77,7 @@ public class Judge0OjProperties {
         || requestTimeoutMs < 1000 || requestTimeoutMs > 120000
         || cpuTimeLimitSeconds < 1 || cpuTimeLimitSeconds > 30
         || memoryLimitKb < 1024 || memoryLimitKb > 1048576
+        || runtimeMemoryLimitKb < memoryLimitKb || runtimeMemoryLimitKb > 4194304
         || maxResponseBytes < 1024 || maxResponseBytes > 4194304)
       throw new IllegalArgumentException("Invalid Judge0 limits");
   }

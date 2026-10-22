@@ -30,6 +30,12 @@ services:
     image: judge0/judge0:1.13.1
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+      # 覆盖语言种子，给 Java/Node 加上堆上限参数（rlimit 模式必需）
+      - ./seeds.rb:/api/db/seeds.rb:ro
+    environment:
+      # judge0.conf 未显式设置时，用该值作为编译阶段与提交内存的上限。
+      # 默认 1.6GB 才能让 JVM 在 RLIMIT_AS 下启动。
+      MAX_MEMORY_LIMIT: ${OJ_MAX_MEMORY_LIMIT:-1600000}
     privileged: true
     ports:
       - "127.0.0.1:2358:2358"
@@ -50,6 +56,8 @@ services:
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+    environment:
+      MAX_MEMORY_LIMIT: ${OJ_MAX_MEMORY_LIMIT:-1600000}
     privileged: true
     networks:
       - internal

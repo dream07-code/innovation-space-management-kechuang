@@ -15,6 +15,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
@@ -26,6 +27,8 @@ public class Judge0OjAdapter implements OjAdapter {
       Map.of("java", 62, "python", 71, "cpp", 54, "javascript", 63, "go", 60, "rust", 73);
   /** Judge0 在 cgroup v1 缺失或 isolate 无法建立 /box 时返回的内部错误状态码。 */
   private static final int JUDGE0_INTERNAL_ERROR_STATUS = 13;
+  /** 启动时需要预留大量虚拟地址空间的运行时语言。 */
+  private static final Set<String> RUNTIME_LANGUAGES = Set.of("java", "javascript", "go");
 
   private final Judge0OjProperties properties;
   private final HttpClient client;
@@ -40,10 +43,11 @@ public class Judge0OjAdapter implements OjAdapter {
     properties.validate();
     this.properties = properties;
     if (properties.isUseRlimitFallback())
-      log.warn(
-          "OJ rlimit fallback is enabled: isolate uses RLIMIT_AS, so JVM/Node based languages"
-              + " (java, javascript) cannot reserve their virtual address space and will fail."
-              + " Use cgroup v1 or disable those languages; see deploy/judge0/README.md");
+      log.info(
+          "OJ rlimit fallback enabled: java/javascript/go use a {} KB virtual memory limit."
+              + " Ensure deploy/judge0/seeds.rb caps the JVM/V8 heap and judge0.conf"
+              + " MAX_MEMORY_LIMIT is not lower than that value",
+          properties.getRuntimeMemoryLimitKb());
     this.client =
         HttpClient.newBuilder()
             .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
@@ -170,7 +174,7 @@ public class Judge0OjAdapter implements OjAdapter {
     payload.put("stdin", encode(testCase.input()));
     payload.put("expected_output", encode(testCase.expectedOutput()));
     payload.put("cpu_time_limit", properties.getCpuTimeLimitSeconds());
-    payload.put("memory_limit", properties.getMemoryLimitKb());
+    payload.put("memory_limit", memoryLimitKb(submission.language()));
     if (useRlimit) {
       payload.put("enable_per_process_and_thread_time_limit", true);
       payload.put("enable_per_process_and_thread_memory_limit", true);
@@ -201,6 +205,16 @@ public class Judge0OjAdapter implements OjAdapter {
       }
     }
     return new Attempt(response.statusCode(), root);
+  }
+
+  /**
+   * JVM/Node/Go 在 RLIMIT_AS 下需要更多虚拟地址空间才能启动，但真实堆已由各自的
+   * 启动参数限制；C/C++/Python/Rust 仍使用题目的严格内存上限。
+   */
+  private int memoryLimitKb(String language) {
+    int configured = properties.getMemoryLimitKb();
+    if (!RUNTIME_LANGUAGES.contains(language)) return configured;
+    return Math.max(configured, properties.getRuntimeMemoryLimitKb());
   }
 
   private static int statusId(JsonNode root) {

@@ -103,6 +103,18 @@ class Judge0OjAdapterTest {
     assertEquals(1, requestBodies.size());
   }
 
+  @Test
+  void sendsLargerVirtualMemoryLimitForJvmAndNodeLanguages() throws Exception {
+    start(new Reply(200, accepted()), new Reply(200, accepted()));
+
+    var adapter = adapter(false);
+    adapter.judge(new OjSubmission("java", "class Main {}", ONE_CASE));
+    adapter.judge(new OjSubmission("cpp", "int main() {}", ONE_CASE));
+
+    assertTrue(requestBodies.get(0).contains("\"memory_limit\":1500000"));
+    assertTrue(requestBodies.get(1).contains("\"memory_limit\":128000"));
+  }
+
   private Judge0OjAdapter adapter(boolean rlimitFallback) throws IOException {
     var properties = new Judge0OjProperties();
     properties.setProvider("judge0");
