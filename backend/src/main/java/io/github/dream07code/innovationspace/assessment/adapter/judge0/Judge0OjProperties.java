@@ -49,11 +49,17 @@ public class Judge0OjProperties {
     boolean loopback = "localhost".equalsIgnoreCase(uri.getHost())
         || "127.0.0.1".equals(uri.getHost())
         || "::1".equals(uri.getHost());
+    // Docker/internal deployments expose Judge0 over plain HTTP at a single-label
+    // service name (e.g. http://judge0:2358). Such names cannot resolve on the
+    // public internet, so HTTP is acceptable for them as well as for loopback.
+    boolean internalServiceName =
+        uri.getHost() != null && !uri.getHost().isBlank() && !uri.getHost().contains(".");
     if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null
         || uri.getQuery() != null || uri.getFragment() != null
         || (uri.getRawPath() != null && !uri.getRawPath().isEmpty() && !"/".equals(uri.getRawPath()))
         || (!"https".equalsIgnoreCase(uri.getScheme())
-            && !("http".equalsIgnoreCase(uri.getScheme()) && loopback)))
+            && !("http".equalsIgnoreCase(uri.getScheme())
+                && (loopback || internalServiceName))))
       throw new IllegalArgumentException("Judge0 base URL must be a clean HTTPS origin");
     if (apiToken != null && apiToken.length() > 4096)
       throw new IllegalArgumentException("Judge0 API token is too large");

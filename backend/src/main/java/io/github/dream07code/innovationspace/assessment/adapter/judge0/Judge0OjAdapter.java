@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,10 +84,13 @@ public class Judge0OjAdapter implements OjAdapter {
   private JsonNode submit(
       OjSubmission submission, int languageId, OjSubmission.TestCase testCase) throws Exception {
     var payload = new LinkedHashMap<String, Object>();
-    payload.put("source_code", submission.code());
+    // Always use base64 mode: with base64_encoded=false Judge0 fails to render
+    // responses whose source/stdout/expected output contains non-ASCII text and
+    // returns {"error": ...} without a status field.
+    payload.put("source_code", encode(submission.code()));
     payload.put("language_id", languageId);
-    payload.put("stdin", testCase.input());
-    payload.put("expected_output", testCase.expectedOutput());
+    payload.put("stdin", encode(testCase.input()));
+    payload.put("expected_output", encode(testCase.expectedOutput()));
     payload.put("cpu_time_limit", properties.getCpuTimeLimitSeconds());
     payload.put("memory_limit", properties.getMemoryLimitKb());
     if (properties.isUseRlimitFallback()) {
@@ -97,7 +101,7 @@ public class Judge0OjAdapter implements OjAdapter {
         HttpRequest.newBuilder(
                 URI.create(
                     properties.getBaseUrl().replaceAll("/$", "")
-                        + "/submissions?base64_encoded=false&wait=true"))
+                        + "/submissions?base64_encoded=true&wait=true"))
             .timeout(Duration.ofMillis(properties.getRequestTimeoutMs()))
             .header("Content-Type", "application/json")
             .header("Accept", "application/json");
@@ -110,7 +114,15 @@ public class Judge0OjAdapter implements OjAdapter {
     byte[] bytes = response.body();
     if (response.statusCode() / 100 != 2 || bytes.length > properties.getMaxResponseBytes())
       throw new IllegalStateException("Judge0 response unavailable");
-    return json.readTree(new String(bytes, StandardCharsets.UTF_8));
+    var root = json.readTree(new String(bytes, StandardCharsets.UTF_8));
+    if (!root.path("status").path("id").isInt())
+      throw new IllegalStateException("Judge0 status unavailable");
+    return root;
+  }
+
+  private static String encode(String value) {
+    return Base64.getEncoder()
+        .encodeToString((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));
   }
 
   private static OjVerdict verdict(int statusId) {
