@@ -12,6 +12,7 @@ import type {
   AssessmentProblem,
   AssessmentProblemPracticeTestCases,
   AssessmentProblemTestCases,
+  AssessmentMemberScore,
   AssessmentResult,
   AssessmentReview,
   AssessmentSubmission,
@@ -191,10 +192,32 @@ export async function createAssessmentReview(
   })
 }
 
+export interface AssessmentResultQuery {
+  page?: number
+  size?: number
+  /** 只看某个成员；仅管理员与方向负责人可用，学生始终只有自己的数据。 */
+  memberId?: string
+}
+
+/** 按提交平铺的成绩，一次提交一行。 */
 export async function listAssessmentResults(
   assessmentId: string,
+  query: AssessmentResultQuery = {},
 ): Promise<PageData<AssessmentResult>> {
-  return get<PageData<AssessmentResult>>(`${ASSESSMENTS}/${assessmentId}/results`)
+  return get<PageData<AssessmentResult>>(`${ASSESSMENTS}/${assessmentId}/results`, {
+    params: query,
+  })
+}
+
+/** 按成员汇总的成绩，每人一行，带总分与平均分。 */
+export async function listAssessmentMemberScores(
+  assessmentId: string,
+  query: { page?: number; size?: number } = {},
+): Promise<PageData<AssessmentMemberScore>> {
+  return get<PageData<AssessmentMemberScore>>(
+    `${ASSESSMENTS}/${assessmentId}/member-scores`,
+    { params: query },
+  )
 }
 
 /** 读取提交的源代码：管理员、方向负责人或提交者本人可见。 */

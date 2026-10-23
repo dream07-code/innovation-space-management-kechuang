@@ -14,7 +14,12 @@ import { useAuthStore } from '@/stores/auth'
 
 import SubmissionCodeDialog from '@/components/SubmissionCodeDialog.vue'
 
-import { getAssessment, listAssessmentProblems, listAssessmentResults } from '@/api/modules/oj'
+import {
+  getAssessment,
+  listAssessmentMemberScores,
+  listAssessmentProblems,
+  listAssessmentResults,
+} from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import {
   assessmentStatusMeta,
@@ -25,10 +30,12 @@ import {
 } from '@/components/ojMeta'
 import type {
   Assessment,
+  AssessmentMemberScore,
   AssessmentProblem,
   AssessmentResult,
   PageData,
 } from '@/api/types'
+import { formatDateTime } from '@/utils/datetime'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,8 +44,16 @@ const assessmentId = computed(() => route.params.assessmentId as string)
 const assessment = ref<Assessment | null>(null)
 const problems = ref<AssessmentProblem[]>([])
 const data = ref<PageData<AssessmentResult> | null>(null)
+const memberScores = ref<PageData<AssessmentMemberScore> | null>(null)
 const loading = ref(false)
 const scoreSource = ref('')
+/** 结果有两种看法：一次提交一行，或一个人一行（整场考核的总分）。 */
+const viewMode = ref<'submission' | 'member'>('member')
+const page = ref(1)
+const memberPage = ref(1)
+const pageSize = ref(20)
+/** 按成员看明细时的过滤条件，null 表示看全部提交。 */
+const memberFilter = ref<{ id: string; name: string } | null>(null)
 const codeDialogVisible = ref(false)
 const codeSubmissionId = ref<string | null>(null)
 
@@ -66,22 +81,71 @@ const pendingCount = computed(
   () => items.value.filter((item) => item.scoreSource === 'PENDING').length,
 )
 
+async function loadSubmission(): Promise<void> {
+  data.value = await listAssessmentResults(assessmentId.value, {
+    page: page.value,
+    size: pageSize.value,
+    memberId: memberFilter.value?.id,
+  })
+}
+
+async function loadMemberScores(): Promise<void> {
+  memberScores.value = await listAssessmentMemberScores(assessmentId.value, {
+    page: memberPage.value,
+    size: pageSize.value,
+  })
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const [currentAssessment, resultPage, problemPage] = await Promise.all([
+    const [currentAssessment, problemPage] = await Promise.all([
       getAssessment(assessmentId.value),
-      listAssessmentResults(assessmentId.value),
       listAssessmentProblems(),
     ])
     assessment.value = currentAssessment
-    data.value = resultPage
     problems.value = problemPage.items
+    if (viewMode.value === 'member') await loadMemberScores()
+    else await loadSubmission()
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
     loading.value = false
   }
+}
+
+/** 切换「按学生 / 按提交」时重新取数，两种视图分页互不影响。 */
+async function switchMode(mode: 'submission' | 'member'): Promise<void> {
+  viewMode.value = mode
+  loading.value = true
+  try {
+    if (mode === 'member') await loadMemberScores()
+    else await loadSubmission()
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    loading.value = false
+  }
+}
+
+/** 从汇总表点进某个成员，回到提交视图并只看他。 */
+async function openMemberDetail(row: AssessmentMemberScore): Promise<void> {
+  memberFilter.value = {
+    id: row.memberId,
+    name: row.memberName ?? row.memberStudentNo ?? row.memberId,
+  }
+  page.value = 1
+  await switchMode('submission')
+}
+
+function onModeChange(value: string | number | boolean | undefined): void {
+  void switchMode(value === 'submission' ? 'submission' : 'member')
+}
+
+async function clearMemberFilter(): Promise<void> {
+  memberFilter.value = null
+  page.value = 1
+  await loadSubmission()
 }
 
 onMounted(load)
@@ -110,17 +174,84 @@ onMounted(load)
       </p>
     </el-alert>
 
-    <el-form inline class="page__filter">
-      <el-form-item label="分数来源">
-        <el-select v-model="scoreSource" clearable placeholder="全部" style="width: 150px">
-          <el-option label="按测试点自动计分" value="AUTO" />
-          <el-option label="人工调整" value="HUMAN" />
-          <el-option label="待评分" value="PENDING" />
-        </el-select>
-      </el-form-item>
-    </el-form>
+    <div class="page__toolbar">
+      <el-form inline class="page__filter">
+        <el-form-item v-if="viewMode === 'submission'" label="分数来源">
+          <el-select v-model="scoreSource" clearable placeholder="全部" style="width: 150px">
+            <el-option label="按测试点自动计分" value="AUTO" />
+            <el-option label="人工调整" value="HUMAN" />
+            <el-option label="待评分" value="PENDING" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="viewMode === 'submission' && memberFilter">
+          <el-tag closable type="primary" effect="plain" @close="clearMemberFilter">
+            只看 {{ memberFilter.name }}，点右侧 × 取消筛选
+          </el-tag>
+        </el-form-item>
+      </el-form>
+      <el-radio-group
+        :model-value="viewMode"
+        class="page__mode"
+        @change="onModeChange"
+      >
+        <el-radio-button value="member">按学生汇总</el-radio-button>
+        <el-radio-button value="submission">按提交</el-radio-button>
+      </el-radio-group>
+    </div>
 
-    <el-table :data="items" row-key="submissionId">
+    <el-table v-if="viewMode === 'member'" :data="memberScores?.items ?? []" row-key="memberId">
+      <el-table-column label="成员" min-width="160">
+        <template #default="{ row }">
+          <div class="member-cell">
+            <span class="member-cell__name">{{ row.memberName || row.memberId }}</span>
+            <span v-if="row.memberStudentNo" class="member-cell__meta">
+              {{ row.memberStudentNo }}
+            </span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="完成题数" width="130">
+        <template #default="{ row }">
+          <el-tag
+            :type="row.problemCount > 0 && row.completedCount === row.problemCount ? 'success' : 'info'"
+            effect="plain"
+          >
+            {{ row.completedCount }} / {{ row.problemCount }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="待评分" width="100">
+        <template #default="{ row }">
+          <el-tag v-if="row.pendingCount" type="warning" effect="plain">
+            {{ row.pendingCount }} 题
+          </el-tag>
+          <span v-else class="muted">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="总分" width="140">
+        <template #default="{ row }">
+          <strong class="score-strong">{{ row.totalScore }}</strong>
+          <span class="muted"> / {{ row.maxScore }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="平均分" width="110">
+        <template #default="{ row }">{{ row.averageScore.toFixed(1) }}</template>
+      </el-table-column>
+      <el-table-column label="最近提交" width="180">
+        <template #default="{ row }">
+          {{ row.lastSubmittedAt ? formatDateTime(row.lastSubmittedAt) : '未提交' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="110" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" :icon="View" @click="openMemberDetail(row)">
+            明细
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-table v-else :data="items" row-key="submissionId">
       <el-table-column label="成员" min-width="150">
         <template #default="{ row }">
           <div class="member-cell">
@@ -186,6 +317,25 @@ onMounted(load)
       </el-table-column>
     </el-table>
 
+    <div class="page__pager">
+      <el-pagination
+        v-if="viewMode === 'submission'"
+        v-model:current-page="page"
+        :page-size="pageSize"
+        :total="data?.total ?? 0"
+        layout="total, prev, pager, next"
+        @current-change="() => loadSubmission()"
+      />
+      <el-pagination
+        v-else
+        v-model:current-page="memberPage"
+        :page-size="pageSize"
+        :total="memberScores?.total ?? 0"
+        layout="total, prev, pager, next"
+        @current-change="() => loadMemberScores()"
+      />
+    </div>
+
     <SubmissionCodeDialog v-model="codeDialogVisible" :submission-id="codeSubmissionId" />
   </el-card>
 </template>
@@ -201,8 +351,34 @@ onMounted(load)
   margin-bottom: 16px;
 }
 
+.page__toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .page__filter {
   margin-bottom: 16px;
+}
+
+.page__mode {
+  flex: none;
+}
+
+.page__pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.score-strong {
+  color: var(--app-ink);
+  font-size: 16px;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
 }
 
 .final-cell {

@@ -155,6 +155,8 @@ export type OjVerdict = OjJudgeResult['verdict']
 export type AssessmentReviewStatus = AssessmentReview['status']
 export type AssessmentScoreSource = AssessmentResult['scoreSource']
 export type AssessmentResultStatus = AssessmentResult['resultStatus']
+export type AssessmentMemberScore = Schemas['AssessmentMemberScore']
+export type AssessmentMemberScorePage = Schemas['AssessmentMemberScorePage']
 
 // ---------------------------------------------------------------------------
 // 角色数据看板

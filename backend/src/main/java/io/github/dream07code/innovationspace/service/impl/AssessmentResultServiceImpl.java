@@ -29,18 +29,10 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     this.evaluations = evaluations;
   }
 
-  public Map<String, Object> list(long assessmentId, SessionPrincipal actor, int page, int size) {
+  public Map<String, Object> list(
+      long assessmentId, SessionPrincipal actor, int page, int size, Long memberId) {
     if (page < 1 || size < 1 || size > 200) throw bad();
-    var assessments = jdbc.queryForList("SELECT direction_id FROM assessment WHERE id=?", assessmentId);
-    if (assessments.isEmpty()) throw notFound();
-    long directionId = ((Number) assessments.getFirst().get("direction_id")).longValue();
-    if ("COLLEGE_ADMIN".equals(actor.role())) {
-      // all results
-    } else if ("DIRECTION_LEADER".equals(actor.role())) {
-      if (!actor.managedDirectionIds().contains(directionId)) throw notFound();
-    } else if ("STUDENT".equals(actor.role()) && actor.memberId() != null) {
-      // student scope is applied below
-    } else throw forbidden();
+    requireReadable(assessmentId, actor);
 
     var args = new ArrayList<Object>();
     var where = new StringBuilder(" WHERE s.assessment_id=?");
@@ -48,6 +40,10 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     if ("STUDENT".equals(actor.role())) {
       where.append(" AND s.member_id=?");
       args.add(actor.memberId());
+    } else if (memberId != null) {
+      // 管理员/负责人按成员看明细时使用
+      where.append(" AND s.member_id=?");
+      args.add(memberId);
     }
     String from =
         " FROM assessment_result r JOIN assessment_submission s ON s.id=r.submission_id"
@@ -61,6 +57,100 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     for (Long id : ids) items.add(result(id));
     Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, Long.class, args.toArray());
     return Map.of("items", items, "page", page, "size", size, "total", total);
+  }
+
+  @Override
+  public Map<String, Object> memberScores(
+      long assessmentId, SessionPrincipal actor, int page, int size) {
+    if (page < 1 || size < 1 || size > 200) throw bad();
+    long directionId = requireReadable(assessmentId, actor);
+    Long problemCount =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_problem_link WHERE assessment_id=?",
+            Long.class,
+            assessmentId);
+    int problems = problemCount == null ? 0 : problemCount.intValue();
+
+    var filterArgs = new ArrayList<Object>();
+    filterArgs.add(directionId);
+    var filter = new StringBuilder(" WHERE m.direction_id=? AND m.membership_status='ACTIVE'");
+    if ("STUDENT".equals(actor.role())) {
+      filter.append(" AND m.id=?");
+      filterArgs.add(actor.memberId());
+    }
+
+    // 同一成员同一题目可能多次提交：只取最后一次（提交时间最大，同刻取 id 最大），
+    // 与结果页「反复提交可对照修改」的口径一致。
+    String sql =
+        "WITH latest AS ("
+            + " SELECT s.id AS submission_id,s.member_id,s.problem_id,"
+            + " ROW_NUMBER() OVER (PARTITION BY s.member_id,s.problem_id"
+            + " ORDER BY s.submitted_at DESC,s.id DESC) AS rn"
+            + " FROM assessment_submission s WHERE s.assessment_id=?"
+            + ") SELECT m.id AS member_id,m.name AS member_name,m.student_no AS student_no,"
+            + " COUNT(l.submission_id) AS answered,"
+            + " COALESCE(SUM(CASE WHEN r.result_status='COMPLETE' THEN 1 ELSE 0 END),0) AS completed,"
+            + " COALESCE(SUM(r.final_score),0) AS total_score,"
+            + " MAX(s.submitted_at) AS last_submitted_at"
+            + " FROM member m"
+            + " LEFT JOIN latest l ON l.member_id=m.id AND l.rn=1"
+            + " LEFT JOIN assessment_submission s ON s.id=l.submission_id"
+            + " LEFT JOIN assessment_result r ON r.submission_id=l.submission_id"
+            + filter
+            + " GROUP BY m.id,m.name,m.student_no"
+            + " ORDER BY total_score DESC,student_no ASC,m.id ASC LIMIT ? OFFSET ?";
+    var args = new ArrayList<Object>();
+    args.add(assessmentId);
+    args.addAll(filterArgs);
+    var rows = jdbc.queryForList(sql, append(args, size, (page - 1) * size));
+
+    var items = new ArrayList<Map<String, Object>>();
+    for (var row : rows) {
+      int answered = number(row.get("answered"));
+      int completed = number(row.get("completed"));
+      int totalScore = number(row.get("total_score"));
+      var out = new LinkedHashMap<String, Object>();
+      out.put("memberId", String.valueOf(row.get("member_id")));
+      out.put("memberName", row.get("member_name"));
+      out.put("memberStudentNo", row.get("student_no"));
+      out.put("problemCount", problems);
+      out.put("answeredCount", answered);
+      out.put("completedCount", completed);
+      out.put("pendingCount", Math.max(0, answered - completed));
+      out.put("totalScore", totalScore);
+      out.put("maxScore", problems * 100);
+      // 平均分按题目总数算：少做题的人不会因为分母变小而虚高
+      out.put(
+          "averageScore",
+          problems == 0 ? 0.0 : Math.round(totalScore * 10.0 / problems) / 10.0);
+      out.put(
+          "lastSubmittedAt",
+          row.get("last_submitted_at") == null ? null : time(row.get("last_submitted_at")));
+      items.add(out);
+    }
+    Long total =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM member m" + filter, Long.class, filterArgs.toArray());
+    return Map.of("items", items, "page", page, "size", size, "total", total == null ? 0L : total);
+  }
+
+  /** 校验当前账号能看这场考核的成绩，返回考核所属方向。 */
+  private long requireReadable(long assessmentId, SessionPrincipal actor) {
+    var assessments =
+        jdbc.queryForList("SELECT direction_id FROM assessment WHERE id=?", assessmentId);
+    if (assessments.isEmpty()) throw notFound();
+    long directionId = ((Number) assessments.getFirst().get("direction_id")).longValue();
+    if ("COLLEGE_ADMIN".equals(actor.role())) return directionId;
+    if ("DIRECTION_LEADER".equals(actor.role())) {
+      if (!actor.managedDirectionIds().contains(directionId)) throw notFound();
+      return directionId;
+    }
+    if ("STUDENT".equals(actor.role()) && actor.memberId() != null) return directionId;
+    throw forbidden();
+  }
+
+  private static int number(Object value) {
+    return value instanceof Number number ? number.intValue() : 0;
   }
 
   private Map<String, Object> result(long submissionId) {

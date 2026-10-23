@@ -3361,11 +3361,22 @@ paths:
       tags:
       - OJ评分
       summary: 查询考核结果
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
       - STUDENT
+      parameters:
+      - name: page
+        in: query
+        schema: {type: integer, minimum: 1, default: 1}
+      - name: size
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 200, default: 20}
+      - name: memberId
+        in: query
+        description: 只看指定成员；仅管理员和方向负责人可用，学生始终只能看自己。
+        schema: {type: string}
       responses:
         '200':
           description: 成功。
@@ -3373,6 +3384,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AssessmentResultPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/assessments/{assessmentId}/member-scores:
+    parameters:
+    - $ref: '#/components/parameters/AssessmentId'
+    get:
+      tags:
+      - OJ评分
+      summary: 查询按成员汇总的考核成绩
+      description: |
+        每人一行。同一成员同一题目多次提交以最后一次为准；未提交的题目按 0 分计入平均分，
+        平均分的分母是考核题目总数，所以少做题的人不会因为分母变小而虚高。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - name: page
+        in: query
+        schema: {type: integer, minimum: 1, default: 1}
+      - name: size
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 200, default: 20}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentMemberScorePageResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5631,6 +5689,47 @@ components:
         code: {type: string, enum: [OK]}
         message: {type: string, example: Success}
         data: {$ref: '#/components/schemas/AssessmentResultPage'}
+    AssessmentMemberScore:
+      type: object
+      description: 单个成员在一场考核里的汇总成绩。
+      required:
+      - memberId
+      - problemCount
+      - answeredCount
+      - completedCount
+      - pendingCount
+      - totalScore
+      - maxScore
+      - averageScore
+      properties:
+        memberId: {type: string}
+        memberName: {type: string, nullable: true}
+        memberStudentNo: {type: string, nullable: true}
+        problemCount: {type: integer, minimum: 0, description: 考核题目总数}
+        answeredCount: {type: integer, minimum: 0, description: 提交过的题目数}
+        completedCount: {type: integer, minimum: 0, description: 已出分的题目数}
+        pendingCount: {type: integer, minimum: 0, description: 已提交但还没有分数，需要人工评阅}
+        totalScore: {type: integer, minimum: 0, description: 各题最终分之和}
+        maxScore: {type: integer, minimum: 0, description: 满分，problemCount × 100}
+        averageScore: {type: number, minimum: 0, maximum: 100, description: totalScore ÷ problemCount，保留一位小数}
+        lastSubmittedAt: {type: string, format: date-time, nullable: true}
+    AssessmentMemberScorePage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AssessmentMemberScore'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    AssessmentMemberScorePageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AssessmentMemberScorePage'}
     Member:
       type: object
       required:

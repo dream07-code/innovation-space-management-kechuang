@@ -1586,7 +1586,12 @@ export interface paths {
         /** 查询考核结果 */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                    size?: number;
+                    /** @description 只看指定成员；仅管理员和方向负责人可用，学生始终只能看自己。 */
+                    memberId?: string;
+                };
                 header?: never;
                 path: {
                     assessmentId: components["parameters"]["AssessmentId"];
@@ -1602,6 +1607,62 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["AssessmentResultPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/member-scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: components["parameters"]["AssessmentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 查询按成员汇总的考核成绩
+         * @description 每人一行。同一成员同一题目多次提交以最后一次为准；未提交的题目按 0 分计入平均分，
+         *     平均分的分母是考核题目总数，所以少做题的人不会因为分母变小而虚高。
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    size?: number;
+                };
+                header?: never;
+                path: {
+                    assessmentId: components["parameters"]["AssessmentId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentMemberScorePageResponse"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -2554,6 +2615,41 @@ export interface components {
             /** @example Success */
             message: string;
             data: components["schemas"]["AssessmentResultPage"];
+        };
+        /** @description 单个成员在一场考核里的汇总成绩。 */
+        AssessmentMemberScore: {
+            memberId: string;
+            memberName?: string | null;
+            memberStudentNo?: string | null;
+            /** @description 考核题目总数 */
+            problemCount: number;
+            /** @description 提交过的题目数 */
+            answeredCount: number;
+            /** @description 已出分的题目数 */
+            completedCount: number;
+            /** @description 已提交但还没有分数，需要人工评阅 */
+            pendingCount: number;
+            /** @description 各题最终分之和 */
+            totalScore: number;
+            /** @description 满分，problemCount × 100 */
+            maxScore: number;
+            /** @description totalScore ÷ problemCount，保留一位小数 */
+            averageScore: number;
+            /** Format: date-time */
+            lastSubmittedAt?: string | null;
+        };
+        AssessmentMemberScorePage: {
+            items: components["schemas"]["AssessmentMemberScore"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        AssessmentMemberScorePageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AssessmentMemberScorePage"];
         };
         Member: {
             /**
