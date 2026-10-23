@@ -72,7 +72,7 @@ public class AssessmentJudgeWorker {
     var rows =
         jdbc.queryForList(
             "SELECT s.language,s.status,s.problem_id,c.code_text,"
-                + "p.judge_mode,p.function_name,p.parameter_types,p.return_type"
+                + "p.judge_mode,p.function_name,p.parameter_types,p.return_type,p.time_limit_ms"
                 + " FROM assessment_submission s"
                 + " JOIN assessment_submission_code c ON c.submission_id=s.id"
                 + " JOIN assessment_problem p ON p.id=s.problem_id"
@@ -87,6 +87,7 @@ public class AssessmentJudgeWorker {
         submissionId);
 
     boolean functionMode = "FUNCTION".equals(row.get("judge_mode"));
+    int timeLimitMs = timeLimitOf(row);
     List<OjSubmission.TestCase> testCases =
         assessmentTestCases(
             ((Number) row.get("problem_id")).longValue(),
@@ -102,8 +103,8 @@ public class AssessmentJudgeWorker {
               : new String((byte[]) codeValue, StandardCharsets.UTF_8);
       result =
           functionMode
-              ? judgeFunction(signature(row), language, code, testCases)
-              : adapter.judge(new OjSubmission(language, code, testCases));
+              ? judgeFunction(signature(row), language, code, testCases, timeLimitMs)
+              : adapter.judge(new OjSubmission(language, code, testCases, timeLimitMs));
     } catch (RuntimeException error) {
       log.warn(
           "Submission {} judge request failed: {}",
@@ -128,7 +129,8 @@ public class AssessmentJudgeWorker {
       FunctionHarness.Signature signature,
       String language,
       String code,
-      List<OjSubmission.TestCase> testCases) {
+      List<OjSubmission.TestCase> testCases,
+      int timeLimitMs) {
     var results = new ArrayList<OjJudgeResult.TestCaseResult>();
     int passed = 0;
     int maxTimeMs = 0;
@@ -148,7 +150,10 @@ public class AssessmentJudgeWorker {
       var single =
           adapter.judge(
               new OjSubmission(
-                  language, wrapped, List.of(new OjSubmission.TestCase("", testCase.expectedOutput()))));
+                  language,
+                  wrapped,
+                  List.of(new OjSubmission.TestCase("", testCase.expectedOutput())),
+                  timeLimitMs));
       if (single.verdict() == OjVerdict.INTERNAL_ERROR) return internalResult(testCases);
       var one =
           single.testCaseResults().isEmpty()
@@ -324,16 +329,18 @@ public class AssessmentJudgeWorker {
   public OjJudgeResult practice(long problemId, String language, String code) {
     var rows =
         jdbc.queryForList(
-            "SELECT judge_mode,function_name,parameter_types,return_type FROM assessment_problem WHERE id=?",
+            "SELECT judge_mode,function_name,parameter_types,return_type,time_limit_ms"
+                + " FROM assessment_problem WHERE id=?",
             problemId);
     boolean functionMode = !rows.isEmpty() && "FUNCTION".equals(rows.getFirst().get("judge_mode"));
     var signature = functionMode ? signature(rows.getFirst()) : null;
+    int timeLimitMs = rows.isEmpty() ? 0 : timeLimitOf(rows.getFirst());
     List<OjSubmission.TestCase> testCases =
         problemTestCases(problemId, "assessment_problem_practice_test_case", signature);
     try {
       return functionMode
-          ? judgeFunction(signature, language, code, testCases)
-          : adapter.judge(new OjSubmission(language, code, testCases));
+          ? judgeFunction(signature, language, code, testCases, timeLimitMs)
+          : adapter.judge(new OjSubmission(language, code, testCases, timeLimitMs));
     } catch (RuntimeException error) {
       return internalResult(testCases);
     }
@@ -348,10 +355,12 @@ public class AssessmentJudgeWorker {
   public TrialRun trial(long problemId, String language, String code) {
     var rows =
         jdbc.queryForList(
-            "SELECT judge_mode,function_name,parameter_types,return_type FROM assessment_problem WHERE id=?",
+            "SELECT judge_mode,function_name,parameter_types,return_type,time_limit_ms"
+                + " FROM assessment_problem WHERE id=?",
             problemId);
     boolean functionMode = !rows.isEmpty() && "FUNCTION".equals(rows.getFirst().get("judge_mode"));
     var signature = functionMode ? signature(rows.getFirst()) : null;
+    int timeLimitMs = rows.isEmpty() ? 0 : timeLimitOf(rows.getFirst());
     List<OjSubmission.TestCase> testCases = assessmentTestCases(problemId, signature);
     if (testCases.isEmpty()) return new TrialRun(null, null);
     var testCase = testCases.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(testCases.size()));
@@ -359,8 +368,8 @@ public class AssessmentJudgeWorker {
     try {
       single =
           functionMode
-              ? judgeFunction(signature, language, code, List.of(testCase))
-              : adapter.judge(new OjSubmission(language, code, List.of(testCase)));
+              ? judgeFunction(signature, language, code, List.of(testCase), timeLimitMs)
+              : adapter.judge(new OjSubmission(language, code, List.of(testCase), timeLimitMs));
     } catch (RuntimeException error) {
       log.warn(
           "Trial run failed for problem {}: {}", problemId, error.getClass().getSimpleName());
@@ -423,6 +432,13 @@ public class AssessmentJudgeWorker {
                   : expected));
     }
     return result;
+  }
+
+  /** 题目未配置时限时返回 0，交给判题后端用默认值。 */
+  private static int timeLimitOf(java.util.Map<String, Object> row) {
+    Object value = row.get("time_limit_ms");
+    if (value instanceof Number number && number.intValue() > 0) return number.intValue();
+    return 0;
   }
 
   private static OjJudgeResult internalResult(List<OjSubmission.TestCase> testCases) {

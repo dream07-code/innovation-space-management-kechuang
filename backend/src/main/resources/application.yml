@@ -60,6 +60,7 @@ app:
     daily-base-points: ${REPORT_DAILY_BASE_POINTS:1}
     weekly-base-points: ${REPORT_WEEKLY_BASE_POINTS:1}
   oj:
+    # mock=假判题；judge0=远程判题机；local=本机 g++/javac/python3/node 真实编译执行（仅开发环境）
     provider: ${OJ_PROVIDER:mock}
     base-url: ${OJ_BASE_URL:}
     api-token: ${OJ_API_TOKEN:}

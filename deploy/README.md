@@ -98,6 +98,8 @@ SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 
 当前默认 `OJ_PROVIDER=mock`。真实 Judge0 需要另行设置 `OJ_BASE_URL`、`OJ_API_TOKEN`，并在目标服务器完成判题验收。
 
+本地开发要真正编译执行代码时，可以用 `OJ_PROVIDER=local`：后端直接调用本机 `g++`（C++17）、`javac`/`java`（JDK 17+）、`python3`、`node` 判题，支持 `cpp` / `java` / `python` / `javascript` 四种语言，缺少对应工具链的语言返回“内部错误”而不是误判。该模式没有容器隔离，只靠进程超时、输出上限和独立临时目录约束，**禁止用于生产**；`OJ_CPU_TIME_LIMIT_SECONDS`（默认 2）与 `OJ_MEMORY_LIMIT_KB` 对所有题目统一生效。
+
 判题返回“内部错误 / 0 个测试点通过 / 0 ms”表示 Judge0 没有真正执行代码，不是页面或评分问题。先在服务器运行判题自检：
 
 ```bash

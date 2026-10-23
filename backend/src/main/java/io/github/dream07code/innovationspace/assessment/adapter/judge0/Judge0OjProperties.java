@@ -45,7 +45,8 @@ public class Judge0OjProperties {
   public void setMaxResponseBytes(int value) { maxResponseBytes = value; }
 
   public void validate() {
-    if (!"mock".equals(provider) && !"judge0".equals(provider))
+    // mock 只做假判题；judge0 走远程判题机；local 调用本机编译器（仅开发环境）
+    if (!"mock".equals(provider) && !"judge0".equals(provider) && !"local".equals(provider))
       throw new IllegalArgumentException("Unsupported OJ provider");
     if (!"judge0".equals(provider)) return;
     if (baseUrl == null || baseUrl.isBlank() || baseUrl.length() > 2048)
