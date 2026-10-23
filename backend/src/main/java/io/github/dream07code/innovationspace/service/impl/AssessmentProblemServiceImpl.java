@@ -701,6 +701,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
             "timeLimitMs",
             "memoryLimitKb",
             "allowedLanguages",
+            "judgeMode",
+            "functionName",
+            "parameterTypes",
+            "returnType",
             "assessmentTestCases",
             "practiceTestCases");
     if (!allowed.containsAll(raw.keySet())) throw bad();

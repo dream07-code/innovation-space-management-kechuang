@@ -56,3 +56,21 @@ class Solution {
 - 管理员和方向负责人可以在考核结果页点「代码」查看提交源码；提交详情和人工批阅页
   也直接展示只读代码，方便人工评分。查看非本人代码会写入审计记录。
 - 输入/实际输出/期望输出都截断到 2000 字符后存储，接口不会返回完整判题日志。
+
+## 已有题库不用重新导入
+
+V10 迁移用 `ADD COLUMN ... NOT NULL DEFAULT 'STDIO'` 加字段，已有题目自动成为
+命令行模式，题目、测试点、考核与题目的关联都保持原样，**不需要重新导入题库**。
+
+把某道老题改成函数式，有两种方式：
+
+1. 题目编辑页把「判题方式」切到函数传参，填函数名与签名，再把每个测试点的输入
+   从原来的程序输入改写成 JSON 参数数组，保存即可（题目版本 +1）。
+2. 调 `PATCH /api/v1/assessment-problems/{id}`，请求体至少包含
+   `judgeMode`、`functionName`、`parameterTypes`、`returnType`、`version`，
+   并且**必须同时带上 `assessmentTestCases`**（切换模式时要重新校验参数个数）。
+
+注意：`POST /api/v1/assessment-problems/import` 只做新增，不按标题或 ID 更新。
+对已有题库重复导入会生成一批新题目，原来的考核仍然指向旧题目，请不要用它做“覆盖”。
+导入请求现在也接受 `judgeMode`、`functionName`、`parameterTypes`、`returnType`，
+可以直接导入函数式新题。
