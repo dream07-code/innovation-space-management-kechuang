@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => {
   const backendTarget = env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8080'
 
   return {
+    // 显式声明根路径：router 用 import.meta.env.BASE_URL 初始化 history，
+    // 未声明时构建产物里可能拿不到值，导致跳转地址拼出 “undefined/…”。
+    base: '/',
     plugins: [vue(), vueDevTools()],
     resolve: {
       alias: {

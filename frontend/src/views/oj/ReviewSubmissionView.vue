@@ -171,7 +171,14 @@ onMounted(load)
         />
       </template>
 
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="review-form">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-position="top"
+        class="review-form"
+        @submit.prevent
+      >
         <el-form-item label="人工评分（0–100）" prop="score">
           <el-slider v-model="form.score" :min="0" :max="100" show-input />
         </el-form-item>

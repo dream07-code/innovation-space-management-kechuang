@@ -107,11 +107,9 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
     expect(reviewButton).toBeTruthy()
     await reviewButton!.trigger('click')
 
-    expect(push).toHaveBeenCalledWith({
-      name: 'oj-submission-review',
-      params: { submissionId: '9201' },
-      query: { redirect: '/oj/assessments/9001/results' },
-    })
+    expect(push).toHaveBeenCalledWith(
+      '/oj/submissions/9201/review?redirect=%2Foj%2Fassessments%2F9001%2Fresults',
+    )
   })
 
   it('学生看不到人工评分入口', async () => {

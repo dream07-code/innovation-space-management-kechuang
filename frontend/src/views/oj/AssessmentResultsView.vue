@@ -51,11 +51,10 @@ function openCode(submissionId: string): void {
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
 
 function openReview(submissionId: string): void {
-  void router.push({
-    name: 'oj-submission-review',
-    params: { submissionId },
-    query: { redirect: route.fullPath },
-  })
+  if (!submissionId) return
+  // 用字符串路径跳转，避免 name+params 解析在某些导航时序下拿到空路径
+  const redirect = encodeURIComponent(`/oj/assessments/${assessmentId.value}/results`)
+  void router.push(`/oj/submissions/${submissionId}/review?redirect=${redirect}`)
 }
 
 const problemNames = computed(() => new Map(problems.value.map((item) => [item.id, item.title])))
