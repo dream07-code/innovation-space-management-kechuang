@@ -113,7 +113,14 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
   public Map<String, Object> get(long id, SessionPrincipal actor) {
     var row = row(id);
     requireVisible(actor, row);
-    return response(id);
+    var out = response(id);
+    if (out.get("judgeResult") instanceof Map<?, ?> judge) {
+      @SuppressWarnings("unchecked")
+      var result = (Map<String, Object>) judge;
+      var sample = sampleCase(id);
+      if (sample != null) result.put("sampleCase", sample);
+    }
+    return out;
   }
 
   public Map<String, Object> list(
@@ -199,6 +206,56 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     if (problems.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
     if (!languageList(problems.getFirst().get("allowed_languages")).contains(language)) throw bad();
     return problemId;
+  }
+
+  public Map<String, Object> code(long id, SessionPrincipal actor) {
+    var row = row(id);
+    requireVisible(actor, row);
+    var rows =
+        jdbc.queryForList(
+            "SELECT code_text FROM assessment_submission_code WHERE submission_id=?", id);
+    if (rows.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
+    boolean owner =
+        "STUDENT".equals(actor.role())
+            && actor.memberId() != null
+            && actor.memberId() == ((Number) row.get("member_id")).longValue();
+    if (!owner)
+      jdbc.update(
+          "INSERT INTO assessment_audit(actor_user_id,action,resource_type,resource_id,summary,result,occurred_at)"
+              + " VALUES(?,'SUBMISSION_CODE_VIEWED','SUBMISSION',?,'Submission code viewed','SUCCESS',?)",
+          actor.userId(),
+          id,
+          Timestamp.from(clock.instant()));
+    var out = new LinkedHashMap<String, Object>();
+    out.put("submissionId", String.valueOf(id));
+    out.put("language", row.get("language"));
+    out.put("code", String.valueOf(rows.getFirst().get("code_text")));
+    return out;
+  }
+
+  /**
+   * 给学生一个参考测试点：优先从失败用例里按提交号稳定挑选一个，
+   * 全部通过时退回随机一个；只返回截断后的输入、实际输出和期望输出。
+   */
+  private Map<String, Object> sampleCase(long submissionId) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT position,verdict,input_preview,actual_output,expected_output"
+                + " FROM oj_test_case_result WHERE submission_id=? ORDER BY position",
+            submissionId);
+    if (rows.isEmpty()) return null;
+    var failed = new ArrayList<Map<String, Object>>();
+    for (var row : rows) if (!"ACCEPTED".equals(row.get("verdict"))) failed.add(row);
+    var pool = failed.isEmpty() ? rows : failed;
+    int index = (int) Math.floorMod(submissionId * 31L + 7, pool.size());
+    var row = pool.get(index);
+    var out = new LinkedHashMap<String, Object>();
+    out.put("position", row.get("position"));
+    out.put("verdict", row.get("verdict"));
+    out.put("input", row.get("input_preview"));
+    out.put("actualOutput", row.get("actual_output"));
+    out.put("expectedOutput", row.get("expected_output"));
+    return out;
   }
 
   private Map<String, Object> response(long id) {

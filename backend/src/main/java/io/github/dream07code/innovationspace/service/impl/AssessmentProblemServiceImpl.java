@@ -169,6 +169,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       detail.put("position", testCaseResult.position());
       detail.put("input", testCase.get("input"));
       detail.put("expectedOutput", testCase.get("expectedOutput"));
+      detail.put("actualOutput", testCaseResult.actualOutput());
       detail.put("verdict", testCaseResult.verdict().name());
       detail.put("timeMs", testCaseResult.timeMs());
       detail.put("memoryKb", testCaseResult.memoryKb());
@@ -231,6 +232,27 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
           Map<String, Object> values = new LinkedHashMap<>(request);
           values.remove("version");
           if (values.isEmpty()) throw bad();
+          String effectiveMode =
+              values.containsKey("judgeMode")
+                  ? judgeMode(values.get("judgeMode"))
+                  : String.valueOf(before.get("judge_mode"));
+          if ("FUNCTION".equals(effectiveMode)) {
+            var effective = new LinkedHashMap<String, Object>();
+            effective.put("functionName", values.getOrDefault("functionName", before.get("function_name")));
+            effective.put(
+                "parameterTypes",
+                values.containsKey("parameterTypes")
+                    ? values.get("parameterTypes")
+                    : jsonList(before.get("parameter_types")));
+            effective.put("returnType", values.getOrDefault("returnType", before.get("return_type")));
+            var signature = signatureFor(effectiveMode, effective);
+            if (values.containsKey("assessmentTestCases"))
+              validateFunctionTestCases(signature, values.get("assessmentTestCases"), true);
+            else if (values.containsKey("judgeMode"))
+              throw bad(); // 切换为函数模式时必须同时提交测试点
+            if (values.containsKey("practiceTestCases"))
+              validateFunctionTestCases(signature, values.get("practiceTestCases"), false);
+          }
           var fields = new ArrayList<String>();
           var args = new ArrayList<Object>();
           if (values.containsKey("title")) { fields.add("title=?"); args.add(text(values, "title", 120)); }
@@ -244,6 +266,21 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
           if (values.containsKey("timeLimitMs")) { fields.add("time_limit_ms=?"); args.add(integer(values.get("timeLimitMs"), 100, 30000)); }
           if (values.containsKey("memoryLimitKb")) { fields.add("memory_limit_kb=?"); args.add(integer(values.get("memoryLimitKb"), 1024, 1048576)); }
           if (values.containsKey("allowedLanguages")) { fields.add("allowed_languages=?"); args.add(json.writeValueAsString(languages(values.get("allowedLanguages")))); }
+          if (values.containsKey("judgeMode")) {
+            String mode = judgeMode(values.get("judgeMode"));
+            fields.add("judge_mode=?");
+            args.add(mode);
+            fields.add("function_name=?");
+            args.add(functionNameOrNull(mode, values.get("functionName")));
+            fields.add("parameter_types=?");
+            args.add(parameterTypesJson(mode, values.get("parameterTypes")));
+            fields.add("return_type=?");
+            args.add(returnTypeOrNull(mode, values.get("returnType")));
+          } else {
+            if (values.containsKey("functionName")) { fields.add("function_name=?"); args.add(functionName(values.get("functionName"))); }
+            if (values.containsKey("parameterTypes")) { fields.add("parameter_types=?"); args.add(json.writeValueAsString(parameterTypeValues(values.get("parameterTypes")))); }
+            if (values.containsKey("returnType")) { fields.add("return_type=?"); args.add(returnTypeValue(values.get("returnType"))); }
+          }
           fields.add("version=version+1");
           fields.add("updated_at=?");
           args.add(Timestamp.from(clock.instant()));
@@ -338,6 +375,13 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     out.put("timeLimitMs", row.get("time_limit_ms"));
     out.put("memoryLimitKb", row.get("memory_limit_kb"));
     out.put("allowedLanguages", json.readValue(String.valueOf(row.get("allowed_languages")), List.class));
+    out.put("judgeMode", row.get("judge_mode"));
+    out.put("functionName", row.get("function_name"));
+    out.put("parameterTypes",
+        row.get("parameter_types") == null
+            ? null
+            : json.readValue(String.valueOf(row.get("parameter_types")), List.class));
+    out.put("returnType", row.get("return_type"));
     out.put("status", row.get("status"));
     out.put("version", row.get("version"));
     out.put("createdAt", time(row.get("created_at")));
@@ -368,6 +412,101 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     integer(request.get("timeLimitMs"), 100, 30000);
     integer(request.get("memoryLimitKb"), 1024, 1048576);
     languages(request.get("allowedLanguages"));
+    String mode = judgeMode(request.get("judgeMode"));
+    var signature = signatureFor(mode, request);
+    if ("FUNCTION".equals(mode)) {
+      validateFunctionTestCases(signature, request.get("assessmentTestCases"), true);
+      validateFunctionTestCases(signature, request.get("practiceTestCases"), false);
+    }
+  }
+
+  private static String judgeMode(Object value) {
+    if (value == null) return "STDIO";
+    if (!(value instanceof String text) || !Set.of("STDIO", "FUNCTION").contains(text)) throw bad();
+    return text;
+  }
+
+  private static String functionName(Object value) {
+    if (!(value instanceof String text) || !text.matches("[A-Za-z_][A-Za-z0-9_]{0,63}")) throw bad();
+    return text;
+  }
+
+  private static String returnTypeValue(Object value) {
+    if (!(value instanceof String text)) throw bad();
+    try {
+      FunctionHarness.ValueType.parse(text);
+      return text;
+    } catch (IllegalArgumentException error) {
+      throw bad();
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> parameterTypeValues(Object value) {
+    if (!(value instanceof List<?> list) || list.size() > 4) throw bad();
+    var result = new ArrayList<String>();
+    for (Object item : list) {
+      if (!(item instanceof String text)) throw bad();
+      try {
+        FunctionHarness.ValueType.parse(text);
+      } catch (IllegalArgumentException error) {
+        throw bad();
+      }
+      result.add(text);
+    }
+    return result;
+  }
+
+  private static FunctionHarness.Signature signatureFor(String mode, Map<String, Object> source) {
+    if (!"FUNCTION".equals(mode)) return null;
+    try {
+      return FunctionHarness.signature(
+          functionName(source.get("functionName")),
+          parameterTypeValues(source.get("parameterTypes")),
+          returnTypeValue(source.get("returnType")));
+    } catch (IllegalArgumentException error) {
+      throw bad();
+    }
+  }
+
+  private List<?> jsonList(Object value) {
+    if (value == null) return List.of();
+    if (value instanceof List<?> list) return list;
+    try {
+      return json.readValue(String.valueOf(value), List.class);
+    } catch (RuntimeException error) {
+      return List.of();
+    }
+  }
+
+  private String functionNameOrNull(String mode, Object value) {
+    return "FUNCTION".equals(mode) ? functionName(value) : null;
+  }
+
+  private String parameterTypesJson(String mode, Object value) {
+    return "FUNCTION".equals(mode) ? json.writeValueAsString(parameterTypeValues(value)) : null;
+  }
+
+  private String returnTypeOrNull(String mode, Object value) {
+    return "FUNCTION".equals(mode) ? returnTypeValue(value) : null;
+  }
+
+  private static void validateFunctionTestCases(
+      FunctionHarness.Signature signature, Object value, boolean required) {
+    if (value == null) {
+      if (required) throw bad();
+      return;
+    }
+    if (!(value instanceof List<?> list)) throw bad();
+    for (Object item : list) {
+      if (!(item instanceof Map<?, ?> testCase) || !(testCase.get("input") instanceof String input))
+        throw bad();
+      try {
+        FunctionHarness.parseArguments(signature, input);
+      } catch (IllegalArgumentException error) {
+        throw bad();
+      }
+    }
   }
 
   private static void validateTestCaseField(Object value, boolean required) {
@@ -389,7 +528,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
 
   private static void validateUpdate(Map<String, Object> request) {
     if (request == null || request.size() < 2 || !request.containsKey("version")) throw bad();
-    var allowed = Set.of("version", "title", "summary", "description", "inputFormat", "outputFormat", "examples", "difficulty", "tags", "timeLimitMs", "memoryLimitKb", "allowedLanguages", "assessmentTestCases", "practiceTestCases");
+    var allowed = Set.of("version", "title", "summary", "description", "inputFormat", "outputFormat", "examples", "difficulty", "tags", "timeLimitMs", "memoryLimitKb", "allowedLanguages", "assessmentTestCases", "practiceTestCases", "judgeMode", "functionName", "parameterTypes", "returnType");
     if (!allowed.containsAll(request.keySet())) throw bad();
     for (var entry : request.entrySet()) {
       String key = entry.getKey();
@@ -407,6 +546,11 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         case "timeLimitMs" -> integer(value, 100, 30000);
         case "memoryLimitKb" -> integer(value, 1024, 1048576);
         case "allowedLanguages" -> languages(value);
+        case "judgeMode" -> judgeMode(value);
+        // 命令行模式下这三个字段会显式传 null，真正的组合校验在下方按生效签名执行。
+        case "functionName" -> { if (value != null) functionName(value); }
+        case "parameterTypes" -> { if (value != null) parameterTypeValues(value); }
+        case "returnType" -> { if (value != null) returnTypeValue(value); }
         case "assessmentTestCases" -> validateTestCaseField(value, true);
         case "practiceTestCases" -> validateTestCaseField(value, false);
         default -> throw bad();
@@ -478,8 +622,8 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   private long insertProblem(Map<String, Object> request, SessionPrincipal actor) {
     Instant now = clock.instant();
     jdbc.update(
-        "INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,status,version,created_by,created_at,updated_at)"
-            + " VALUES(?,?,?,?,?,?,?,?,?,?,?, 'DRAFT',1,?,?,?)",
+        "INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,judge_mode,function_name,parameter_types,return_type,status,version,created_by,created_at,updated_at)"
+            + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'DRAFT',1,?,?,?)",
         text(request, "title", 120),
         text(request, "summary", 300),
         text(request, "description", 20000),
@@ -491,6 +635,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         integer(request.get("timeLimitMs"), 100, 30000),
         integer(request.get("memoryLimitKb"), 1024, 1048576),
         json.writeValueAsString(languages(request.get("allowedLanguages"))),
+        judgeMode(request.get("judgeMode")),
+        functionNameOrNull(judgeMode(request.get("judgeMode")), request.get("functionName")),
+        parameterTypesJson(judgeMode(request.get("judgeMode")), request.get("parameterTypes")),
+        returnTypeOrNull(judgeMode(request.get("judgeMode")), request.get("returnType")),
         actor.userId(),
         Timestamp.from(now),
         Timestamp.from(now));

@@ -41,11 +41,25 @@ public record OjJudgeResult(
   }
 
   public record TestCaseResult(
-      int position, OjVerdict verdict, int timeMs, int memoryKb, String safeError) {
+      int position,
+      OjVerdict verdict,
+      int timeMs,
+      int memoryKb,
+      String safeError,
+      String actualOutput) {
+    private static final int MAX_ACTUAL_OUTPUT = 2000;
+
     public TestCaseResult {
       if (position < 1 || position > 100 || verdict == null || timeMs < 0 || memoryKb < 0
           || (safeError != null && safeError.length() > 500))
         throw new IllegalArgumentException("invalid OJ test case result");
+      if (actualOutput != null && actualOutput.length() > MAX_ACTUAL_OUTPUT)
+        actualOutput = actualOutput.substring(0, MAX_ACTUAL_OUTPUT);
+    }
+
+    public TestCaseResult(
+        int position, OjVerdict verdict, int timeMs, int memoryKb, String safeError) {
+      this(position, verdict, timeMs, memoryKb, safeError, null);
     }
   }
 }

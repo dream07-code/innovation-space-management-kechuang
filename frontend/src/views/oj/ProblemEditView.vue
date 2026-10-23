@@ -26,9 +26,11 @@ import type {
 import {
   buildCreateProblemPayload,
   buildUpdateProblemPayload,
+  validateFunctionProblemForm,
   validateProblemTestCaseForm,
   type ProblemTestCaseRow,
 } from './problemPayload'
+import type { FunctionValueType } from './languageTemplates'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -55,6 +57,10 @@ const form = reactive({
   timeLimitMs: 1000,
   memoryLimitKb: 131072,
   allowedLanguages: ['java', 'python'] as AssessmentLanguage[],
+  judgeMode: 'STDIO' as 'STDIO' | 'FUNCTION',
+  functionName: '',
+  parameterTypes: ['int'] as FunctionValueType[],
+  returnType: 'int' as FunctionValueType,
   examples: [{ input: '', output: '', explanation: '' }] as Array<{
     input: string
     output: string
@@ -80,6 +86,26 @@ const languageOptions = (['java', 'python', 'cpp', 'javascript', 'go', 'rust'] a
   (value) => ({ value, label: languageLabel(value) }),
 )
 
+const functionTypeOptions: Array<{ value: FunctionValueType; label: string }> = [
+  { value: 'int', label: 'int' },
+  { value: 'long', label: 'long' },
+  { value: 'bool', label: 'bool' },
+  { value: 'string', label: 'string' },
+  { value: 'int[]', label: 'int[]' },
+  { value: 'long[]', label: 'long[]' },
+  { value: 'string[]', label: 'string[]' },
+  { value: 'int[][]', label: 'int[][]' },
+]
+
+function addParameter(): void {
+  if (form.parameterTypes.length >= 4) return
+  form.parameterTypes.push('int')
+}
+
+function removeParameter(index: number): void {
+  form.parameterTypes.splice(index, 1)
+}
+
 async function load(): Promise<void> {
   if (isNew.value) return
   loading.value = true
@@ -99,6 +125,10 @@ async function load(): Promise<void> {
     form.timeLimitMs = problem.value.timeLimitMs
     form.memoryLimitKb = problem.value.memoryLimitKb
     form.allowedLanguages = [...problem.value.allowedLanguages]
+    form.judgeMode = problem.value.judgeMode === 'FUNCTION' ? 'FUNCTION' : 'STDIO'
+    form.functionName = problem.value.functionName ?? ''
+    form.parameterTypes = (problem.value.parameterTypes ?? []) as FunctionValueType[]
+    form.returnType = (problem.value.returnType ?? 'int') as FunctionValueType
     form.examples = problem.value.examples.map((item) => ({
       input: item.input,
       output: item.output,
@@ -132,6 +162,11 @@ async function save(): Promise<void> {
   )
   if (testCaseError) {
     ElMessage.warning(testCaseError)
+    return
+  }
+  const functionError = validateFunctionProblemForm(form)
+  if (functionError) {
+    ElMessage.warning(functionError)
     return
   }
 
@@ -290,6 +325,67 @@ onMounted(load)
         </div>
       </el-form-item>
 
+      <el-form-item label="判题方式">
+        <div class="judge-mode">
+          <el-radio-group v-model="form.judgeMode">
+            <el-radio-button value="STDIO">命令行读写</el-radio-button>
+            <el-radio-button value="FUNCTION">函数传参（力扣风格）</el-radio-button>
+          </el-radio-group>
+          <div v-if="form.judgeMode === 'FUNCTION'" class="signature">
+            <el-input
+              v-model="form.functionName"
+              class="signature__name"
+              maxlength="64"
+              placeholder="函数名，如 fib"
+            />
+            <span class="signature__arrow">(</span>
+            <div class="signature__params">
+              <div v-for="(_, index) in form.parameterTypes" :key="index" class="signature__param">
+                <el-select v-model="form.parameterTypes[index]" class="signature__type">
+                  <el-option
+                    v-for="option in functionTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-button
+                  link
+                  type="danger"
+                  :icon="Delete"
+                  aria-label="删除参数"
+                  @click="removeParameter(index)"
+                />
+              </div>
+              <el-button
+                link
+                :icon="Plus"
+                :disabled="form.parameterTypes.length >= 4"
+                @click="addParameter"
+              >
+                参数
+              </el-button>
+            </div>
+            <span class="signature__arrow">) →</span>
+            <el-select v-model="form.returnType" class="signature__type">
+              <el-option
+                v-for="option in functionTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </div>
+          <p class="judge-mode__hint">
+            {{
+              form.judgeMode === 'FUNCTION'
+                ? '学员只写函数，判题时系统按签名把测试点参数传进去并比对返回值。测试点输入填写 JSON 参数数组，例如 [10] 或 [[2,7,11,15],9]。'
+                : '学员按标准输入输出写完整程序，测试点输入即程序的标准输入。'
+            }}
+          </p>
+        </div>
+      </el-form-item>
+
       <el-form-item label="正式考核测试点">
         <div class="test-case-section">
           <el-alert
@@ -332,12 +428,17 @@ onMounted(load)
                 </el-button>
               </div>
             </div>
-            <el-input v-model="item.input" type="textarea" :rows="3" placeholder="输入（无输入时留空）" />
+            <el-input
+              v-model="item.input"
+              type="textarea"
+              :rows="3"
+              :placeholder="form.judgeMode === 'FUNCTION' ? '参数（JSON 数组），如 [10]' : '输入（无输入时留空）'"
+            />
             <el-input
               v-model="item.expectedOutput"
               type="textarea"
               :rows="3"
-              placeholder="期望输出"
+              :placeholder="form.judgeMode === 'FUNCTION' ? '返回值，如 55 或 [1,2]' : '期望输出'"
               class="test-case-output"
             />
           </div>
@@ -390,12 +491,17 @@ onMounted(load)
                 </el-button>
               </div>
             </div>
-            <el-input v-model="item.input" type="textarea" :rows="3" placeholder="输入（无输入时留空）" />
+            <el-input
+              v-model="item.input"
+              type="textarea"
+              :rows="3"
+              :placeholder="form.judgeMode === 'FUNCTION' ? '参数（JSON 数组），如 [10]' : '输入（无输入时留空）'"
+            />
             <el-input
               v-model="item.expectedOutput"
               type="textarea"
               :rows="3"
-              placeholder="期望输出"
+              :placeholder="form.judgeMode === 'FUNCTION' ? '返回值，如 55 或 [1,2]' : '期望输出'"
               class="test-case-output"
             />
           </div>
@@ -455,6 +561,50 @@ onMounted(load)
 
 .problem-form {
   max-width: 920px;
+}
+
+.judge-mode {
+  width: 100%;
+}
+
+.judge-mode__hint {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.signature {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.signature__name {
+  width: 180px;
+}
+
+.signature__params {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.signature__param {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.signature__type {
+  width: 110px;
+}
+
+.signature__arrow {
+  color: var(--el-text-color-secondary);
 }
 
 .examples {

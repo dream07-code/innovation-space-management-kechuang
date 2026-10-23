@@ -161,3 +161,183 @@ export function starterCode(language: AssessmentLanguage): string {
 export function languageRuntime(language: AssessmentLanguage): LanguageRuntime | null {
   return LANGUAGE_RUNTIMES[language] ?? null
 }
+
+// ---------------------------------------------------------------------------
+// 函数式判题（力扣风格）起始代码
+// ---------------------------------------------------------------------------
+
+export type FunctionValueType =
+  | 'int'
+  | 'long'
+  | 'bool'
+  | 'string'
+  | 'int[]'
+  | 'long[]'
+  | 'string[]'
+  | 'int[][]'
+
+const FUNCTION_TYPES: Record<AssessmentLanguage, Record<FunctionValueType, string>> = {
+  cpp: {
+    int: 'int',
+    long: 'long long',
+    bool: 'bool',
+    string: 'string',
+    'int[]': 'vector<int>',
+    'long[]': 'vector<long long>',
+    'string[]': 'vector<string>',
+    'int[][]': 'vector<vector<int>>',
+  },
+  java: {
+    int: 'int',
+    long: 'long',
+    bool: 'boolean',
+    string: 'String',
+    'int[]': 'int[]',
+    'long[]': 'long[]',
+    'string[]': 'String[]',
+    'int[][]': 'int[][]',
+  },
+  python: {
+    int: '',
+    long: '',
+    bool: '',
+    string: '',
+    'int[]': '',
+    'long[]': '',
+    'string[]': '',
+    'int[][]': '',
+  },
+  javascript: {
+    int: '',
+    long: '',
+    bool: '',
+    string: '',
+    'int[]': '',
+    'long[]': '',
+    'string[]': '',
+    'int[][]': '',
+  },
+  go: {
+    int: 'int',
+    long: 'int64',
+    bool: 'bool',
+    string: 'string',
+    'int[]': '[]int',
+    'long[]': '[]int64',
+    'string[]': '[]string',
+    'int[][]': '[][]int',
+  },
+  rust: {
+    int: 'i32',
+    long: 'i64',
+    bool: 'bool',
+    string: 'String',
+    'int[]': 'Vec<i32>',
+    'long[]': 'Vec<i64>',
+    'string[]': 'Vec<String>',
+    'int[][]': 'Vec<Vec<i32>>',
+  },
+}
+
+export interface FunctionSignature {
+  functionName: string | null
+  parameterTypes: readonly string[] | null
+  returnType: string | null
+}
+
+function asType(value: string): FunctionValueType {
+  return (value in FUNCTION_TYPES.cpp ? value : 'int') as FunctionValueType
+}
+
+/** 按题目签名生成各语言的函数骨架：只写函数，package/main/调用由判题系统补充。 */
+export function functionStarter(
+  language: AssessmentLanguage,
+  signature: FunctionSignature,
+): string {
+  const name = signature.functionName?.trim() || 'solve'
+  const params = (signature.parameterTypes ?? []).map(asType)
+  const returns = asType(signature.returnType ?? 'int')
+  const types = FUNCTION_TYPES[language]
+  const typedParams = (formatter: (type: string, index: number) => string): string =>
+    params.map((type, index) => formatter(types[type], index)).join(', ')
+
+  switch (language) {
+    case 'cpp':
+      return [
+        'class Solution {',
+        'public:',
+        `    ${types[returns]} ${name}(${typedParams((type, index) => `${type} arg${index}`)}) {`,
+        '        // 在此实现，返回结果即可，不需要写 main',
+        '    }',
+        '};',
+        '',
+      ].join('\n')
+    case 'java':
+      return [
+        'class Solution {',
+        `    public ${types[returns]} ${name}(${typedParams((type, index) => `${type} arg${index}`)}) {`,
+        '        // 在此实现，返回结果即可，不需要写 main',
+        '    }',
+        '}',
+        '',
+      ].join('\n')
+    case 'python':
+      return [
+        'class Solution:',
+        `    def ${name}(self${params.map((_, index) => `, arg${index}`).join('')}):`,
+        '        # 在此实现，返回结果即可',
+        '        pass',
+        '',
+      ].join('\n')
+    case 'javascript':
+      return [
+        'class Solution {',
+        `  ${name}(${params.map((_, index) => `arg${index}`).join(', ')}) {`,
+        '    // 在此实现，返回结果即可',
+        '  }',
+        '}',
+        '',
+      ].join('\n')
+    case 'go':
+      return [
+        '// 只写函数即可：package 与 main 由判题系统补充',
+        `func ${name}(${typedParams((type, index) => `arg${index} ${type}`)}) ${types[returns]} {`,
+        '\t// 在此实现',
+        '}',
+        '',
+      ].join('\n')
+    case 'rust':
+      return [
+        'struct Solution;',
+        '',
+        'impl Solution {',
+        `    pub fn ${name}(${typedParams((type, index) => `arg${index}: ${type}`)}) -> ${types[returns]} {`,
+        '        // 在此实现',
+        '    }',
+        '}',
+        '',
+      ].join('\n')
+    default:
+      return ''
+  }
+}
+
+/** 题目为函数模式时返回函数骨架，否则回退到标准输入输出模板。 */
+export function starterForProblem(
+  language: AssessmentLanguage,
+  problem: {
+    judgeMode?: string | null
+    functionName?: string | null
+    parameterTypes?: readonly string[] | null
+    returnType?: string | null
+  },
+): string {
+  if (problem.judgeMode === 'FUNCTION') {
+    return functionStarter(language, {
+      functionName: problem.functionName ?? null,
+      parameterTypes: problem.parameterTypes ?? null,
+      returnType: problem.returnType ?? null,
+    })
+  }
+  return starterCode(language)
+}

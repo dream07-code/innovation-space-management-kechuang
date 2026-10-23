@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildCreateProblemPayload,
+  validateFunctionProblemForm,
   buildUpdateProblemPayload,
   validateProblemTestCaseForm,
 } from '@/views/oj/problemPayload'
@@ -17,7 +18,13 @@ const baseForm = {
   timeLimitMs: 1000,
   memoryLimitKb: 65536,
   allowedLanguages: ['java'] as const,
+  judgeMode: 'STDIO' as const,
+  functionName: '',
+  parameterTypes: [] as string[],
+  returnType: 'int',
   examples: [{ input: '[2,7]', output: '0 1', explanation: '' }],
+  assessmentTestCases: [{ input: '默认输入', expectedOutput: '默认输出' }],
+  practiceTestCases: [] as { input: string; expectedOutput: string }[],
 }
 
 describe('OJ 题目测试点表单载荷', () => {
@@ -76,5 +83,51 @@ describe('OJ 题目测试点表单载荷', () => {
       ),
     ).toBe('练习测试点最多 100 个')
     expect(validateProblemTestCaseForm([{ input: '', expectedOutput: '' }], [])).toBeNull()
+  })
+})
+
+
+describe('函数式判题载荷', () => {
+  const functionForm = {
+    ...baseForm,
+    judgeMode: 'FUNCTION' as const,
+    functionName: 'fib',
+    parameterTypes: ['long'],
+    returnType: 'long',
+    assessmentTestCases: [{ input: '[10]', expectedOutput: '55' }],
+  }
+
+  it('发送函数签名而不是命令行模板', () => {
+    const payload = buildCreateProblemPayload(functionForm)
+    expect(payload.judgeMode).toBe('FUNCTION')
+    expect(payload.functionName).toBe('fib')
+    expect(payload.parameterTypes).toEqual(['long'])
+    expect(payload.returnType).toBe('long')
+    expect(payload.assessmentTestCases).toEqual([{ input: '[10]', expectedOutput: '55' }])
+  })
+
+  it('校验函数名与参数个数', () => {
+    expect(validateFunctionProblemForm(functionForm)).toBeNull()
+    expect(validateFunctionProblemForm({ ...functionForm, functionName: '' })).toContain('函数名')
+    expect(
+      validateFunctionProblemForm({
+        ...functionForm,
+        assessmentTestCases: [{ input: '[10, 20]', expectedOutput: '55' }],
+      }),
+    ).toContain('参数个数')
+    expect(
+      validateFunctionProblemForm({
+        ...functionForm,
+        assessmentTestCases: [{ input: 'n = 10', expectedOutput: '55' }],
+      }),
+    ).toContain('JSON 数组')
+  })
+
+  it('命令行模式不发送函数签名', () => {
+    const payload = buildCreateProblemPayload({ ...baseForm, judgeMode: 'STDIO' })
+    expect(payload.judgeMode).toBe('STDIO')
+    expect(payload.functionName).toBeNull()
+    expect(payload.parameterTypes).toBeNull()
+    expect(payload.returnType).toBeNull()
   })
 })

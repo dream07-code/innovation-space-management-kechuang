@@ -1382,6 +1382,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-submissions/{submissionId}/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        /** 获取提交的源代码（管理员、方向负责人或提交者本人） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentSubmissionCodeResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-submissions/{submissionId}/ai-evaluation": {
         parameters: {
             query?: never;
@@ -2038,6 +2086,20 @@ export interface components {
             timeLimitMs: number;
             memoryLimitKb: number;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            /**
+             * @description STDIO 为命令行读写；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
+             * @enum {string}
+             */
+            judgeMode: "STDIO" | "FUNCTION";
+            /** @description FUNCTION 模式下的函数名。 */
+            functionName?: string | null;
+            /** @description FUNCTION 模式下的参数类型，顺序与测试点参数一致。 */
+            parameterTypes?: ("int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]")[] | null;
+            /**
+             * @description FUNCTION 模式下的返回类型。
+             * @enum {string|null}
+             */
+            returnType?: "int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]" | null;
             /** @enum {string} */
             status: "DRAFT" | "PUBLISHED" | "RETIRED";
             version: number;
@@ -2063,6 +2125,29 @@ export interface components {
             memoryKb: number;
             safeError: string | null;
             testCaseResults: components["schemas"]["OjTestCaseResult"][];
+            /** @description 学生可见的参考测试点；只返回一个，输出截断到 2000 字符。 */
+            sampleCase?: components["schemas"]["OjSampleCase"] | null;
+        };
+        OjSampleCase: {
+            position: number;
+            /** @enum {string} */
+            verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+            input?: string | null;
+            actualOutput?: string | null;
+            expectedOutput?: string | null;
+        };
+        AssessmentSubmissionCodeResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                /** @description 十进制字符串 ID，不转换为 JavaScript Number。 */
+                submissionId: string;
+                /** @enum {string} */
+                language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+                code: string;
+            };
         };
         AssessmentSubmission: {
             /**
@@ -2258,6 +2343,12 @@ export interface components {
             timeLimitMs: number;
             memoryLimitKb: number;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            /** @enum {string} */
+            judgeMode?: "STDIO" | "FUNCTION";
+            functionName?: string | null;
+            parameterTypes?: ("int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]")[] | null;
+            /** @enum {string|null} */
+            returnType?: "int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]" | null;
             assessmentTestCases: components["schemas"]["AssessmentProblemTestCaseInput"][];
             practiceTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
         };
@@ -2294,6 +2385,12 @@ export interface components {
             timeLimitMs?: number;
             memoryLimitKb?: number;
             allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            /** @enum {string} */
+            judgeMode?: "STDIO" | "FUNCTION";
+            functionName?: string | null;
+            parameterTypes?: ("int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]")[] | null;
+            /** @enum {string|null} */
+            returnType?: "int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]" | null;
             assessmentTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
             practiceTestCases?: components["schemas"]["AssessmentProblemTestCaseInput"][];
         };
@@ -2334,6 +2431,7 @@ export interface components {
             position: number;
             input: string;
             expectedOutput: string;
+            actualOutput?: string | null;
             /** @enum {string} */
             verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
             timeMs: number;

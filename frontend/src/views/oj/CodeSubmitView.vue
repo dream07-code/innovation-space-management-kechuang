@@ -31,7 +31,7 @@ import type {
   OjPracticeRunResult,
 } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
-import { languageRuntime, starterCode } from './languageTemplates'
+import { languageRuntime, starterCode, starterForProblem } from './languageTemplates'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +70,11 @@ const allowedLanguages = computed<AssessmentLanguage[]>(() => {
 
 const lineCount = computed(() => (code.value ? code.value.split('\n').length : 0))
 const runtime = computed(() => languageRuntime(language.value))
+/** 函数模式用题目签名生成骨架，标准模式沿用命令行模板。 */
+function starterFor(target: AssessmentLanguage): string {
+  return problem.value ? starterForProblem(target, problem.value) : starterCode(target)
+}
+const sampleCase = computed(() => formalSubmission.value?.judgeResult?.sampleCase ?? null)
 
 function syncViewport(): void {
   isNarrow.value =
@@ -102,7 +107,7 @@ async function load(): Promise<void> {
       practiceTestCases.value = practice.practiceTestCases
     }
     language.value = allowedLanguages.value[0] ?? 'python'
-    code.value = starterCode(language.value)
+    code.value = starterFor(language.value)
     codeByLanguage.value[language.value] = code.value
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
@@ -123,19 +128,19 @@ function changeLanguage(next: string): void {
   const target = next as AssessmentLanguage
   codeByLanguage.value[language.value] = code.value
   language.value = target
-  code.value = codeByLanguage.value[target] ?? starterCode(target)
+  code.value = codeByLanguage.value[target] ?? starterFor(target)
   codeByLanguage.value[target] = code.value
   onCodeChanged()
 }
 
 function applyStarterCode(): void {
-  code.value = starterCode(language.value)
+  code.value = starterFor(language.value)
   codeByLanguage.value[language.value] = code.value
   onCodeChanged()
 }
 
 async function resetToTemplate(): Promise<void> {
-  if (code.value.trim() === starterCode(language.value).trim()) return
+  if (code.value.trim() === starterFor(language.value).trim()) return
   try {
     await ElMessageBox.confirm(
       '当前语言的代码会被起始框架替换，替换后无法撤销。',
@@ -258,7 +263,7 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
       练习只使用本题的题库练习测试点，不写入正式考核提交、结果或积分；结果会展示练习输入和期望输出。
     </el-alert>
     <el-alert v-else type="info" :closable="false" show-icon class="submit-notice">
-      代码只提交给受控判题沙箱。页面不执行代码、不保存草稿，也不会展示正式考核隐藏测试点或完整判题日志。
+      代码只提交给受控判题沙箱。页面不执行代码、不保存草稿；判题后会展示一个参考测试点的输入与输出用于定位问题，其余隐藏测试点和完整判题日志不会返回。
     </el-alert>
 
     <el-tabs v-if="isNarrow" v-model="activePane" class="workspace-tabs">
@@ -416,6 +421,9 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
               <el-table-column label="期望输出" min-width="120">
                 <template #default="{ row }"><pre class="code-block">{{ row.expectedOutput }}</pre></template>
               </el-table-column>
+              <el-table-column label="实际输出" min-width="120">
+                <template #default="{ row }"><pre class="code-block">{{ row.actualOutput || '（无输出）' }}</pre></template>
+              </el-table-column>
               <el-table-column label="结果" width="110">
                 <template #default="{ row }">
                   <el-tag :type="verdictMeta(row.verdict).type" effect="plain">
@@ -470,6 +478,28 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
                 <template #default="{ row }">{{ row.safeError ?? '—' }}</template>
               </el-table-column>
             </el-table>
+            <div v-if="sampleCase" class="sample-case">
+              <el-divider content-position="left">
+                参考测试点 · 第 {{ sampleCase.position }} 个
+                <el-tag :type="verdictMeta(sampleCase.verdict).type" effect="plain" size="small">
+                  {{ verdictMeta(sampleCase.verdict).label }}
+                </el-tag>
+              </el-divider>
+              <el-descriptions :column="1" border>
+                <el-descriptions-item label="输入">
+                  <pre class="code-block">{{ sampleCase.input || '（空）' }}</pre>
+                </el-descriptions-item>
+                <el-descriptions-item label="实际输出">
+                  <pre class="code-block">{{ sampleCase.actualOutput || '（程序没有输出）' }}</pre>
+                </el-descriptions-item>
+                <el-descriptions-item label="期望输出">
+                  <pre class="code-block">{{ sampleCase.expectedOutput || '（未设置）' }}</pre>
+                </el-descriptions-item>
+              </el-descriptions>
+              <p class="sample-hint">
+                只展示一个测试点用于定位问题，其余正式考核测试点保持隐藏；反复提交可对照修改。
+              </p>
+            </div>
             <div class="result-actions">
               <el-button @click="goSubmissionDetail">查看提交详情</el-button>
             </div>
@@ -602,6 +632,16 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
 .editor-shell .code-editor {
   border: none;
   border-radius: 0;
+}
+
+.sample-case {
+  margin-top: 12px;
+}
+
+.sample-hint {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .example-label {

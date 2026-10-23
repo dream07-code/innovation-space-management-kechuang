@@ -14,8 +14,10 @@ import {
   getAiEvaluation,
   getAssessmentProblem,
   getAssessmentSubmission,
+  getSubmissionCode,
   listAssessmentReviews,
 } from '@/api/modules/oj'
+import CodeEditor from '@/components/CodeEditor.vue'
 import { describeError, toApiError } from '@/api/errors'
 import {
   aiStatusMeta,
@@ -40,6 +42,7 @@ const submission = ref<AssessmentSubmission | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
 const aiEvaluation = ref<AiEvaluation | null>(null)
 const reviews = ref<AssessmentReview[]>([])
+const submittedCode = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const formRef = ref<FormInstance>()
@@ -61,6 +64,11 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     submission.value = await getAssessmentSubmission(submissionId.value)
+    try {
+      submittedCode.value = (await getSubmissionCode(submissionId.value)).code
+    } catch {
+      submittedCode.value = ''
+    }
     const [currentProblem, reviewPage, currentAi] = await Promise.all([
       getAssessmentProblem(submission.value.problemId),
       listAssessmentReviews(submissionId.value),
@@ -145,6 +153,16 @@ onMounted(load)
           {{ activeReview.score }} 分 · {{ activeReview.comment }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <template v-if="submittedCode">
+        <el-divider content-position="left">提交代码</el-divider>
+        <CodeEditor
+          :model-value="submittedCode"
+          :language="submission.language"
+          readonly
+          height="360px"
+        />
+      </template>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="review-form">
         <el-form-item label="人工评分（0–100）" prop="score">

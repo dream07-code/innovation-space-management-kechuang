@@ -18,7 +18,7 @@ class JarBoundaryIT {
                 String lower = name.toLowerCase(Locale.ROOT);
                 assertFalse(lower.contains("testsupport") || lower.contains("probe")
                         || lower.contains("browsersmoke") || lower.contains(".env")
-                        || (lower.endsWith(".sql") && !lower.matches("boot-inf/classes/db/migration/v[1-9]__.*\\.sql")), name);
+                        || (lower.endsWith(".sql") && !lower.matches("boot-inf/classes/db/migration/v[0-9]+__.*\\.sql")), name);
             }
         }
     }

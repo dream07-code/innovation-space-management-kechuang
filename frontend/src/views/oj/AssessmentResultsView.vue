@@ -8,6 +8,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { View } from '@element-plus/icons-vue'
+
+import SubmissionCodeDialog from '@/components/SubmissionCodeDialog.vue'
 
 import { getAssessment, listAssessmentProblems, listAssessmentResults } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
@@ -32,6 +35,13 @@ const problems = ref<AssessmentProblem[]>([])
 const data = ref<PageData<AssessmentResult> | null>(null)
 const loading = ref(false)
 const scoreSource = ref('')
+const codeDialogVisible = ref(false)
+const codeSubmissionId = ref<string | null>(null)
+
+function openCode(submissionId: string): void {
+  codeSubmissionId.value = submissionId
+  codeDialogVisible.value = true
+}
 
 const problemNames = computed(() => new Map(problems.value.map((item) => [item.id, item.title])))
 const items = computed(() =>
@@ -136,7 +146,16 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="publishedAt" label="发布时间" width="180" />
+      <el-table-column label="操作" width="90" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" :icon="View" @click="openCode(row.submissionId)">
+            代码
+          </el-button>
+        </template>
+      </el-table-column>
     </el-table>
+
+    <SubmissionCodeDialog v-model="codeDialogVisible" :submission-id="codeSubmissionId" />
   </el-card>
 </template>
 

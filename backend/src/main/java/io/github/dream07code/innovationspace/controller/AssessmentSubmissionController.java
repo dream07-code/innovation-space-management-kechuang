@@ -43,4 +43,9 @@ public class AssessmentSubmissionController {
   public ApiResponse<Map<String, Object>> get(@PathVariable long submissionId) {
     return ApiResponse.success(service.get(submissionId, MemberController.actor()));
   }
+
+  @GetMapping("/assessment-submissions/{submissionId}/code")
+  public ApiResponse<Map<String, Object>> code(@PathVariable long submissionId) {
+    return ApiResponse.success(service.code(submissionId, MemberController.actor()));
+  }
 }

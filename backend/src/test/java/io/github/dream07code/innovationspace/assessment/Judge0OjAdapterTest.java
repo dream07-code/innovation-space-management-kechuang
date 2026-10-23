@@ -115,6 +115,24 @@ class Judge0OjAdapterTest {
     assertTrue(requestBodies.get(1).contains("\"memory_limit\":128000"));
   }
 
+
+  @Test
+  void capturesActualOutputForCaseComparison() throws Exception {
+    String stdout = Base64.getEncoder().encodeToString("54\n".getBytes(StandardCharsets.UTF_8));
+    start(
+        new Reply(
+            200,
+            "{\"status\":{\"id\":4,\"description\":\"Wrong Answer\"},"
+                + "\"stdout\":\""
+                + stdout
+                + "\",\"time\":\"0.01\",\"memory\":2048}"));
+
+    var result = adapter(false).judge(new OjSubmission("cpp", "int main(){}", ONE_CASE));
+
+    assertEquals(OjVerdict.WRONG_ANSWER, result.verdict());
+    assertEquals("54\n", result.testCaseResults().getFirst().actualOutput());
+  }
+
   private Judge0OjAdapter adapter(boolean rlimitFallback) throws IOException {
     var properties = new Judge0OjProperties();
     properties.setProvider("judge0");

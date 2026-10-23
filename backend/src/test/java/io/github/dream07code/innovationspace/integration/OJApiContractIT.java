@@ -30,6 +30,7 @@ class OJApiContractIT {
         "/api/v1/assessments/{assessmentId}/submissions",
         "/api/v1/assessment-submissions",
         "/api/v1/assessment-submissions/{submissionId}",
+        "/api/v1/assessment-submissions/{submissionId}/code",
         "/api/v1/assessment-submissions/{submissionId}/ai-evaluation",
         "/api/v1/assessment-submissions/{submissionId}/reviews",
         "/api/v1/assessments/{assessmentId}/results"
@@ -47,6 +48,7 @@ class OJApiContractIT {
         "AssessmentSubmission",
         "OjJudgeResult",
         "OjTestCaseResult",
+        "OjSampleCase",
         "AiEvaluation",
         "AssessmentReview",
         "AssessmentResult",

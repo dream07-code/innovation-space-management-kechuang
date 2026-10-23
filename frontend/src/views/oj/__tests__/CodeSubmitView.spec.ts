@@ -289,3 +289,100 @@ describe('CodeSubmitView 起始代码', () => {
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('int main() { return 0; }')
   })
 })
+
+
+describe('CodeSubmitView 函数式判题', () => {
+  it('按函数签名生成骨架，并在提交后展示参考测试点', async () => {
+    routeParams = { assessmentId: '9001', problemId: '9101' }
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '函数考核',
+      description: 'x',
+      directionId: '1',
+      directionName: 'AI 全栈',
+      status: 'PUBLISHED',
+      startAt: '2026-10-01T00:00:00+08:00',
+      endAt: '2026-12-01T00:00:00+08:00',
+      allowedLanguages: ['cpp'],
+      problemIds: ['9101'],
+      version: 1,
+      createdAt: '2026-10-01T00:00:00+08:00',
+      updatedAt: '2026-10-01T00:00:00+08:00',
+    })
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '斐波那契',
+      summary: '摘要',
+      description: '题面',
+      inputFormat: 'n',
+      outputFormat: 'fib(n)',
+      examples: [],
+      difficulty: 'EASY',
+      tags: [],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['cpp'],
+      judgeMode: 'FUNCTION',
+      functionName: 'fib',
+      parameterTypes: ['long'],
+      returnType: 'long',
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-01T00:00:00+08:00',
+      updatedAt: '2026-10-01T00:00:00+08:00',
+    })
+    mocks.createAssessmentSubmission.mockResolvedValue({
+      id: '9201',
+      assessmentId: '9001',
+      problemId: '9101',
+      memberId: '201',
+      language: 'cpp',
+      status: 'RECEIVED',
+      version: 1,
+      submittedAt: '2026-10-14T00:00:00+08:00',
+    })
+    mocks.getAssessmentSubmission.mockResolvedValue({
+      id: '9201',
+      assessmentId: '9001',
+      problemId: '9101',
+      memberId: '201',
+      language: 'cpp',
+      status: 'JUDGED',
+      codeHash: 'hash',
+      version: 2,
+      submittedAt: '2026-10-14T00:00:00+08:00',
+      judgedAt: '2026-10-14T00:00:01+08:00',
+      judgeResult: {
+        verdict: 'WRONG_ANSWER',
+        passedTestCases: 5,
+        totalTestCases: 6,
+        timeMs: 12,
+        memoryKb: 1024,
+        safeError: 'synthetic wrong answer',
+        testCaseResults: [{ position: 1, verdict: 'ACCEPTED', timeMs: 12, memoryKb: 1024, safeError: null }],
+        sampleCase: {
+          position: 2,
+          verdict: 'WRONG_ANSWER',
+          input: '[10]',
+          actualOutput: '54',
+          expectedOutput: '55',
+        },
+      },
+    })
+
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    const editor = wrapper.get('textarea')
+    expect((editor.element as HTMLTextAreaElement).value).toContain('class Solution')
+    expect((editor.element as HTMLTextAreaElement).value).toContain('fib(long long arg0)')
+
+    await wrapper.get('[data-test="formal-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('参考测试点')
+    expect(wrapper.text()).toContain('[10]')
+    expect(wrapper.text()).toContain('54')
+    expect(wrapper.text()).toContain('55')
+  })
+})

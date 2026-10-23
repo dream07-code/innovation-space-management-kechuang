@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AssessmentLanguage } from '@/api/types'
-import { LANGUAGE_RUNTIMES, languageRuntime, starterCode } from '@/views/oj/languageTemplates'
+import {
+  LANGUAGE_RUNTIMES,
+  functionStarter,
+  languageRuntime,
+  starterCode,
+  starterForProblem,
+} from '@/views/oj/languageTemplates'
 
 const LANGUAGES = Object.keys(LANGUAGE_RUNTIMES) as AssessmentLanguage[]
 
@@ -37,5 +43,48 @@ describe('OJ 起始代码框架', () => {
   it('未知语言回退为空字符串且不抛错', () => {
     expect(starterCode('kotlin' as AssessmentLanguage)).toBe('')
     expect(languageRuntime('kotlin' as AssessmentLanguage)).toBeNull()
+  })
+})
+
+describe('函数式判题起始代码', () => {
+  const signature = { functionName: 'fib', parameterTypes: ['long'], returnType: 'long' }
+
+  it('按语言生成函数骨架而不是完整程序', () => {
+    expect(functionStarter('cpp', signature)).toContain('class Solution')
+    expect(functionStarter('cpp', signature)).toContain('long long fib(long long arg0)')
+    expect(functionStarter('cpp', signature)).not.toContain('int main')
+
+    expect(functionStarter('java', signature)).toContain('public long fib(long arg0)')
+    expect(functionStarter('java', signature)).not.toContain('public static void main')
+
+    expect(functionStarter('python', signature)).toContain('def fib(self, arg0):')
+    expect(functionStarter('javascript', signature)).toContain('fib(arg0)')
+    expect(functionStarter('go', signature)).toContain('func fib(arg0 int64) int64')
+    expect(functionStarter('rust', signature)).toContain('pub fn fib(arg0: i64) -> i64')
+  })
+
+  it('支持数组参数与数组返回值', () => {
+    const arraySignature = {
+      functionName: 'twoSum',
+      parameterTypes: ['int[]', 'int'],
+      returnType: 'int[]',
+    }
+    expect(functionStarter('java', arraySignature)).toContain('public int[] twoSum(int[] arg0, int arg1)')
+    expect(functionStarter('cpp', arraySignature)).toContain('vector<int> twoSum(vector<int> arg0, int arg1)')
+    expect(functionStarter('go', arraySignature)).toContain('func twoSum(arg0 []int, arg1 int) []int')
+  })
+
+  it('题目为命令行模式时回退到标准模板', () => {
+    expect(
+      starterForProblem('cpp', { judgeMode: 'STDIO' }),
+    ).toContain('#include <bits/stdc++.h>')
+    expect(
+      starterForProblem('cpp', {
+        judgeMode: 'FUNCTION',
+        functionName: 'fib',
+        parameterTypes: ['int'],
+        returnType: 'int',
+      }),
+    ).toContain('int fib(int arg0)')
   })
 })

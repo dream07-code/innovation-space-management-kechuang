@@ -15,8 +15,10 @@ import {
   getAssessment,
   getAssessmentProblem,
   getAssessmentSubmission,
+  getSubmissionCode,
   listAssessmentReviews,
 } from '@/api/modules/oj'
+import CodeEditor from '@/components/CodeEditor.vue'
 import { describeError, toApiError } from '@/api/errors'
 import {
   aiStatusMeta,
@@ -47,6 +49,7 @@ const problem = ref<AssessmentProblem | null>(null)
 const aiEvaluation = ref<AiEvaluation | null>(null)
 const reviews = ref<AssessmentReview[]>([])
 const loading = ref(false)
+const submittedCode = ref('')
 
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
 const activeReview = computed(() => reviews.value.find((review) => review.status === 'ACTIVE') ?? null)
@@ -61,6 +64,11 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     submission.value = await getAssessmentSubmission(submissionId.value)
+    try {
+      submittedCode.value = (await getSubmissionCode(submissionId.value)).code
+    } catch {
+      submittedCode.value = ''
+    }
     const [currentAssessment, currentProblem] = await Promise.all([
       getAssessment(submission.value.assessmentId),
       getAssessmentProblem(submission.value.problemId),
@@ -121,6 +129,16 @@ onMounted(load)
         <el-descriptions-item label="代码摘要">{{ submission.codeHash ?? '—' }}</el-descriptions-item>
         <el-descriptions-item label="判定时间">{{ submission.judgedAt ?? '—' }}</el-descriptions-item>
       </el-descriptions>
+
+      <template v-if="submittedCode">
+        <el-divider content-position="left">提交代码</el-divider>
+        <CodeEditor
+          :model-value="submittedCode"
+          :language="submission.language"
+          readonly
+          height="360px"
+        />
+      </template>
 
       <el-divider content-position="left">OJ 技术判定</el-divider>
       <el-descriptions v-if="submission.judgeResult" :column="3" border>

@@ -112,8 +112,14 @@ class AssessmentSubmissionHttpIT {
     assertEquals(2, HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults").size());
     assertEquals(1, HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults/0/position").asInt());
     assertEquals("ACCEPTED", HttpTestSupport.json(detail).at("/data/judgeResult/testCaseResults/1/verdict").asText());
-    assertFalse(detail.body().contains("\"input\""));
-    assertFalse(detail.body().contains("\"expectedOutput\""));
+    var judge = HttpTestSupport.json(detail).at("/data/judgeResult");
+    // 逐测试点列表仍然只给判定摘要，不暴露输入与输出
+    assertFalse(judge.at("/testCaseResults/0").has("input"));
+    assertFalse(judge.at("/testCaseResults/0").has("expectedOutput"));
+    // 只额外提供一个参考测试点，供学生对照修改
+    assertTrue(judge.at("/sampleCase").has("position"));
+    assertTrue(judge.at("/sampleCase").has("input"));
+    assertTrue(judge.at("/sampleCase").has("expectedOutput"));
     assertFalse(detail.body().contains("stdout"));
     assertFalse(detail.body().contains("stderr"));
     assertFalse(detail.body().contains("private solution marker"));
@@ -127,6 +133,22 @@ class AssessmentSubmissionHttpIT {
     assertTrue(auditRows.stream().anyMatch(row -> "OJ_JUDGED".equals(row.get("action"))));
     assertFalse(auditRows.toString().contains("private solution marker"));
     assertFalse(auditRows.toString().contains("class Main"));
+
+    var code = send(studentToken, "GET", "/api/v1/assessment-submissions/" + id + "/code", null, null);
+    assertEquals(200, code.statusCode());
+    ContractAssertions.response("GET", "/api/v1/assessment-submissions/" + id + "/code", code);
+    assertTrue(HttpTestSupport.json(code).at("/data/code").asText().contains("private solution marker"));
+    assertEquals("java", HttpTestSupport.json(code).at("/data/language").asText());
+    // 其他方向的学生不能读取代码
+    assertEquals(404, send(otherStudentToken, "GET", "/api/v1/assessment-submissions/" + id + "/code", null, null).statusCode());
+    // 管理员可以读取，且查看操作留下审计
+    assertEquals(200, send(adminToken, "GET", "/api/v1/assessment-submissions/" + id + "/code", null, null).statusCode());
+    assertTrue(
+        jdbc.queryForList(
+                "SELECT action FROM assessment_audit WHERE resource_type='SUBMISSION' AND resource_id=? AND action='SUBMISSION_CODE_VIEWED'",
+                id)
+            .size()
+            >= 1);
   }
 
   @Test

@@ -133,7 +133,7 @@ public class Judge0OjAdapter implements OjAdapter {
         }
         results.add(
             new OjJudgeResult.TestCaseResult(
-                index + 1, current, timeMs, memoryKb, safeOrNull(current)));
+                index + 1, current, timeMs, memoryKb, safeOrNull(current), decodeStdout(root)));
         if (current != OjVerdict.ACCEPTED) {
           if (verdict == OjVerdict.ACCEPTED) {
             verdict = current;
@@ -221,6 +221,15 @@ public class Judge0OjAdapter implements OjAdapter {
     if (root == null) return -1;
     var status = root.path("status");
     return status.path("id").isInt() ? status.path("id").asInt() : -1;
+  }
+
+  /** Judge0 在 base64 模式下返回的 stdout，仅保留前 2000 字符用于结果对照。 */
+  private static String decodeStdout(JsonNode root) {
+    if (root == null) return null;
+    String raw = root.path("stdout").asText("");
+    if (raw.isBlank()) return null;
+    String text = decodeIfBase64(raw);
+    return text.length() > 2000 ? text.substring(0, 2000) : text;
   }
 
   private static String statusDescription(JsonNode root) {

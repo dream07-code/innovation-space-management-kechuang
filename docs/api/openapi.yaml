@@ -3194,6 +3194,42 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /api/v1/assessment-submissions/{submissionId}/code:
+    parameters:
+    - $ref: '#/components/parameters/SubmissionId'
+    get:
+      tags:
+      - OJ提交
+      summary: 获取提交的源代码（管理员、方向负责人或提交者本人）
+      x-implementation-status: planned
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSubmissionCodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /api/v1/assessment-submissions/{submissionId}/ai-evaluation:
     parameters:
     - $ref: '#/components/parameters/SubmissionId'
@@ -4784,6 +4820,7 @@ components:
       - timeLimitMs
       - memoryLimitKb
       - allowedLanguages
+      - judgeMode
       - status
       - version
       - createdAt
@@ -4838,6 +4875,29 @@ components:
             type: string
             enum: [java, python, cpp, javascript, go, rust]
           minItems: 1
+        judgeMode:
+          type: string
+          enum: [STDIO, FUNCTION]
+          description: STDIO 为命令行读写；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
+        functionName:
+          type: string
+          nullable: true
+          maxLength: 64
+          pattern: ^[A-Za-z_][A-Za-z0-9_]{0,63}$
+          description: FUNCTION 模式下的函数名。
+        parameterTypes:
+          type: array
+          nullable: true
+          maxItems: 4
+          items:
+            type: string
+            enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']
+          description: FUNCTION 模式下的参数类型，顺序与测试点参数一致。
+        returnType:
+          type: string
+          nullable: true
+          enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']
+          description: FUNCTION 模式下的返回类型。
         status:
           type: string
           enum: [DRAFT, PUBLISHED, RETIRED]
@@ -4897,7 +4957,41 @@ components:
           type: array
           items: {$ref: '#/components/schemas/OjTestCaseResult'}
           maxItems: 100
+        sampleCase:
+          allOf:
+          - $ref: '#/components/schemas/OjSampleCase'
+          nullable: true
+          description: 学生可见的参考测试点；只返回一个，输出截断到 2000 字符。
       additionalProperties: false
+    OjSampleCase:
+      type: object
+      required: [position, verdict]
+      properties:
+        position: {type: integer, minimum: 1, maximum: 100}
+        verdict:
+          type: string
+          enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+        input: {type: string, nullable: true, maxLength: 2000}
+        actualOutput: {type: string, nullable: true, maxLength: 2000}
+        expectedOutput: {type: string, nullable: true, maxLength: 2000}
+      additionalProperties: false
+    AssessmentSubmissionCodeResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [submissionId, language, code]
+          properties:
+            submissionId:
+              type: string
+              description: 十进制字符串 ID，不转换为 JavaScript Number。
+              pattern: ^[1-9][0-9]{0,18}$
+            language: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+            code: {type: string, maxLength: 200000}
+          additionalProperties: false
     AssessmentSubmission:
       type: object
       required:
@@ -5245,6 +5339,14 @@ components:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
           minItems: 1
+        judgeMode: {type: string, enum: [STDIO, FUNCTION]}
+        functionName: {type: string, nullable: true, maxLength: 64, pattern: '^[A-Za-z_][A-Za-z0-9_]{0,63}$'}
+        parameterTypes:
+          type: array
+          nullable: true
+          maxItems: 4
+          items: {type: string, enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']}
+        returnType: {type: string, nullable: true, enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']}
         assessmentTestCases:
           type: array
           items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
@@ -5311,6 +5413,14 @@ components:
         allowedLanguages:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+        judgeMode: {type: string, enum: [STDIO, FUNCTION]}
+        functionName: {type: string, nullable: true, maxLength: 64, pattern: '^[A-Za-z_][A-Za-z0-9_]{0,63}$'}
+        parameterTypes:
+          type: array
+          nullable: true
+          maxItems: 4
+          items: {type: string, enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']}
+        returnType: {type: string, nullable: true, enum: [int, long, bool, string, 'int[]', 'long[]', 'string[]', 'int[][]']}
         assessmentTestCases:
           type: array
           items: {$ref: '#/components/schemas/AssessmentProblemTestCaseInput'}
@@ -5391,6 +5501,7 @@ components:
         position: {type: integer, minimum: 1, maximum: 100}
         input: {type: string, maxLength: 1000000}
         expectedOutput: {type: string, maxLength: 1000000}
+        actualOutput: {type: string, nullable: true, maxLength: 2000}
         verdict:
           type: string
           enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]

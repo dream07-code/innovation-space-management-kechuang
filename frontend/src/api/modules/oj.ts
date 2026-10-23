@@ -16,6 +16,7 @@ import type {
   AssessmentResult,
   AssessmentReview,
   AssessmentSubmission,
+  AssessmentSubmissionCode,
   CreateAssessmentProblemRequest,
   CreateOjPracticeRunRequest,
   OjPracticeRunResult,
@@ -186,4 +187,11 @@ export async function listAssessmentResults(
   assessmentId: string,
 ): Promise<PageData<AssessmentResult>> {
   return get<PageData<AssessmentResult>>(`${ASSESSMENTS}/${assessmentId}/results`)
+}
+
+/** 读取提交的源代码：管理员、方向负责人或提交者本人可见。 */
+export async function getSubmissionCode(
+  submissionId: string,
+): Promise<AssessmentSubmissionCode> {
+  return get<AssessmentSubmissionCode>(`${SUBMISSIONS}/${submissionId}/code`)
 }

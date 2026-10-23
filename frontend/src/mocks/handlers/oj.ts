@@ -195,6 +195,15 @@ function validScore(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100
 }
 
+const MOCK_SOURCE: Record<string, string> = {
+  python: 'import sys\n\n\ndef solve() -> None:\n    data = sys.stdin.buffer.read().split()\n    print(len(data))\n\n\nif __name__ == "__main__":\n    solve()\n',
+  java: 'import java.io.BufferedReader;\nimport java.io.InputStreamReader;\n\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));\n        System.out.print(in.readLine().length());\n    }\n}\n',
+  cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    return 0;\n}\n',
+  javascript: 'const fs = require(\'fs\')\n\nconst data = fs.readFileSync(0, \'utf8\').trim().split(/\\s+/)\nconsole.log(data.length)\n',
+  go: 'package main\n\nimport (\n\t"bufio"\n\t"os"\n)\n\nfunc main() {\n\tbufio.NewReader(os.Stdin)\n}\n',
+  rust: 'use std::io::{self, Read};\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_to_string(&mut input).unwrap();\n}\n',
+}
+
 export const ojHandlers = [
   // -- assessments -----------------------------------------------------------
   http.get(`${ASSESSMENTS}`, ({ request }) => {
@@ -558,6 +567,19 @@ export const ojHandlers = [
     if (!account || !submission || !canSeeSubmission(submission, account)) return errors.notFound()
     const evaluation = OJ_AI_EVALUATIONS.find((item) => item.submissionId === submission.id)
     return evaluation ? ok(evaluation) : errors.notFound()
+  }),
+
+  http.get(`${SUBMISSIONS}/:submissionId/code`, ({ request, params }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    const submission = findSubmission(params.submissionId as string)
+    if (!account || !submission || !canSeeSubmission(submission, account)) return errors.notFound()
+    return ok({
+      submissionId: submission.id,
+      language: submission.language,
+      code: MOCK_SOURCE[submission.language] ?? '',
+    })
   }),
 
   // -- reviews and results ----------------------------------------------------
