@@ -5,7 +5,7 @@
  * 不读取第三方 OJ 私有字段、完整代码、测试数据、原始 AI 响应或任何凭据。
  * 所有写操作都必须调用方生成并复用 Idempotency-Key。
  */
-import { API_PREFIX, get, patch, post } from '../client'
+import { API_PREFIX, get, patch, post, postWithoutIdempotency } from '../client'
 import type {
   AiEvaluation,
   Assessment,
@@ -116,6 +116,19 @@ export async function runPractice(
   return post<OjPracticeRunResult>(`${PROBLEMS}/${problemId}/practice-run`, payload, {
     idempotencyKey,
   })
+}
+
+/**
+ * 正式考核做题时的试运行：随机抽 1 个正式考核测试点执行当前代码。
+ *
+ * 每次结果不同、不产生提交记录，属于只读试跑，因此契约没有声明 Idempotency-Key；
+ * 后端按成员每分钟限 10 次。
+ */
+export async function runTrial(
+  problemId: string,
+  payload: CreateOjPracticeRunRequest,
+): Promise<OjPracticeRunResult> {
+  return postWithoutIdempotency<OjPracticeRunResult>(`${PROBLEMS}/${problemId}/trial-run`, payload)
 }
 
 export async function getAssessmentProblemTestCases(

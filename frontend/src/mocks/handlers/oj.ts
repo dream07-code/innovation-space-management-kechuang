@@ -95,8 +95,10 @@ function validExamples(value: unknown): boolean {
   })
 }
 
-function practiceRunResult(problemId: string, code: string) {
-  const testCases = findProblemTestCases(problemId)?.practiceTestCases ?? []
+function runCases(
+  testCases: Array<{ input: string; expectedOutput: string }>,
+  code: string,
+) {
   const failure = code.includes('compile-error')
     ? 'COMPILATION_ERROR'
     : code.includes('wrong-answer')
@@ -117,6 +119,12 @@ function practiceRunResult(problemId: string, code: string) {
       position: index + 1,
       input: testCase.input,
       expectedOutput: testCase.expectedOutput,
+      actualOutput:
+        verdict === 'ACCEPTED'
+          ? testCase.expectedOutput
+          : verdict === 'WRONG_ANSWER'
+            ? 'mock actual output differs'
+            : null,
       verdict,
       timeMs: verdict === 'TIME_LIMIT_EXCEEDED' ? 30000 : verdict === 'ACCEPTED' ? 12 : 10,
       memoryKb: verdict === 'ACCEPTED' ? 2048 : 1024,
@@ -139,6 +147,27 @@ function practiceRunResult(problemId: string, code: string) {
     memoryKb: Math.max(0, ...testCaseResults.map((item) => item.memoryKb)),
     safeError: failure === 'ACCEPTED' ? null : testCaseResults.find((item) => item.safeError)?.safeError ?? null,
     testCaseResults,
+  }
+}
+
+function practiceRunResult(problemId: string, code: string) {
+  return runCases(findProblemTestCases(problemId)?.practiceTestCases ?? [], code)
+}
+
+/**
+ * 考核试运行：从正式测试点里“抽”一个（用代码内容做种子模拟随机），只返回该点。
+ * 没有正式测试点时返回 null，调用方回 400。
+ */
+function trialRunResult(problemId: string, code: string) {
+  const testCases = findProblemTestCases(problemId)?.assessmentTestCases ?? []
+  if (testCases.length === 0) return null
+  let seed = 0
+  for (const char of code) seed = (seed * 31 + char.charCodeAt(0)) % 2147483647
+  const picked = testCases[seed % testCases.length] ?? testCases[0]!
+  const single = runCases([picked], code)
+  return {
+    ...single,
+    testCaseResults: single.testCaseResults.map((item) => ({ ...item, position: 1 })),
   }
 }
 
@@ -438,6 +467,24 @@ export const ojHandlers = [
       }
       return ok(practiceRunResult(params.problemId as string, body.code))
     })
+  }),
+
+  http.post(`${PROBLEMS}/:problemId/trial-run`, async ({ request, params }) => {
+    const denied = guardSession(request)
+    if (denied) return denied
+    const account = caller(request)
+    if (!account || account.user.role !== 'STUDENT') return errors.forbidden()
+    const problem = findProblem(params.problemId as string)
+    if (!problem || problem.status !== 'PUBLISHED') return errors.notFound()
+    const body = parseBody(await request.text())
+    if (!body) return errors.invalidRequest()
+    const bad = rejectUnknownFields(body, ['language', 'code'])
+    if (bad) return bad
+    if (!isLanguage(body.language) || typeof body.code !== 'string' || !body.code.trim()) {
+      return errors.invalidRequest()
+    }
+    const result = trialRunResult(params.problemId as string, body.code)
+    return result ? ok(result) : errors.invalidRequest()
   }),
 
   http.get(`${PROBLEMS}/:problemId`, ({ request, params }) => {

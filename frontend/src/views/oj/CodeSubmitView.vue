@@ -7,7 +7,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { RefreshLeft, Upload } from '@element-plus/icons-vue'
+import { CaretRight, RefreshLeft, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import CodeEditor from '@/components/CodeEditor.vue'
@@ -19,6 +19,7 @@ import {
   getAssessmentSubmission,
   getPracticeTestCases,
   runPractice,
+  runTrial as runTrialProblem,
 } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { languageLabel, verdictMeta } from '@/components/ojMeta'
@@ -44,6 +45,8 @@ const assessment = ref<Assessment | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
 const practiceTestCases = ref<AssessmentProblemTestCase[]>([])
 const practiceResult = ref<OjPracticeRunResult | null>(null)
+/** 正式考核做题时的试运行结果：随机抽到的 1 个正式测试点。 */
+const trialResult = ref<OjPracticeRunResult | null>(null)
 const formalSubmission = ref<AssessmentSubmission | null>(null)
 const language = ref<AssessmentLanguage>('python')
 const code = ref('')
@@ -52,6 +55,7 @@ const codeByLanguage = ref<Partial<Record<AssessmentLanguage, string>>>({})
 const loading = ref(false)
 const submitting = ref(false)
 const runningPractice = ref(false)
+const runningTrial = ref(false)
 const isNarrow = ref(false)
 const activePane = ref<'problem' | 'code' | 'result'>('problem')
 let idempotencyKey = newIdempotencyKey()
@@ -75,6 +79,13 @@ function starterFor(target: AssessmentLanguage): string {
   return problem.value ? starterForProblem(target, problem.value) : starterCode(target)
 }
 const sampleCase = computed(() => formalSubmission.value?.judgeResult?.sampleCase ?? null)
+/** 练习与考核试运行结果结构一致，共用同一套表格。 */
+const runResult = computed(() => practiceResult.value ?? trialResult.value)
+const resultTitle = computed(() => {
+  if (practiceResult.value) return '练习运行结果'
+  if (trialResult.value) return '试运行结果（随机 1 个正式测试点）'
+  return '正式考核判定'
+})
 
 function syncViewport(): void {
   isNarrow.value =
@@ -85,7 +96,10 @@ function syncViewport(): void {
 }
 
 const hasResult = computed(
-  () => practiceResult.value !== null || formalSubmission.value?.judgeResult != null,
+  () =>
+    practiceResult.value !== null
+    || trialResult.value !== null
+    || formalSubmission.value?.judgeResult != null,
 )
 
 async function load(): Promise<void> {
@@ -180,6 +194,44 @@ async function run(): Promise<void> {
   }
 }
 
+/**
+ * 正式考核做题时的试运行：随机抽 1 个正式测试点跑当前代码。
+ * 不产生提交记录，后端按成员每分钟限 10 次。
+ */
+async function runTrial(): Promise<void> {
+  if (!problem.value) return
+  if (!code.value.trim()) {
+    ElMessage.warning('请输入代码')
+    return
+  }
+  if (code.value.length > 200000) {
+    ElMessage.warning('代码长度超过 200000 字符')
+    return
+  }
+
+  runningTrial.value = true
+  try {
+    trialResult.value = await runTrialProblem(problem.value.id, {
+      language: language.value,
+      code: code.value,
+    })
+    activePane.value = 'result'
+  } catch (error) {
+    const apiError = toApiError(error)
+    if (apiError.httpStatus === 429) {
+      ElMessage.warning(
+        apiError.retryAfterSeconds
+          ? `试运行过于频繁，请 ${apiError.retryAfterSeconds} 秒后再试`
+          : '试运行过于频繁，请稍后再试',
+      )
+    } else {
+      ElMessage.error(describeError(apiError))
+    }
+  } finally {
+    runningTrial.value = false
+  }
+}
+
 async function pollFormalSubmission(submissionId: string): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt++) {
     formalSubmission.value = await getAssessmentSubmission(submissionId)
@@ -211,6 +263,7 @@ async function submit(): Promise<void> {
       idempotencyKey,
     )
     formalSubmission.value = submission
+    trialResult.value = null
     await pollFormalSubmission(submission.id)
     // 提交后保留编辑器里的代码，方便成员对照结果修改后重新提交。
     idempotencyKey = newIdempotencyKey()
@@ -361,10 +414,24 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
           </div>
           <div class="editor-footer">
             <span>
-              {{ isPractice ? '点击“运行练习”使用本题练习测试点即时判题' : '提交后由受控判题沙箱判定，结果以服务器返回为准' }}
+              {{
+                isPractice
+                  ? '点击“运行练习”使用本题练习测试点即时判题'
+                  : '“试运行”随机抽取 1 个正式测试点自查；提交后由受控沙箱判定全部测试点'
+              }}
             </span>
             <div>
               <el-button @click="router.back()">返回</el-button>
+              <el-button
+                v-if="!isPractice"
+                data-test="trial-run"
+                :icon="CaretRight"
+                :loading="runningTrial"
+                :disabled="assessment?.status !== 'PUBLISHED'"
+                @click="runTrial"
+              >
+                试运行
+              </el-button>
               <el-button
                 v-if="isPractice"
                 data-test="practice-run"
@@ -395,25 +462,36 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
           class="result-pane"
           :class="{ 'result-pane--hidden-mobile': isNarrow && activePane !== 'result' }"
         >
-          <el-divider content-position="left">{{ isPractice ? '练习运行结果' : '正式考核判定' }}</el-divider>
-          <template v-if="isPractice && practiceResult">
-            <el-descriptions :column="3" border>
+          <el-divider content-position="left">{{ resultTitle }}</el-divider>
+          <template v-if="runResult">
+            <el-alert
+              v-if="runResult.totalTestCases === 0"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="run-empty"
+            >
+              本题暂未配置可运行的测试点，无法试跑{{
+                isPractice ? '，请联系老师在题目里补充练习测试点' : ''
+              }}。
+            </el-alert>
+            <el-descriptions v-if="runResult.totalTestCases > 0" :column="3" border>
               <el-descriptions-item label="判定">
-                <el-tag :type="verdictMeta(practiceResult.verdict).type" effect="plain">
-                  {{ verdictMeta(practiceResult.verdict).label }}
+                <el-tag :type="verdictMeta(runResult.verdict).type" effect="plain">
+                  {{ verdictMeta(runResult.verdict).label }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="通过用例">
-                {{ practiceResult.passedTestCases }} / {{ practiceResult.totalTestCases }}
+                {{ runResult.passedTestCases }} / {{ runResult.totalTestCases }}
               </el-descriptions-item>
               <el-descriptions-item label="资源">
-                {{ practiceResult.timeMs }} ms / {{ Math.round(practiceResult.memoryKb / 1024) }} MB
+                {{ runResult.timeMs }} ms / {{ Math.round(runResult.memoryKb / 1024) }} MB
               </el-descriptions-item>
-              <el-descriptions-item v-if="practiceResult.safeError" label="安全错误分类" :span="3">
-                {{ practiceResult.safeError }}
+              <el-descriptions-item v-if="runResult.safeError" label="安全错误分类" :span="3">
+                {{ runResult.safeError }}
               </el-descriptions-item>
             </el-descriptions>
-            <el-table :data="practiceResult.testCaseResults" max-height="300" class="result-table">
+            <el-table v-if="runResult.testCaseResults.length" :data="runResult.testCaseResults" max-height="300" class="result-table">
               <el-table-column prop="position" label="#" width="55" />
               <el-table-column label="输入" min-width="150">
                 <template #default="{ row }"><pre class="code-block">{{ row.input }}</pre></template>
@@ -441,6 +519,15 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
                 <template #default="{ row }">{{ row.safeError ?? '—' }}</template>
               </el-table-column>
             </el-table>
+            <p
+              v-if="isPractice && practiceTestCases.length === 0 && practiceResult"
+              class="run-hint"
+            >
+              本题没有单独配置练习测试点，已随机抽取 1 个正式测试点试跑。
+            </p>
+            <p v-if="!isPractice && trialResult" class="run-hint">
+              每次从正式考核测试点中随机抽取 1 个，只用于自查；其余测试点仍然隐藏，每分钟最多 10 次。
+            </p>
           </template>
           <template v-else-if="formalSubmission">
             <el-descriptions :column="3" border>
@@ -642,6 +729,17 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
   margin: 8px 0 0;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.run-empty {
+  margin-bottom: 12px;
+}
+
+.run-hint {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .example-label {

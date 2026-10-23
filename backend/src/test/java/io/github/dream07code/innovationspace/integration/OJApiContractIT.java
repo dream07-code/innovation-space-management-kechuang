@@ -24,6 +24,7 @@ class OJApiContractIT {
         "/api/v1/assessment-problems/import",
         "/api/v1/assessment-problems/{problemId}/practice-test-cases",
         "/api/v1/assessment-problems/{problemId}/practice-run",
+        "/api/v1/assessment-problems/{problemId}/trial-run",
         "/api/v1/assessment-problems/{problemId}",
         "/api/v1/assessment-problems/{problemId}/test-cases",
         "/api/v1/assessment-problems/{problemId}/retire",

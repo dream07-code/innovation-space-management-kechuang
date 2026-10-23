@@ -15,13 +15,16 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.Duration;
 import java.time.ZoneOffset;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -39,6 +42,9 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   private static final Set<String> LANGUAGES = Set.of("java", "python", "cpp", "javascript", "go", "rust");
   private final AssessmentJudgeWorker judgeWorker;
   private final JsonMapper json = JsonMapper.builder().build();
+  /** 每个成员最近一分钟的试运行时间戳，防止借试运行穷举正式测试点。 */
+  private final Map<Long, ArrayDeque<Instant>> trialWindows = new ConcurrentHashMap<>();
+  private static final int TRIAL_PER_MINUTE = 10;
 
   public AssessmentProblemServiceImpl(
       JdbcTemplate jdbc,
@@ -158,8 +164,14 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       throw bad();
     if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000)
       throw bad();
+    var practiceCases = readTestCases(id, "assessment_problem_practice_test_case");
+    if (practiceCases.isEmpty()) {
+      // 本题没有单独配置练习测试点：退回随机 1 个正式测试点，避免成员看到空结果。
+      if (!allowTrial(actor)) throw new ApiException(429, ErrorCode.RATE_LIMITED);
+      return trialResult(id, language, code);
+    }
     var result = judgeWorker.practice(id, language, code);
-    var cases = readTestCases(id, "assessment_problem_practice_test_case");
+    var cases = practiceCases;
     var details = new ArrayList<Map<String, Object>>();
     for (var testCaseResult : result.testCaseResults()) {
       int index = testCaseResult.position() - 1;
@@ -185,6 +197,62 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     out.put("safeError", result.safeError());
     out.put("testCaseResults", details);
     return out;
+  }
+
+  /**
+   * 正式考核做题时的试运行：随机抽 1 个正式测试点跑当前代码。
+   * 不产生提交记录与成绩，且每分钟限 10 次，避免被用来逐条刷出全部测试点。
+   */
+  public Map<String, Object> trialRun(
+      long id, Map<String, Object> request, SessionPrincipal actor) {
+    requireStudent(actor);
+    var row = row(id);
+    requirePublished(row);
+    if (request == null || request.size() != 2 || !request.containsKey("language") || !request.containsKey("code"))
+      throw bad();
+    if (!(request.get("language") instanceof String language) || !LANGUAGES.contains(language))
+      throw bad();
+    if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000)
+      throw bad();
+    if (!allowTrial(actor)) throw new ApiException(429, ErrorCode.RATE_LIMITED);
+    return trialResult(id, language, code);
+  }
+
+  private Map<String, Object> trialResult(long id, String language, String code) {
+    var trial = judgeWorker.trial(id, language, code);
+    if (trial.testCase() == null) throw bad();
+    var result = trial.result();
+    var detail = new LinkedHashMap<String, Object>();
+    detail.put("position", 1);
+    detail.put("input", trial.testCase().input());
+    detail.put("expectedOutput", trial.testCase().expectedOutput());
+    detail.put("actualOutput", result.actualOutput());
+    detail.put("verdict", result.verdict().name());
+    detail.put("timeMs", result.timeMs());
+    detail.put("memoryKb", result.memoryKb());
+    detail.put("safeError", result.safeError());
+    var out = new LinkedHashMap<String, Object>();
+    out.put("verdict", result.verdict().name());
+    out.put("passedTestCases", result.verdict() == OjVerdict.ACCEPTED ? 1 : 0);
+    out.put("totalTestCases", 1);
+    out.put("timeMs", result.timeMs());
+    out.put("memoryKb", result.memoryKb());
+    out.put("safeError", result.safeError());
+    out.put("testCaseResults", List.of(detail));
+    return out;
+  }
+
+  private boolean allowTrial(SessionPrincipal actor) {
+    long key = actor.memberId() != null ? actor.memberId() : actor.userId();
+    var now = clock.instant();
+    var window = trialWindows.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+    synchronized (window) {
+      while (!window.isEmpty()
+          && Duration.between(window.peekFirst(), now).getSeconds() >= 60) window.pollFirst();
+      if (window.size() >= TRIAL_PER_MINUTE) return false;
+      window.addLast(now);
+      return true;
+    }
   }
 
   public Map<String, Object> list(SessionPrincipal actor, int page, int size) {

@@ -339,6 +339,44 @@ public class AssessmentJudgeWorker {
     }
   }
 
+  /**
+   * 正式考核做题时的试运行：从正式考核测试点里随机抽 1 个执行当前代码。
+   *
+   * <p>只做一次独立判题，不写提交记录、判题结果或成绩；返回的测试点输入与输出
+   * 用于学生自查，因此调用方必须限制频率，避免被用来穷举全部测试点。
+   */
+  public TrialRun trial(long problemId, String language, String code) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT judge_mode,function_name,parameter_types,return_type FROM assessment_problem WHERE id=?",
+            problemId);
+    boolean functionMode = !rows.isEmpty() && "FUNCTION".equals(rows.getFirst().get("judge_mode"));
+    var signature = functionMode ? signature(rows.getFirst()) : null;
+    List<OjSubmission.TestCase> testCases = assessmentTestCases(problemId, signature);
+    if (testCases.isEmpty()) return new TrialRun(null, null);
+    var testCase = testCases.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(testCases.size()));
+    OjJudgeResult single;
+    try {
+      single =
+          functionMode
+              ? judgeFunction(signature, language, code, List.of(testCase))
+              : adapter.judge(new OjSubmission(language, code, List.of(testCase)));
+    } catch (RuntimeException error) {
+      log.warn(
+          "Trial run failed for problem {}: {}", problemId, error.getClass().getSimpleName());
+      single = internalResult(List.of(testCase));
+    }
+    var one =
+        single.testCaseResults().isEmpty()
+            ? new OjJudgeResult.TestCaseResult(
+                1, single.verdict(), single.timeMs(), single.memoryKb(), single.safeError())
+            : single.testCaseResults().getFirst();
+    return new TrialRun(testCase, one);
+  }
+
+  /** 试运行结果：测试点与它在判题机上的单点结果；测试点为空时两者都为 null。 */
+  public record TrialRun(OjSubmission.TestCase testCase, OjJudgeResult.TestCaseResult result) {}
+
   private List<OjSubmission.TestCase> assessmentTestCases(
       long problemId, FunctionHarness.Signature signature) {
     return problemTestCases(problemId, "assessment_problem_assessment_test_case", signature);

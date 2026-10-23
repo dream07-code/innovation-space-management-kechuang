@@ -56,6 +56,12 @@ public class AssessmentProblemController {
     return ApiResponse.success(service.practiceRun(problemId, request, actor()));
   }
 
+  @PostMapping("/{problemId}/trial-run")
+  public ApiResponse<Map<String, Object>> trialRun(
+      @PathVariable long problemId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(service.trialRun(problemId, request, actor()));
+  }
+
   @PatchMapping("/{problemId}")
   public ApiResponse<Map<String, Object>> update(
       @PathVariable long problemId, @RequestBody Map<String, Object> request) {

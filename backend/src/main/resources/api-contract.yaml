@@ -2877,6 +2877,54 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /api/v1/assessment-problems/{problemId}/trial-run:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags:
+      - OJ题目
+      summary: 正式考核做题时试运行（仅学生，随机 1 个正式测试点）
+      description: 从该题的正式考核测试点中随机抽取一个，用当前代码执行一次并返回该点的输入、实际输出与期望输出。不写入提交记录、判题结果或成绩；每名成员每分钟最多 10 次，超出返回 429。
+      x-implementation-status: planned
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OjPracticeRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language, code]
+              properties:
+                language: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+                code: {type: string, minLength: 1, maxLength: 200000}
+              additionalProperties: false
+
   /api/v1/assessment-problems/{problemId}/practice-run:
     parameters:
     - $ref: '#/components/parameters/ProblemId'
@@ -2884,7 +2932,7 @@ paths:
       tags:
       - OJ题目
       summary: 执行题库练习判题（仅学生）
-      description: 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。
+      description: 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。若该题没有练习测试点，则随机抽取 1 个正式考核测试点执行（与 trial-run 相同，每分钟最多 10 次），避免返回空结果。
       x-implementation-status: planned
       x-roles:
       - STUDENT
@@ -5522,6 +5570,7 @@ components:
         safeError: {type: string, nullable: true, maxLength: 500}
       additionalProperties: false
     OjPracticeRunResult:
+      description: 练习判题与考核试运行共用；试运行时只含 1 个测试点，position 固定为 1，不暴露真实序号。
       type: object
       required: [verdict, passedTestCases, totalTestCases, timeMs, memoryKb, safeError, testCaseResults]
       properties:
