@@ -151,16 +151,14 @@ onMounted(load)
       <el-table-column label="人工" width="90">
         <template #default="{ row }">{{ scoreLabel(row.humanScore) }}</template>
       </el-table-column>
-      <el-table-column label="最终分" width="100">
+      <el-table-column label="最终分 / 来源" width="130">
         <template #default="{ row }">
-          <strong>{{ scoreLabel(row.finalScore) }}</strong>
-        </template>
-      </el-table-column>
-      <el-table-column label="来源" width="110">
-        <template #default="{ row }">
-          <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain">
-            {{ scoreSourceMeta(row.scoreSource).label }}
-          </el-tag>
+          <div class="final-cell">
+            <strong>{{ scoreLabel(row.finalScore) }}</strong>
+            <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain" size="small">
+              {{ scoreSourceMeta(row.scoreSource).label }}
+            </el-tag>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="结果状态" width="110">
@@ -170,7 +168,6 @@ onMounted(load)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="publishedAt" label="发布时间" width="180" />
       <el-table-column label="操作" :width="canReview ? 150 : 90" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="openCode(row.submissionId)">
@@ -206,6 +203,13 @@ onMounted(load)
 
 .page__filter {
   margin-bottom: 16px;
+}
+
+.final-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .pending__text {

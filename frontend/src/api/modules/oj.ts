@@ -152,7 +152,7 @@ export async function retireAssessmentProblem(
 }
 
 // ---------------------------------------------------------------------------
-// 提交、AI 评分和人工批阅
+// 提交、按测试点计分和人工批阅
 // ---------------------------------------------------------------------------
 
 export async function createAssessmentSubmission(

@@ -109,7 +109,7 @@ async function save(): Promise<void> {
       },
       newIdempotencyKey(),
     )
-    ElMessage.success('人工评分已确认，将优先于 AI 评分')
+    ElMessage.success('人工评分已确认，已覆盖自动分')
     if (redirect.value.startsWith('/oj/')) {
       void router.replace(redirect.value)
     } else {
