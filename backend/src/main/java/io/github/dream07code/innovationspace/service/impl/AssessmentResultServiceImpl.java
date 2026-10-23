@@ -67,10 +67,13 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     evaluations.refreshResult(submissionId);
     var rows =
         jdbc.queryForList(
-            "SELECT r.*,s.assessment_id,s.problem_id,s.member_id,m.name AS member_name,m.student_no AS member_student_no"
+            "SELECT r.*,s.assessment_id,s.problem_id,s.member_id,m.name AS member_name,m.student_no AS member_student_no,"
+                + "e.status AS ai_status,e.reason AS ai_reason"
                 + " FROM assessment_result r"
                 + " JOIN assessment_submission s ON s.id=r.submission_id"
                 + " LEFT JOIN member m ON m.id=s.member_id"
+                + " LEFT JOIN ai_evaluation e ON e.submission_id=r.submission_id"
+                + " AND e.version=(SELECT MAX(version) FROM ai_evaluation WHERE submission_id=r.submission_id)"
                 + " WHERE r.submission_id=?",
             submissionId);
     if (rows.isEmpty()) throw notFound();
@@ -88,6 +91,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     out.put("timeMs", row.get("time_ms"));
     out.put("memoryKb", row.get("memory_kb"));
     out.put("aiScore", row.get("ai_score"));
+    out.put("aiStatus", row.get("ai_status"));
+    out.put("aiReason", row.get("ai_reason"));
     out.put("humanScore", row.get("human_score"));
     out.put("finalScore", row.get("final_score"));
     out.put("scoreSource", row.get("score_source"));

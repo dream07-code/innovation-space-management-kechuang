@@ -392,11 +392,12 @@ export function buildResult(submission: AssessmentSubmission): AssessmentResult 
   const judge = submission.judgeResult
   const humanScore = review?.score ?? null
   const aiScore = ai?.status === 'COMPLETE' ? ai.score : null
+  // 与后端一致：只有 AI 评分调用失败才会出现“暂不可用”，判题失败不算。
   const scoreSource = humanScore !== null
     ? 'HUMAN'
     : aiScore !== null
       ? 'AI'
-      : ai?.status === 'FAILED' || submission.status === 'FAILED' || submission.status === 'NEEDS_REVIEW'
+      : ai?.status === 'FAILED'
         ? 'UNAVAILABLE'
         : 'PENDING'
   return {
@@ -414,6 +415,8 @@ export function buildResult(submission: AssessmentSubmission): AssessmentResult 
     humanScore,
     finalScore: humanScore ?? aiScore,
     scoreSource,
+    aiStatus: ai?.status ?? null,
+    aiReason: ai?.reason ?? null,
     resultStatus: submission.status === 'JUDGED' && (humanScore !== null || aiScore !== null)
       ? 'COMPLETE'
       : submission.status === 'NEEDS_REVIEW' || submission.status === 'FAILED' || ai?.status === 'FAILED'

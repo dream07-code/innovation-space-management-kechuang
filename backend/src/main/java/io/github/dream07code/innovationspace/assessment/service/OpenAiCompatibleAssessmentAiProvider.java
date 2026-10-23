@@ -66,19 +66,44 @@ public class OpenAiCompatibleAssessmentAiProvider implements AssessmentAiProvide
       var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
       try (var stream = response.body()) {
         byte[] bytes = stream.readNBytes(1024 * 1024 + 1);
-        if (bytes.length > 1024 * 1024 || response.statusCode() / 100 != 2)
-          throw new IllegalStateException("AI provider request failed");
+        if (response.statusCode() / 100 != 2)
+          throw new IllegalStateException("AI provider HTTP " + response.statusCode());
+        if (bytes.length > 1024 * 1024)
+          throw new IllegalStateException("AI provider response exceeds 1MB");
         var root = json.readTree(new String(bytes, StandardCharsets.UTF_8));
         var content = root.at("/choices/0/message/content").asText();
-        var score = json.readTree(content);
+        if (content == null || content.isBlank())
+          throw new IllegalStateException("AI provider returned empty content");
+        var score = json.readTree(stripCodeFence(content));
         int value = score.path("score").asInt(-1);
         String reason = score.path("reason").asText(null);
-        if (value < 0 || value > 100 || reason == null || reason.isBlank())
-          throw new IllegalStateException("AI provider returned an invalid score");
+        if (value < 0 || value > 100)
+          throw new IllegalStateException("AI provider returned score " + value);
+        if (reason == null || reason.isBlank())
+          throw new IllegalStateException("AI provider returned empty reason");
         return new AssessmentAiScore(value, reason, properties.getModel());
       }
-    } catch (Exception error) {
-      throw new IllegalStateException("AI provider unavailable");
+    } catch (java.net.http.HttpTimeoutException error) {
+      throw new IllegalStateException("AI provider timeout");
+    } catch (java.net.ConnectException error) {
+      throw new IllegalStateException("AI provider connection refused");
+    } catch (java.net.UnknownHostException error) {
+      throw new IllegalStateException("AI provider host not found");
+    } catch (java.io.IOException error) {
+      throw new IllegalStateException("AI provider network error: " + error.getClass().getSimpleName());
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("AI provider interrupted");
     }
+  }
+
+  /** 有些兼容端点会把 JSON 包在 ```json 代码块里，去掉围栏再解析。 */
+  private static String stripCodeFence(String content) {
+    String text = content.trim();
+    if (!text.startsWith("```")) return text;
+    int start = text.indexOf('\n');
+    int end = text.lastIndexOf("```");
+    if (start < 0 || end <= start) return text;
+    return text.substring(start + 1, end).trim();
   }
 }

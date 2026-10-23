@@ -2302,6 +2302,13 @@ export interface components {
             scoreSource: "HUMAN" | "AI" | "PENDING" | "UNAVAILABLE";
             /** @enum {string} */
             resultStatus: "PENDING" | "COMPLETE" | "NEEDS_REVIEW";
+            /**
+             * @description 最新一次 AI 评分记录的状态；FAILED 表示调用 AI 服务失败，此时 scoreSource 为 UNAVAILABLE。
+             * @enum {string|null}
+             */
+            aiStatus: "PENDING" | "COMPLETE" | "FAILED" | "NEEDS_REVIEW" | null;
+            /** @description AI 评分的理由；状态为 FAILED 时是失败原因（如 “AI 评分调用失败：AI provider HTTP 401”），便于人工排查。 */
+            aiReason: string | null;
             /** Format: date-time */
             publishedAt: string | null;
         };

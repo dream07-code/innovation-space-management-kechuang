@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationService {
+  private static final Logger log = LoggerFactory.getLogger(AssessmentEvaluationServiceImpl.class);
   private final JdbcTemplate jdbc;
   private final AssessmentAiProviderRegistry providers;
   private final Clock clock;
@@ -69,6 +72,7 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
   public synchronized void refreshResult(long submissionId) {
     var judge = judge(submissionId);
     if (judge == null) return;
+    retryLocalFailure(submissionId, judge);
     var ai = latest(submissionId);
     var review =
         jdbc.queryForList(
@@ -139,6 +143,22 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
     }
   }
 
+  /**
+   * 本地提供方（mock / heuristic）是纯计算，失败通常是之前配置了不可用的外部提供方。
+   * 切到本地提供方后，读取结果时自动补算一次，避免历史记录一直停在“暂不可用”；
+   * 外部提供方不自动重试，以免产生不可控的调用费用。
+   */
+  private void retryLocalFailure(long submissionId, OjJudgeResult judge) {
+    if (!providers.enabled() || !providers.local()) return;
+    var rows =
+        jdbc.queryForList(
+            "SELECT status FROM ai_evaluation WHERE submission_id=? ORDER BY version DESC LIMIT 1",
+            submissionId);
+    if (rows.isEmpty() || !"FAILED".equals(rows.getFirst().get("status"))) return;
+    log.info("Retrying local AI evaluation for submission {}", submissionId);
+    evaluate(submissionId, judge);
+  }
+
   private void evaluate(long submissionId, OjJudgeResult judge) {
     var rows =
         jdbc.queryForList(
@@ -161,15 +181,24 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
                   new AssessmentAiProvider.AssessmentAiInput(
                       String.valueOf(submissionId), (String) row.get("language"), code, judge));
     } catch (RuntimeException error) {
-      insert(
-          submissionId,
-          "FAILED",
-          null,
-          "synthetic AI evaluation unavailable",
-          null);
+      String reason = failureReason(error);
+      log.warn("AI evaluation failed for submission {}: {}", submissionId, reason);
+      insert(submissionId, "FAILED", null, reason, null);
       return;
     }
     insert(submissionId, "COMPLETE", score.score(), score.reason(), score.model());
+  }
+
+  /**
+   * 只保留异常类型与一句可读原因（例如 "AI provider HTTP 401"），
+   * 便于在结果页看到“暂不可用”到底卡在哪，且不含源码、密钥或请求体。
+   */
+  private static String failureReason(RuntimeException error) {
+    String message = error.getMessage();
+    if (message == null || message.isBlank()) message = error.getClass().getSimpleName();
+    String text = message.replaceAll("\\s+", " ").trim();
+    if (text.length() > 300) text = text.substring(0, 300);
+    return "AI 评分调用失败：" + text;
   }
 
   private void insert(long submissionId, String status, Integer score, String reason, String model) {

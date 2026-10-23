@@ -94,6 +94,15 @@ SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 
 升级已有部署时无需手工迁移：后端启动命令会先执行 Flyway，再启动服务；本次评分规则升级（`rubricVersion=v2`）不涉及表结构变更，历史报告的旧分数不会被重算。AI 评分默认关闭，如需启用：`AI_SCORING_ENABLED=true`，并用 `AI_PROVIDER=heuristic`（离线近似，无需密钥）或 `openai-compatible`（真实模型，需 `AI_BASE_URL`/`AI_API_KEY`/`AI_MODEL`）。
 
+考核结果页的“分数来源＝暂不可用”表示 **AI 评分调用失败**（结果状态同时是“待复核”），不是判题失败：
+
+- 失败原因会显示在结果列表顶部的提示条、来源标签的悬停提示，以及后端日志 `AI evaluation failed for submission ...` 中，
+  例如 `AI provider HTTP 401`（密钥不对）、`AI provider timeout`、`AI provider host not found`（地址不可达）。
+- `AI_PROVIDER=heuristic` 是本地计算（按判题结果与代码特征估算），不依赖外网；切到它之后，
+  旧的历史“暂不可用”记录在打开结果页时会自动补算，不需要学生重新提交。
+- 用 `openai-compatible` 时若持续失败，先按日志里的原因检查 `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL`；
+  失败记录不会自动重试，可直接用结果页的「评分」入口人工打分（人工分优先）。
+
 当前默认 `OJ_PROVIDER=mock`。真实 Judge0 需要另行设置 `OJ_BASE_URL`、`OJ_API_TOKEN`，并在目标服务器完成判题验收。
 
 判题返回“内部错误 / 0 个测试点通过 / 0 ms”表示 Judge0 没有真正执行代码，不是页面或评分问题。先在服务器运行判题自检：

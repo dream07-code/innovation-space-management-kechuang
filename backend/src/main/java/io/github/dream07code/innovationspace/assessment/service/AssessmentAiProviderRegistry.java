@@ -19,11 +19,21 @@ public class AssessmentAiProviderRegistry {
     return properties.isEnabled();
   }
 
+  /** 本地计算的提供方（mock / heuristic）不会调用外部服务，可安全地自动重算。 */
+  public boolean local() {
+    String provider = properties.getProvider();
+    return "mock".equals(provider) || "heuristic".equals(provider);
+  }
+
   public AssessmentAiProvider provider() {
     if (!properties.isEnabled()) throw new IllegalStateException("AI evaluation disabled");
     return switch (properties.getProvider()) {
       case "mock" -> providers.stream()
           .filter(MockAssessmentScoringService.class::isInstance)
+          .findFirst()
+          .orElseThrow();
+      case "heuristic" -> providers.stream()
+          .filter(HeuristicAssessmentAiProvider.class::isInstance)
           .findFirst()
           .orElseThrow();
       case "openai-compatible" -> providers.stream()

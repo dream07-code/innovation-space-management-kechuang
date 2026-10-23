@@ -38,6 +38,8 @@ const route = useRoute()
 const router = useRouter()
 
 const submissionId = computed(() => route.params.submissionId as string)
+/** 从考核结果页进来时带 redirect，评完回原列表而不是跳到提交详情。 */
+const redirect = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : ''))
 const submission = ref<AssessmentSubmission | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
 const aiEvaluation = ref<AiEvaluation | null>(null)
@@ -105,7 +107,11 @@ async function save(): Promise<void> {
       newIdempotencyKey(),
     )
     ElMessage.success('人工评分已确认，将优先于 AI 评分')
-    void router.replace({ name: 'oj-submission-detail', params: { submissionId: submission.value.id } })
+    if (redirect.value.startsWith('/oj/')) {
+      void router.replace(redirect.value)
+    } else {
+      void router.replace({ name: 'oj-submission-detail', params: { submissionId: submission.value.id } })
+    }
   } catch (error) {
     const apiError = toApiError(error)
     if (apiError.isVersionConflict) {
@@ -153,6 +159,16 @@ onMounted(load)
           {{ activeReview.score }} 分 · {{ activeReview.comment }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <el-alert
+        v-if="aiEvaluation?.status === 'FAILED'"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="review-notice"
+      >
+        {{ aiEvaluation.reason || 'AI 评分调用失败，未产生分数' }}。可以直接人工评分，人工分优先。
+      </el-alert>
 
       <template v-if="submittedCode">
         <el-divider content-position="left">提交代码</el-divider>

@@ -6,9 +6,11 @@
  * 结果不写入日报/周报积分流水，也不改变现有排行榜或淘汰状态。
  */
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { View } from '@element-plus/icons-vue'
+import { EditPen, View } from '@element-plus/icons-vue'
+
+import { useAuthStore } from '@/stores/auth'
 
 import SubmissionCodeDialog from '@/components/SubmissionCodeDialog.vue'
 
@@ -29,6 +31,8 @@ import type {
 } from '@/api/types'
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 const assessmentId = computed(() => route.params.assessmentId as string)
 const assessment = ref<Assessment | null>(null)
 const problems = ref<AssessmentProblem[]>([])
@@ -43,7 +47,26 @@ function openCode(submissionId: string): void {
   codeDialogVisible.value = true
 }
 
+/** 管理员和方向负责人可进入人工批阅，评完回到当前结果页。 */
+const canReview = computed(() => auth.isAdmin || auth.isLeader)
+
+function openReview(submissionId: string): void {
+  void router.push({
+    name: 'oj-submission-review',
+    params: { submissionId },
+    query: { redirect: route.fullPath },
+  })
+}
+
 const problemNames = computed(() => new Map(problems.value.map((item) => [item.id, item.title])))
+/** AI 评分调用失败的条数：这些记录来源是“暂不可用”，只能靠人工评分给出最终分。 */
+const aiFailedCount = computed(
+  () => items.value.filter((item) => item.scoreSource === 'UNAVAILABLE').length,
+)
+/** 一条失败的 AI 评分原因直接显示出来，避免只能靠悬停发现。 */
+const firstAiFailure = computed(
+  () => items.value.find((item) => item.scoreSource === 'UNAVAILABLE' && item.aiReason) ?? null,
+)
 const items = computed(() =>
   (data.value?.items ?? []).filter((item) => !scoreSource.value || item.scoreSource === scoreSource.value),
 )
@@ -82,6 +105,21 @@ onMounted(load)
 
     <el-alert type="info" :closable="false" show-icon class="result-notice">
       本页是独立 OJ 考核成绩单：人工评分优先于 AI 评分，技术判定独立展示；不计入现有积分、流水或排行榜。
+    </el-alert>
+
+    <el-alert
+      v-if="aiFailedCount"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="result-notice"
+    >
+      <p class="ai-failure__text">
+        有 {{ aiFailedCount }} 条提交的 AI 评分没有成功，分数来源显示为“暂不可用”，最终分只能由人工给出。
+        <template v-if="canReview">点右侧「评分」查看提交代码并人工打分。</template>
+        <template v-else>请联系方向负责人或学院管理员人工评分。</template>
+      </p>
+      <p v-if="firstAiFailure" class="ai-failure__reason">原因：{{ firstAiFailure.aiReason }}</p>
     </el-alert>
 
     <el-form inline class="page__filter">
@@ -133,9 +171,15 @@ onMounted(load)
       </el-table-column>
       <el-table-column label="来源" width="110">
         <template #default="{ row }">
-          <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain">
-            {{ scoreSourceMeta(row.scoreSource).label }}
-          </el-tag>
+          <el-tooltip
+            :content="row.aiReason || 'AI 评分服务调用失败，未产生分数，需人工评分'"
+            placement="top"
+            :disabled="row.scoreSource !== 'UNAVAILABLE'"
+          >
+            <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain">
+              {{ scoreSourceMeta(row.scoreSource).label }}
+            </el-tag>
+          </el-tooltip>
         </template>
       </el-table-column>
       <el-table-column label="结果状态" width="110">
@@ -146,10 +190,19 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="publishedAt" label="发布时间" width="180" />
-      <el-table-column label="操作" width="90" fixed="right">
+      <el-table-column label="操作" :width="canReview ? 150 : 90" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="openCode(row.submissionId)">
             代码
+          </el-button>
+          <el-button
+            v-if="canReview"
+            link
+            type="primary"
+            :icon="EditPen"
+            @click="openReview(row.submissionId)"
+          >
+            评分
           </el-button>
         </template>
       </el-table-column>
@@ -172,6 +225,19 @@ onMounted(load)
 
 .page__filter {
   margin-bottom: 16px;
+}
+
+.ai-failure__text,
+.ai-failure__reason {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.ai-failure__reason {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.85;
+  word-break: break-all;
 }
 
 .member-cell {
