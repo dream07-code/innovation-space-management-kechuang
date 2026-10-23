@@ -59,16 +59,12 @@ function openReview(submissionId: string): void {
 }
 
 const problemNames = computed(() => new Map(problems.value.map((item) => [item.id, item.title])))
-/** AI 评分调用失败的条数：这些记录来源是“暂不可用”，只能靠人工评分给出最终分。 */
-const aiFailedCount = computed(
-  () => items.value.filter((item) => item.scoreSource === 'UNAVAILABLE').length,
-)
-/** 一条失败的 AI 评分原因直接显示出来，避免只能靠悬停发现。 */
-const firstAiFailure = computed(
-  () => items.value.find((item) => item.scoreSource === 'UNAVAILABLE' && item.aiReason) ?? null,
-)
 const items = computed(() =>
   (data.value?.items ?? []).filter((item) => !scoreSource.value || item.scoreSource === scoreSource.value),
+)
+/** 还没有分数的记录：判题内部错误等，需要人工评分。 */
+const pendingCount = computed(
+  () => items.value.filter((item) => item.scoreSource === 'PENDING').length,
 )
 
 async function load(): Promise<void> {
@@ -104,31 +100,23 @@ onMounted(load)
     </template>
 
     <el-alert type="info" :closable="false" show-icon class="result-notice">
-      本页是独立 OJ 考核成绩单：人工评分优先于 AI 评分，技术判定独立展示；不计入现有积分、流水或排行榜。
+      自动分按通过的测试点比例计算（四舍五入到整数）；人工评分优先，可随时调整。本页不计入现有积分、流水或排行榜。
     </el-alert>
 
-    <el-alert
-      v-if="aiFailedCount"
-      type="warning"
-      :closable="false"
-      show-icon
-      class="result-notice"
-    >
-      <p class="ai-failure__text">
-        有 {{ aiFailedCount }} 条提交的 AI 评分没有成功，分数来源显示为“暂不可用”，最终分只能由人工给出。
-        <template v-if="canReview">点右侧「评分」查看提交代码并人工打分。</template>
-        <template v-else>请联系方向负责人或学院管理员人工评分。</template>
+    <el-alert v-if="pendingCount" type="warning" :closable="false" show-icon class="result-notice">
+      <p class="pending__text">
+        有 {{ pendingCount }} 条提交没有自动分（判题内部错误，无法按测试点计分），需要人工评分。
+        <template v-if="canReview">点右侧「评分」查看提交代码并打分。</template>
+        <template v-else>请联系方向负责人或学院管理员。</template>
       </p>
-      <p v-if="firstAiFailure" class="ai-failure__reason">原因：{{ firstAiFailure.aiReason }}</p>
     </el-alert>
 
     <el-form inline class="page__filter">
       <el-form-item label="分数来源">
         <el-select v-model="scoreSource" clearable placeholder="全部" style="width: 150px">
-          <el-option label="人工评分" value="HUMAN" />
-          <el-option label="AI 评分" value="AI" />
+          <el-option label="按测试点自动计分" value="AUTO" />
+          <el-option label="人工调整" value="HUMAN" />
           <el-option label="待评分" value="PENDING" />
-          <el-option label="暂不可用" value="UNAVAILABLE" />
         </el-select>
       </el-form-item>
     </el-form>
@@ -158,8 +146,8 @@ onMounted(load)
       <el-table-column label="资源" width="130">
         <template #default="{ row }">{{ row.timeMs }} ms / {{ Math.round(row.memoryKb / 1024) }} MB</template>
       </el-table-column>
-      <el-table-column label="AI" width="90">
-        <template #default="{ row }">{{ scoreLabel(row.aiScore) }}</template>
+      <el-table-column label="自动分" width="100">
+        <template #default="{ row }">{{ scoreLabel(row.autoScore) }}</template>
       </el-table-column>
       <el-table-column label="人工" width="90">
         <template #default="{ row }">{{ scoreLabel(row.humanScore) }}</template>
@@ -171,15 +159,9 @@ onMounted(load)
       </el-table-column>
       <el-table-column label="来源" width="110">
         <template #default="{ row }">
-          <el-tooltip
-            :content="row.aiReason || 'AI 评分服务调用失败，未产生分数，需人工评分'"
-            placement="top"
-            :disabled="row.scoreSource !== 'UNAVAILABLE'"
-          >
-            <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain">
-              {{ scoreSourceMeta(row.scoreSource).label }}
-            </el-tag>
-          </el-tooltip>
+          <el-tag :type="scoreSourceMeta(row.scoreSource).type" effect="plain">
+            {{ scoreSourceMeta(row.scoreSource).label }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="结果状态" width="110">
@@ -227,17 +209,9 @@ onMounted(load)
   margin-bottom: 16px;
 }
 
-.ai-failure__text,
-.ai-failure__reason {
+.pending__text {
   margin: 0;
   line-height: 1.6;
-}
-
-.ai-failure__reason {
-  margin-top: 4px;
-  font-size: 12px;
-  opacity: 0.85;
-  word-break: break-all;
 }
 
 .member-cell {

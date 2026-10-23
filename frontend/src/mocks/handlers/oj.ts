@@ -10,7 +10,6 @@ import { HttpResponse, http } from 'msw'
 
 import { API_PREFIX } from '@/api/constants'
 import {
-  OJ_AI_EVALUATIONS,
   OJ_ASSESSMENTS,
   OJ_PROBLEMS,
   OJ_REVIEWS,
@@ -604,16 +603,6 @@ export const ojHandlers = [
     const submission = findSubmission(params.submissionId as string)
     if (!account || !submission || !canSeeSubmission(submission, account)) return errors.notFound()
     return ok(submission)
-  }),
-
-  http.get(`${SUBMISSIONS}/:submissionId/ai-evaluation`, ({ request, params }) => {
-    const denied = guardSession(request)
-    if (denied) return denied
-    const account = caller(request)
-    const submission = findSubmission(params.submissionId as string)
-    if (!account || !submission || !canSeeSubmission(submission, account)) return errors.notFound()
-    const evaluation = OJ_AI_EVALUATIONS.find((item) => item.submissionId === submission.id)
-    return evaluation ? ok(evaluation) : errors.notFound()
   }),
 
   http.get(`${SUBMISSIONS}/:submissionId/code`, ({ request, params }) => {

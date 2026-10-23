@@ -5,7 +5,6 @@
  * AI 原始响应或任何第三方凭据。提交代码只在请求处理期间参与 hash 计算。
  */
 import type {
-  AiEvaluation,
   Assessment,
   AssessmentProblem,
   AssessmentResult,
@@ -267,49 +266,6 @@ const INITIAL_SUBMISSIONS: AssessmentSubmission[] = [
   },
 ]
 
-const INITIAL_AI_EVALUATIONS: AiEvaluation[] = [
-  {
-    id: '9301',
-    submissionId: '9201',
-    status: 'COMPLETE',
-    score: 82,
-    reason: '实现正确且结构清晰，建议补充边界说明。',
-    model: 'mock-quality-rater',
-    rubricVersion: 'mock-rubric-1',
-    createdAt: '2026-10-11T10:01:00+08:00',
-  },
-  {
-    id: '9302',
-    submissionId: '9202',
-    status: 'PENDING',
-    score: null,
-    reason: null,
-    model: null,
-    rubricVersion: 'mock-rubric-1',
-    createdAt: '2026-10-11T10:06:00+08:00',
-  },
-  {
-    id: '9303',
-    submissionId: '9203',
-    status: 'COMPLETE',
-    score: 91,
-    reason: '算法正确、复杂度合适，代码风格稳定。',
-    model: 'mock-quality-rater',
-    rubricVersion: 'mock-rubric-1',
-    createdAt: '2026-10-11T11:01:00+08:00',
-  },
-  {
-    id: '9304',
-    submissionId: '9204',
-    status: 'FAILED',
-    score: null,
-    reason: '评分服务暂时不可用，等待人工复核。',
-    model: null,
-    rubricVersion: 'mock-rubric-1',
-    createdAt: '2026-09-05T10:01:00+08:00',
-  },
-]
-
 const INITIAL_REVIEWS: AssessmentReview[] = [
   {
     id: '9401',
@@ -331,7 +287,6 @@ const INITIAL_REVIEWS: AssessmentReview[] = [
 export const OJ_ASSESSMENTS: Assessment[] = INITIAL_ASSESSMENTS.map((item) => ({ ...item }))
 export const OJ_PROBLEMS: AssessmentProblem[] = INITIAL_PROBLEMS.map((item) => ({ ...item }))
 export const OJ_SUBMISSIONS: AssessmentSubmission[] = INITIAL_SUBMISSIONS.map((item) => ({ ...item }))
-export const OJ_AI_EVALUATIONS: AiEvaluation[] = INITIAL_AI_EVALUATIONS.map((item) => ({ ...item }))
 export const OJ_REVIEWS: AssessmentReview[] = INITIAL_REVIEWS.map((item) => ({ ...item }))
 
 export interface StoredProblemTestCases {
@@ -357,7 +312,6 @@ export function resetOjData(): void {
   OJ_ASSESSMENTS.splice(0, OJ_ASSESSMENTS.length, ...INITIAL_ASSESSMENTS.map((item) => ({ ...item })))
   OJ_PROBLEMS.splice(0, OJ_PROBLEMS.length, ...INITIAL_PROBLEMS.map((item) => ({ ...item })))
   OJ_SUBMISSIONS.splice(0, OJ_SUBMISSIONS.length, ...INITIAL_SUBMISSIONS.map((item) => ({ ...item })))
-  OJ_AI_EVALUATIONS.splice(0, OJ_AI_EVALUATIONS.length, ...INITIAL_AI_EVALUATIONS.map((item) => ({ ...item })))
   OJ_REVIEWS.splice(0, OJ_REVIEWS.length, ...INITIAL_REVIEWS.map((item) => ({ ...item })))
   for (const key of Object.keys(OJ_PROBLEM_TEST_CASES)) delete OJ_PROBLEM_TEST_CASES[key]
   for (const problem of INITIAL_PROBLEMS) {
@@ -386,20 +340,24 @@ export function activeReviewOf(submissionId: string): AssessmentReview | undefin
   return OJ_REVIEWS.find((item) => item.submissionId === submissionId && item.status === 'ACTIVE')
 }
 
+/** 与后端一致：判题内部错误或没有测试点时不自动给分。 */
+function autoScoreOf(judge: AssessmentSubmission['judgeResult']): number | null {
+  if (!judge || judge.verdict === 'INTERNAL_ERROR' || judge.totalTestCases <= 0) return null
+  const passed = Math.max(0, Math.min(judge.passedTestCases, judge.totalTestCases))
+  return Math.round((passed * 100) / judge.totalTestCases)
+}
+
+function finalScoreOf(human: number | null, auto: number | null): number | null {
+  return human ?? auto
+}
+
 export function buildResult(submission: AssessmentSubmission): AssessmentResult {
-  const ai = OJ_AI_EVALUATIONS.find((item) => item.submissionId === submission.id)
   const review = activeReviewOf(submission.id)
   const judge = submission.judgeResult
   const humanScore = review?.score ?? null
-  const aiScore = ai?.status === 'COMPLETE' ? ai.score : null
-  // 与后端一致：只有 AI 评分调用失败才会出现“暂不可用”，判题失败不算。
-  const scoreSource = humanScore !== null
-    ? 'HUMAN'
-    : aiScore !== null
-      ? 'AI'
-      : ai?.status === 'FAILED'
-        ? 'UNAVAILABLE'
-        : 'PENDING'
+  const autoScore = autoScoreOf(judge)
+  // 与后端一致：人工分优先，其次按通过测试点计算的自动分，两者都没有才是待评分。
+  const scoreSource = humanScore !== null ? 'HUMAN' : autoScore !== null ? 'AUTO' : 'PENDING'
   return {
     assessmentId: submission.assessmentId,
     submissionId: submission.id,
@@ -411,17 +369,11 @@ export function buildResult(submission: AssessmentSubmission): AssessmentResult 
     totalTestCases: judge?.totalTestCases ?? 0,
     timeMs: judge?.timeMs ?? 0,
     memoryKb: judge?.memoryKb ?? 0,
-    aiScore,
+    autoScore,
     humanScore,
-    finalScore: humanScore ?? aiScore,
+    finalScore: humanScore ?? autoScore,
     scoreSource,
-    aiStatus: ai?.status ?? null,
-    aiReason: ai?.reason ?? null,
-    resultStatus: submission.status === 'JUDGED' && (humanScore !== null || aiScore !== null)
-      ? 'COMPLETE'
-      : submission.status === 'NEEDS_REVIEW' || submission.status === 'FAILED' || ai?.status === 'FAILED'
-        ? 'NEEDS_REVIEW'
-        : 'PENDING',
+    resultStatus: finalScoreOf(humanScore, autoScore) !== null ? 'COMPLETE' : 'NEEDS_REVIEW',
     publishedAt: submission.status === 'JUDGED' ? submission.judgedAt ?? null : null,
   }
 }
@@ -455,16 +407,6 @@ export async function createSubmission(
     judgedAt: ojNowIso(),
   }
   OJ_SUBMISSIONS.push(submission)
-  OJ_AI_EVALUATIONS.push({
-    id: String(9300 + OJ_AI_EVALUATIONS.length + 1),
-    submissionId: submission.id,
-    status: 'PENDING',
-    score: null,
-    reason: null,
-    model: null,
-    rubricVersion: 'mock-rubric-1',
-    createdAt: ojNowIso(),
-  })
   return submission
 }
 

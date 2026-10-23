@@ -1,10 +1,9 @@
 /**
  * OJ 考核 UI 状态映射。
  *
- * 只负责展示契约枚举，不改变 OJ 判定、AI 评分或人工评分语义。
+ * 只负责展示契约枚举，不改变 OJ 判定、按测试点自动计分或人工评分的语义。
  */
 import type {
-  AiEvaluationStatus,
   AssessmentLanguage,
   AssessmentProblemStatus,
   AssessmentResultStatus,
@@ -48,23 +47,15 @@ export const VERDICT_META: Record<OjVerdict, { label: string; type: TagType }> =
   INTERNAL_ERROR: { label: '内部错误', type: 'info' },
 }
 
-export const AI_STATUS_META: Record<AiEvaluationStatus, { label: string; type: TagType }> = {
-  PENDING: { label: '评分中', type: 'warning' },
-  COMPLETE: { label: '已完成', type: 'success' },
-  FAILED: { label: '评分失败', type: 'danger' },
-  NEEDS_REVIEW: { label: '待人工复核', type: 'warning' },
-}
-
 export const REVIEW_STATUS_META: Record<AssessmentReviewStatus, { label: string; type: TagType }> = {
   ACTIVE: { label: '生效中', type: 'success' },
   SUPERSEDED: { label: '已被替代', type: 'info' },
 }
 
 export const SCORE_SOURCE_META: Record<AssessmentScoreSource, { label: string; type: TagType }> = {
-  HUMAN: { label: '人工评分', type: 'primary' },
-  AI: { label: 'AI 评分', type: 'success' },
+  HUMAN: { label: '人工调整', type: 'primary' },
+  AUTO: { label: '按测试点', type: 'success' },
   PENDING: { label: '待评分', type: 'warning' },
-  UNAVAILABLE: { label: '暂不可用', type: 'danger' },
 }
 
 export const RESULT_STATUS_META: Record<AssessmentResultStatus, { label: string; type: TagType }> = {
@@ -102,10 +93,6 @@ export function submissionStatusMeta(status: AssessmentSubmissionStatus): (typeo
 
 export function verdictMeta(verdict: OjVerdict): (typeof VERDICT_META)[OjVerdict] {
   return VERDICT_META[verdict]
-}
-
-export function aiStatusMeta(status: AiEvaluationStatus): (typeof AI_STATUS_META)[AiEvaluationStatus] {
-  return AI_STATUS_META[status]
 }
 
 export function reviewStatusMeta(status: AssessmentReviewStatus): (typeof REVIEW_STATUS_META)[AssessmentReviewStatus] {

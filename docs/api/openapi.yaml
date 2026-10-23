@@ -3278,44 +3278,6 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
-  /api/v1/assessment-submissions/{submissionId}/ai-evaluation:
-    parameters:
-    - $ref: '#/components/parameters/SubmissionId'
-    get:
-      tags:
-      - OJ评分
-      summary: 获取AI评分
-      x-implementation-status: planned
-      x-roles:
-      - COLLEGE_ADMIN
-      - DIRECTION_LEADER
-      - STUDENT
-      responses:
-        '200':
-          description: 成功。
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AiEvaluationResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-
   /api/v1/assessment-submissions/{submissionId}/reviews:
     parameters:
     - $ref: '#/components/parameters/SubmissionId'
@@ -5108,51 +5070,6 @@ components:
           format: date-time
           nullable: true
       additionalProperties: false
-    AiEvaluation:
-      type: object
-      required:
-      - id
-      - submissionId
-      - status
-      - score
-      - reason
-      - model
-      - rubricVersion
-      - createdAt
-      properties:
-        id:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        submissionId:
-          type: string
-          description: 十进制字符串 ID，不转换为 JavaScript Number。
-          pattern: ^[1-9][0-9]{0,18}$
-          example: '201'
-        status:
-          type: string
-          enum: [PENDING, COMPLETE, FAILED, NEEDS_REVIEW]
-        score:
-          type: integer
-          minimum: 0
-          maximum: 100
-          nullable: true
-        reason:
-          type: string
-          maxLength: 1000
-          nullable: true
-        model:
-          type: string
-          maxLength: 128
-          nullable: true
-        rubricVersion:
-          type: string
-          maxLength: 64
-        createdAt:
-          type: string
-          format: date-time
-      additionalProperties: false
     AssessmentReview:
       type: object
       required:
@@ -5243,13 +5160,11 @@ components:
       - totalTestCases
       - timeMs
       - memoryKb
-      - aiScore
+      - autoScore
       - humanScore
       - finalScore
       - scoreSource
       - resultStatus
-      - aiStatus
-      - aiReason
       - publishedAt
       properties:
         assessmentId:
@@ -5299,11 +5214,12 @@ components:
         memoryKb:
           type: integer
           minimum: 0
-        aiScore:
+        autoScore:
           type: integer
           minimum: 0
           maximum: 100
           nullable: true
+          description: 按通过的测试点比例自动计算（round(通过数/总数*100)）；判题内部错误或没有测试点时为 null，等待人工评分。
         humanScore:
           type: integer
           minimum: 0
@@ -5316,20 +5232,11 @@ components:
           nullable: true
         scoreSource:
           type: string
-          enum: [HUMAN, AI, PENDING, UNAVAILABLE]
+          enum: [HUMAN, AUTO, PENDING]
+          description: HUMAN 表示人工调整过分数，AUTO 表示按通过测试点自动计分，PENDING 表示尚无分数（判题内部错误等，需人工复核）。
         resultStatus:
           type: string
           enum: [PENDING, COMPLETE, NEEDS_REVIEW]
-        aiStatus:
-          type: string
-          nullable: true
-          enum: [PENDING, COMPLETE, FAILED, NEEDS_REVIEW]
-          description: 最新一次 AI 评分记录的状态；FAILED 表示调用 AI 服务失败，此时 scoreSource 为 UNAVAILABLE。
-        aiReason:
-          type: string
-          nullable: true
-          maxLength: 1000
-          description: AI 评分的理由；状态为 FAILED 时是失败原因（如 “AI 评分调用失败：AI provider HTTP 401”），便于人工排查。
         publishedAt:
           type: string
           format: date-time
@@ -5683,13 +5590,6 @@ components:
         code: {type: string, enum: [OK]}
         message: {type: string, example: Success}
         data: {$ref: '#/components/schemas/AssessmentSubmissionPage'}
-    AiEvaluationResponse:
-      type: object
-      required: [code, message, data]
-      properties:
-        code: {type: string, enum: [OK]}
-        message: {type: string, example: Success}
-        data: {$ref: '#/components/schemas/AiEvaluation'}
     AssessmentReviewResponse:
       type: object
       required: [code, message, data]
@@ -7478,7 +7378,7 @@ components:
         submissionStatus: {type: string, enum: [NONE, RECEIVED, JUDGING, JUDGED, FAILED, NEEDS_REVIEW]}
         technicalVerdict: {type: string, nullable: true, maxLength: 64}
         finalScore: {type: integer, minimum: 0, maximum: 100, nullable: true}
-        scoreSource: {type: string, enum: [HUMAN, AI, PENDING, UNAVAILABLE]}
+        scoreSource: {type: string, enum: [HUMAN, AUTO, PENDING]}
       additionalProperties: false
     PointEntrySummary:
       type: object

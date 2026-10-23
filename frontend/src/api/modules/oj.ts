@@ -7,7 +7,6 @@
  */
 import { API_PREFIX, get, patch, post, postWithoutIdempotency } from '../client'
 import type {
-  AiEvaluation,
   Assessment,
   AssessmentCommandRequest,
   AssessmentProblem,
@@ -174,10 +173,6 @@ export async function getAssessmentSubmission(
   submissionId: string,
 ): Promise<AssessmentSubmission> {
   return get<AssessmentSubmission>(`${SUBMISSIONS}/${submissionId}`)
-}
-
-export async function getAiEvaluation(submissionId: string): Promise<AiEvaluation> {
-  return get<AiEvaluation>(`${SUBMISSIONS}/${submissionId}/ai-evaluation`)
 }
 
 export async function listAssessmentReviews(

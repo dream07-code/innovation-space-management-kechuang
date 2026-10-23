@@ -2,8 +2,8 @@
 /**
  * OJ 提交详情。
  *
- * 分开展示 OJ 技术判定、AI 质量评分和人工批阅；人工评分优先于 AI。
- * 不展示完整代码、私有测试数据、OJ 原始日志或 AI 原始响应。
+ * 分开展示 OJ 技术判定、按测试点计算的自动分和人工批阅；人工调整优先。
+ * 不展示完整代码、私有测试数据或 OJ 原始日志。
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -11,7 +11,6 @@ import { EditPen } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import {
-  getAiEvaluation,
   getAssessment,
   getAssessmentProblem,
   getAssessmentSubmission,
@@ -21,7 +20,6 @@ import {
 import CodeEditor from '@/components/CodeEditor.vue'
 import { describeError, toApiError } from '@/api/errors'
 import {
-  aiStatusMeta,
   memberNameLabel,
   languageLabel,
   reviewStatusMeta,
@@ -31,7 +29,6 @@ import {
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
 import type {
-  AiEvaluation,
   Assessment,
   AssessmentProblem,
   AssessmentReview,
@@ -46,18 +43,21 @@ const submissionId = computed(() => route.params.submissionId as string)
 const submission = ref<AssessmentSubmission | null>(null)
 const assessment = ref<Assessment | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
-const aiEvaluation = ref<AiEvaluation | null>(null)
 const reviews = ref<AssessmentReview[]>([])
 const loading = ref(false)
 const submittedCode = ref('')
 
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
 const activeReview = computed(() => reviews.value.find((review) => review.status === 'ACTIVE') ?? null)
-const finalScore = computed(() => activeReview.value?.score ?? aiEvaluation.value?.score ?? null)
+/** 后端与前端共用同一个公式：round(通过数 / 总数 * 100)；判题内部错误不自动给分。 */
+const autoScore = computed(() => {
+  const judge = submission.value?.judgeResult
+  if (!judge || judge.verdict === 'INTERNAL_ERROR' || judge.totalTestCases <= 0) return null
+  return Math.round((judge.passedTestCases * 100) / judge.totalTestCases)
+})
+const finalScore = computed(() => activeReview.value?.score ?? autoScore.value ?? null)
 const scoreSource = computed(() =>
-  activeReview.value ? '人工评分优先' : aiEvaluation.value?.score !== null && aiEvaluation.value?.score !== undefined
-    ? 'AI 质量评分'
-    : '待评分',
+  activeReview.value ? '人工调整' : autoScore.value !== null ? '按测试点自动计分' : '待评分',
 )
 
 async function load(): Promise<void> {
@@ -76,18 +76,10 @@ async function load(): Promise<void> {
     assessment.value = currentAssessment
     problem.value = currentProblem
 
-    const tasks: Promise<unknown>[] = [getAiEvaluation(submissionId.value).then((item) => {
-      aiEvaluation.value = item
-    }).catch((error) => {
-      const apiError = toApiError(error)
-      if (apiError.code !== 'NOT_FOUND') throw apiError
-    })]
     if (canReview.value) {
-      tasks.push(listAssessmentReviews(submissionId.value).then((page) => {
-        reviews.value = page.items
-      }))
+      const page = await listAssessmentReviews(submissionId.value)
+      reviews.value = page.items
     }
-    await Promise.all(tasks)
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -181,21 +173,16 @@ onMounted(load)
       </template>
       <el-empty v-else description="OJ 尚未返回技术判定" />
 
-      <el-divider content-position="left">AI 质量评分</el-divider>
-      <el-descriptions v-if="aiEvaluation" :column="2" border>
-        <el-descriptions-item label="状态">
-          <el-tag :type="aiStatusMeta(aiEvaluation.status).type" effect="plain">
-            {{ aiStatusMeta(aiEvaluation.status).label }}
-          </el-tag>
+      <el-divider content-position="left">计分</el-divider>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="自动分（按测试点）">
+          {{ scoreLabel(autoScore) }}
         </el-descriptions-item>
-        <el-descriptions-item label="评分">{{ scoreLabel(aiEvaluation.score) }}</el-descriptions-item>
-        <el-descriptions-item label="模型">{{ aiEvaluation.model ?? '—' }}</el-descriptions-item>
-        <el-descriptions-item label="Rubric">{{ aiEvaluation.rubricVersion }}</el-descriptions-item>
-        <el-descriptions-item v-if="aiEvaluation.reason" label="评分理由" :span="2">
-          {{ aiEvaluation.reason }}
+        <el-descriptions-item label="计分规则">
+          <span v-if="autoScore !== null">通过 {{ submission.judgeResult?.passedTestCases }} / {{ submission.judgeResult?.totalTestCases }} 个测试点</span>
+          <span v-else>判题内部错误或没有测试点，不自动计分</span>
         </el-descriptions-item>
       </el-descriptions>
-      <el-empty v-else description="暂无 AI 评分记录" />
 
       <el-divider content-position="left">人工批阅与最终展示</el-divider>
       <el-descriptions v-if="activeReview" :column="2" border>
@@ -212,7 +199,7 @@ onMounted(load)
         type="info"
         :closable="false"
         show-icon
-        description="尚未人工批阅；无有效人工评分时才使用 AI 质量评分。"
+        description="尚未人工调整；当前最终分使用按测试点计算的自动分。"
       />
 
       <el-result

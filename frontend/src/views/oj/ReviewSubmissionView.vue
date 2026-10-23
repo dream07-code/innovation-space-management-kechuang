@@ -2,7 +2,7 @@
 /**
  * 人工批阅页。
  *
- * 人工评分确认后优先于 AI 评分，迟到 AI 评分不得覆盖人工结果。
+ * 自动分按通过的测试点计算，人工评分可覆盖自动分（重新提交会产生新的批阅版本）。
  * 请求使用 submissionVersion/reviewVersion 乐观锁并携带 Idempotency-Key。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -11,7 +11,6 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 
 import {
   createAssessmentReview,
-  getAiEvaluation,
   getAssessmentProblem,
   getAssessmentSubmission,
   getSubmissionCode,
@@ -20,14 +19,12 @@ import {
 import CodeEditor from '@/components/CodeEditor.vue'
 import { describeError, toApiError } from '@/api/errors'
 import {
-  aiStatusMeta,
   memberNameLabel,
   scoreLabel,
   submissionStatusMeta,
   verdictMeta,
 } from '@/components/ojMeta'
 import type {
-  AiEvaluation,
   AssessmentProblem,
   AssessmentReview,
   AssessmentSubmission,
@@ -42,7 +39,6 @@ const submissionId = computed(() => route.params.submissionId as string)
 const redirect = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : ''))
 const submission = ref<AssessmentSubmission | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
-const aiEvaluation = ref<AiEvaluation | null>(null)
 const reviews = ref<AssessmentReview[]>([])
 const submittedCode = ref('')
 const loading = ref(false)
@@ -60,6 +56,12 @@ const rules: FormRules = {
 }
 
 const activeReview = computed(() => reviews.value.find((review) => review.status === 'ACTIVE') ?? null)
+/** 与后端一致的自动分：round(通过数 / 总数 * 100)，判题内部错误不给分。 */
+const autoScore = computed(() => {
+  const judge = submission.value?.judgeResult
+  if (!judge || judge.verdict === 'INTERNAL_ERROR' || judge.totalTestCases <= 0) return null
+  return Math.round((judge.passedTestCases * 100) / judge.totalTestCases)
+})
 const nextReviewVersion = computed(() => (activeReview.value?.version ?? 0) + 1)
 
 async function load(): Promise<void> {
@@ -71,18 +73,19 @@ async function load(): Promise<void> {
     } catch {
       submittedCode.value = ''
     }
-    const [currentProblem, reviewPage, currentAi] = await Promise.all([
+    const [currentProblem, reviewPage] = await Promise.all([
       getAssessmentProblem(submission.value.problemId),
       listAssessmentReviews(submissionId.value),
-      getAiEvaluation(submissionId.value).catch((error) => {
-        const apiError = toApiError(error)
-        if (apiError.code === 'NOT_FOUND') return null
-        throw apiError
-      }),
     ])
     problem.value = currentProblem
     reviews.value = reviewPage.items
-    aiEvaluation.value = currentAi
+    // 已有批阅时沿用原分数，否则用自动分作为打分起点。
+    if (reviewPage.items.some((item) => item.status === 'ACTIVE')) {
+      form.score = activeReview.value?.score ?? form.score
+    } else if (autoScore.value !== null) {
+      form.score = autoScore.value
+    }
+    if (activeReview.value?.comment) form.comment = activeReview.value.comment
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -133,7 +136,7 @@ onMounted(load)
     <template #header>人工批阅 · {{ submission?.id ?? '' }}</template>
 
     <el-alert type="warning" :closable="false" show-icon class="review-notice">
-      人工评分一旦确认即优先于 AI 评分；OJ 技术判定保持独立，不被人工分数覆盖。
+      自动分按通过的测试点比例计算；这里确认的人工分会覆盖自动分，OJ 技术判定保持独立。
     </el-alert>
 
     <template v-if="submission">
@@ -152,23 +155,11 @@ onMounted(load)
           </el-tag>
           <span v-else>—</span>
         </el-descriptions-item>
-        <el-descriptions-item label="AI 评分">
-          {{ aiEvaluation ? `${scoreLabel(aiEvaluation.score)}（${aiStatusMeta(aiEvaluation.status).label}）` : '暂无' }}
-        </el-descriptions-item>
+        <el-descriptions-item label="自动分（按测试点）">{{ scoreLabel(autoScore) }}</el-descriptions-item>
         <el-descriptions-item v-if="activeReview" label="当前人工评分" :span="2">
           {{ activeReview.score }} 分 · {{ activeReview.comment }}
         </el-descriptions-item>
       </el-descriptions>
-
-      <el-alert
-        v-if="aiEvaluation?.status === 'FAILED'"
-        type="warning"
-        :closable="false"
-        show-icon
-        class="review-notice"
-      >
-        {{ aiEvaluation.reason || 'AI 评分调用失败，未产生分数' }}。可以直接人工评分，人工分优先。
-      </el-alert>
 
       <template v-if="submittedCode">
         <el-divider content-position="left">提交代码</el-divider>

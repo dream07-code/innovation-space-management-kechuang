@@ -13,7 +13,9 @@ import io.github.dream07code.innovationspace.membership.*;
 import io.github.dream07code.innovationspace.points.*;
 
 public interface AssessmentEvaluationService {
-  Map<String, Object> get(long submissionId, SessionPrincipal actor);
+  /** 判题完成后重算成绩：自动分按通过测试点计算，人工分优先。 */
   void evaluateAfterJudge(long submissionId);
+
+  /** 重新汇总某个提交的成绩（人工评分后也调用）。 */
   void refreshResult(long submissionId);
 }

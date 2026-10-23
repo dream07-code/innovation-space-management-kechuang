@@ -38,13 +38,11 @@ const failedResult = {
   totalTestCases: 7,
   timeMs: 146,
   memoryKb: 32768,
-  aiScore: null,
+  autoScore: 100,
   humanScore: null,
-  finalScore: null,
-  scoreSource: 'UNAVAILABLE',
-  resultStatus: 'NEEDS_REVIEW',
-  aiStatus: 'FAILED',
-  aiReason: 'AI 评分调用失败：AI provider HTTP 401',
+  finalScore: 100,
+  scoreSource: 'AUTO',
+  resultStatus: 'COMPLETE',
   publishedAt: '2026-10-23T15:46:38+08:00',
 }
 
@@ -67,13 +65,38 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
     })
   })
 
-  it('AI 评分失败时说明“暂不可用”的含义与失败原因', async () => {
+  it('按通过的测试点显示自动分与计分规则，不再出现 AI 评分列', async () => {
     const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('暂不可用')
-    expect(wrapper.text()).toContain('有 1 条提交的 AI 评分没有成功')
-    expect(wrapper.text()).toContain('AI provider HTTP 401')
+    expect(wrapper.text()).toContain('自动分')
+    expect(wrapper.text()).toContain('100 分')
+    expect(wrapper.text()).toContain('按测试点')
+    expect(wrapper.text()).toContain('自动分按通过的测试点比例计算')
+    expect(wrapper.text()).not.toContain('AI 评分')
+  })
+
+  it('没有自动分时提示需要人工评分', async () => {
+    mocks.listAssessmentResults.mockResolvedValue({
+      items: [
+        {
+          ...failedResult,
+          autoScore: null,
+          finalScore: null,
+          scoreSource: 'PENDING',
+          resultStatus: 'NEEDS_REVIEW',
+          technicalVerdict: 'INTERNAL_ERROR',
+        },
+      ],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('有 1 条提交没有自动分')
+    expect(wrapper.text()).toContain('需要人工评分')
   })
 
   it('管理员可以从结果页直接进入人工评分并带回跳地址', async () => {
@@ -99,6 +122,5 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
 
     const reviewButton = wrapper.findAll('button').find((item) => item.text().includes('评分'))
     expect(reviewButton).toBeUndefined()
-    expect(wrapper.text()).toContain('请联系方向负责人或学院管理员人工评分')
   })
 })

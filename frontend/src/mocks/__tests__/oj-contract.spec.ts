@@ -62,14 +62,15 @@ describe('OJ 提交隐私', () => {
 })
 
 describe('OJ 评分优先级', () => {
-  it('人工评分优先于 AI 评分，同时保留独立 OJ 技术判定', async () => {
+  it('自动分按通过测试点计算，人工调整优先且保留独立 OJ 技术判定', async () => {
     const token = await login('MOCK-ADMIN', 'Admin-Example9!')
     const result = await request('/api/v1/assessments/9001/results', token)
     const row = result.body.data.items.find((item: { submissionId: string }) => item.submissionId === '9201')
 
     expect(result.status).toBe(200)
     expect(row.technicalVerdict).toBe('ACCEPTED')
-    expect(row.aiScore).toBe(82)
+    // 提交 9201 的自动分来自通过的测试点比例；人工调整后最终分取人工分
+    expect(row.autoScore).toBe(100)
     expect(row.humanScore).toBe(90)
     expect(row.finalScore).toBe(90)
     expect(row.scoreSource).toBe('HUMAN')

@@ -990,6 +990,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-problems/{problemId}/trial-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 正式考核做题时试运行（仅学生，随机 1 个正式测试点）
+         * @description 从该题的正式考核测试点中随机抽取一个，用当前代码执行一次并返回该点的输入、实际输出与期望输出。不写入提交记录、判题结果或成绩；每名成员每分钟最多 10 次，超出返回 429。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OjPracticeRunResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-problems/{problemId}/practice-run": {
         parameters: {
             query?: never;
@@ -1003,7 +1063,7 @@ export interface paths {
         put?: never;
         /**
          * 执行题库练习判题（仅学生）
-         * @description 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。
+         * @description 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。若该题没有练习测试点，则随机抽取 1 个正式考核测试点执行（与 trial-run 相同，每分钟最多 10 次），避免返回空结果。
          */
         post: {
             parameters: {
@@ -1417,55 +1477,6 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 405: components["responses"]["MethodNotAllowed"];
-                429: components["responses"]["TooManyRequests"];
-                500: components["responses"]["InternalError"];
-                503: components["responses"]["Unavailable"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assessment-submissions/{submissionId}/ai-evaluation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submissionId: components["parameters"]["SubmissionId"];
-            };
-            cookie?: never;
-        };
-        /** 获取AI评分 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    submissionId: components["parameters"]["SubmissionId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功。 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AiEvaluationResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-                405: components["responses"]["MethodNotAllowed"];
-                409: components["responses"]["Conflict"];
                 429: components["responses"]["TooManyRequests"];
                 500: components["responses"]["InternalError"];
                 503: components["responses"]["Unavailable"];
@@ -2192,26 +2203,6 @@ export interface components {
             /** Format: date-time */
             judgedAt?: string | null;
         };
-        AiEvaluation: {
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            id: string;
-            /**
-             * @description 十进制字符串 ID，不转换为 JavaScript Number。
-             * @example 201
-             */
-            submissionId: string;
-            /** @enum {string} */
-            status: "PENDING" | "COMPLETE" | "FAILED" | "NEEDS_REVIEW";
-            score: number | null;
-            reason: string | null;
-            model: string | null;
-            rubricVersion: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
         AssessmentReview: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -2295,20 +2286,17 @@ export interface components {
             totalTestCases: number;
             timeMs: number;
             memoryKb: number;
-            aiScore: number | null;
+            /** @description 按通过的测试点比例自动计算（round(通过数/总数*100)）；判题内部错误或没有测试点时为 null，等待人工评分。 */
+            autoScore: number | null;
             humanScore: number | null;
             finalScore: number | null;
-            /** @enum {string} */
-            scoreSource: "HUMAN" | "AI" | "PENDING" | "UNAVAILABLE";
+            /**
+             * @description HUMAN 表示人工调整过分数，AUTO 表示按通过测试点自动计分，PENDING 表示尚无分数（判题内部错误等，需人工复核）。
+             * @enum {string}
+             */
+            scoreSource: "HUMAN" | "AUTO" | "PENDING";
             /** @enum {string} */
             resultStatus: "PENDING" | "COMPLETE" | "NEEDS_REVIEW";
-            /**
-             * @description 最新一次 AI 评分记录的状态；FAILED 表示调用 AI 服务失败，此时 scoreSource 为 UNAVAILABLE。
-             * @enum {string|null}
-             */
-            aiStatus: "PENDING" | "COMPLETE" | "FAILED" | "NEEDS_REVIEW" | null;
-            /** @description AI 评分的理由；状态为 FAILED 时是失败原因（如 “AI 评分调用失败：AI provider HTTP 401”），便于人工排查。 */
-            aiReason: string | null;
             /** Format: date-time */
             publishedAt: string | null;
         };
@@ -2445,6 +2433,7 @@ export interface components {
             memoryKb: number;
             safeError: string | null;
         };
+        /** @description 练习判题与考核试运行共用；试运行时只含 1 个测试点，position 固定为 1，不暴露真实序号。 */
         OjPracticeRunResult: {
             /** @enum {string} */
             verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
@@ -2532,13 +2521,6 @@ export interface components {
             /** @example Success */
             message: string;
             data: components["schemas"]["AssessmentSubmissionPage"];
-        };
-        AiEvaluationResponse: {
-            /** @enum {string} */
-            code: "OK";
-            /** @example Success */
-            message: string;
-            data: components["schemas"]["AiEvaluation"];
         };
         AssessmentReviewResponse: {
             /** @enum {string} */
@@ -3500,7 +3482,7 @@ export interface components {
             technicalVerdict: string | null;
             finalScore: number | null;
             /** @enum {string} */
-            scoreSource: "HUMAN" | "AI" | "PENDING" | "UNAVAILABLE";
+            scoreSource: "HUMAN" | "AUTO" | "PENDING";
         };
         PointEntrySummary: {
             entryId: string;

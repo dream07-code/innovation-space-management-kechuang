@@ -220,7 +220,7 @@ public class AssessmentJudgeWorker {
         result.safeError(),
         now);
     jdbc.update(
-        "INSERT INTO assessment_result(submission_id,technical_verdict,passed_test_cases,total_test_cases,time_ms,memory_kb,ai_score,human_score,final_score,score_source,result_status,published_at,updated_at)"
+        "INSERT INTO assessment_result(submission_id,technical_verdict,passed_test_cases,total_test_cases,time_ms,memory_kb,auto_score,human_score,final_score,score_source,result_status,published_at,updated_at)"
             + " VALUES(?,?,?,?,?,?,NULL,NULL,NULL,'PENDING',?,?,?)"
             + " ON DUPLICATE KEY UPDATE technical_verdict=VALUES(technical_verdict),"
             + " passed_test_cases=VALUES(passed_test_cases),total_test_cases=VALUES(total_test_cases),"
@@ -300,10 +300,10 @@ public class AssessmentJudgeWorker {
               testCases.size(),
               now);
           jdbc.update(
-              "INSERT INTO assessment_result(submission_id,technical_verdict,passed_test_cases,total_test_cases,time_ms,memory_kb,ai_score,human_score,final_score,score_source,result_status,published_at,updated_at)"
-                  + " VALUES(?, 'INTERNAL_ERROR',0,?,0,0,NULL,NULL,NULL,'UNAVAILABLE','NEEDS_REVIEW',?,?)"
+              "INSERT INTO assessment_result(submission_id,technical_verdict,passed_test_cases,total_test_cases,time_ms,memory_kb,auto_score,human_score,final_score,score_source,result_status,published_at,updated_at)"
+                  + " VALUES(?, 'INTERNAL_ERROR',0,?,0,0,NULL,NULL,NULL,'PENDING','NEEDS_REVIEW',?,?)"
                   + " ON DUPLICATE KEY UPDATE technical_verdict='INTERNAL_ERROR',passed_test_cases=0,"
-                  + " total_test_cases=VALUES(total_test_cases),time_ms=0,memory_kb=0,score_source='UNAVAILABLE',"
+                  + " total_test_cases=VALUES(total_test_cases),time_ms=0,memory_kb=0,score_source='PENDING',"
                   + " result_status='NEEDS_REVIEW',published_at=VALUES(published_at),updated_at=VALUES(updated_at)",
               submissionId,
               testCases.size(),

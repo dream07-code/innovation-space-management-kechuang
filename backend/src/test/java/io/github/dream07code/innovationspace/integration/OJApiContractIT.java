@@ -32,7 +32,6 @@ class OJApiContractIT {
         "/api/v1/assessment-submissions",
         "/api/v1/assessment-submissions/{submissionId}",
         "/api/v1/assessment-submissions/{submissionId}/code",
-        "/api/v1/assessment-submissions/{submissionId}/ai-evaluation",
         "/api/v1/assessment-submissions/{submissionId}/reviews",
         "/api/v1/assessments/{assessmentId}/results"
     }) {
@@ -50,7 +49,6 @@ class OJApiContractIT {
         "OjJudgeResult",
         "OjTestCaseResult",
         "OjSampleCase",
-        "AiEvaluation",
         "AssessmentReview",
         "AssessmentResult",
         "CreateAssessmentRequest",
@@ -77,7 +75,6 @@ class OJApiContractIT {
         "AssessmentProblemPageResponse",
         "AssessmentSubmissionResponse",
         "AssessmentSubmissionPageResponse",
-        "AiEvaluationResponse",
         "AssessmentReviewPageResponse",
         "AssessmentResultPageResponse"
     }) {
@@ -110,7 +107,8 @@ class OJApiContractIT {
     assertTrue(api.getComponents().getSchemas().get("CreateAssessmentSubmissionRequest").getProperties().containsKey("code"));
 
     var result = api.getComponents().getSchemas().get("AssessmentResult");
-    assertTrue(result.getProperties().containsKey("aiScore"));
+    assertTrue(result.getProperties().containsKey("autoScore"));
+    assertFalse(result.getProperties().containsKey("aiScore"));
     assertTrue(result.getProperties().containsKey("humanScore"));
     assertTrue(result.getProperties().containsKey("finalScore"));
     assertFalse(result.getProperties().containsKey("points"));

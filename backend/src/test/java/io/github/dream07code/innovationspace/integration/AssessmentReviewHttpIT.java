@@ -121,10 +121,9 @@ class AssessmentReviewHttpIT {
     ContractAssertions.response("GET", "/api/v1/assessment-submissions/" + submissionId + "/reviews", reviews);
     assertEquals(1, HttpTestSupport.json(reviews).at("/data/total").asInt());
 
-    jdbc.update("INSERT INTO ai_evaluation(submission_id,version,status,score,reason,model,rubric_version,created_at) VALUES(?,2,'COMPLETE',20,'late synthetic score','mock-model','assessment-rubric-v1',UTC_TIMESTAMP(6))", submissionId);
+    // 人工评分覆盖自动分：自动分仍按测试点计算，但最终分取人工分
     var results = send(studentToken, "GET", "/api/v1/assessments/" + assessmentId + "/results?page=1&size=20", null, null);
     assertEquals(92, HttpTestSupport.json(results).at("/data/items/0/humanScore").asInt());
-    assertEquals(20, HttpTestSupport.json(results).at("/data/items/0/aiScore").asInt());
     assertEquals(92, HttpTestSupport.json(results).at("/data/items/0/finalScore").asInt());
     assertEquals("HUMAN", HttpTestSupport.json(results).at("/data/items/0/scoreSource").asText());
     assertEquals(pointsBefore, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger", Integer.class));
