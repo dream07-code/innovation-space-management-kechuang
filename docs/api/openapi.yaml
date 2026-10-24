@@ -4255,7 +4255,129 @@ paths:
                 $ref: '#/components/schemas/Health'
               example:
                 status: DOWN
-components:
+  /api/v1/quiz-questions:
+    get:
+      tags:
+      - 客观题库
+      summary: 查询客观题库
+      description: 仅学院管理员与方向负责人可用；学生一律 404。默认排除已停用题目。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      parameters:
+      - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 20}}
+      - {name: type, in: query, schema: {type: string, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}}
+      - {name: status, in: query, schema: {type: string, enum: [DRAFT, PUBLISHED, RETIRED]}}
+      - {name: keyword, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizQuestionPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+      - 客观题库
+      summary: 创建客观题
+      description: 单选/多选答案为界内字母（多选升序去重），判断为布尔且不带选项，填空为备选答案数组。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizQuestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/quiz-questions/{questionId}:
+    get:
+      tags:
+      - 客观题库
+      summary: 查询客观题
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      parameters:
+      - {name: questionId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizQuestionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - 客观题库
+      summary: 编辑客观题
+      description: 仅 DRAFT 可编辑且禁止改题型；发布后的题目不可变，防止交卷后改答案翻盘。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      parameters:
+      - {name: questionId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizQuestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/quiz-questions/{questionId}/retire:
+    post:
+      tags:
+      - 客观题库
+      summary: 停用客观题
+      description: 退出题库选择；已被考核引用的条目判分不受影响。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      parameters:
+      - {name: questionId, in: path, required: true, schema: {type: string}}
+      responses:
+        '201':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizQuestionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   securitySchemes:
     BearerAuth:
       type: http
@@ -5617,6 +5739,70 @@ components:
         page: {type: integer, minimum: 1}
         size: {type: integer, minimum: 1, maximum: 200}
         total: {type: integer, minimum: 0}
+    QuizQuestion:
+      type: object
+      required: [id, type, stem, answer, tags, status, createdAt, updatedAt]
+      properties:
+        id: {type: string}
+        type: {type: string, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}
+        stem: {type: string}
+        options:
+          type: array
+          nullable: true
+          items: {type: string}
+        answer:
+          oneOf:
+          - {type: string}
+          - {type: boolean}
+          - {type: array, items: {type: string}}
+        analysis: {type: string, nullable: true}
+        tags: {type: array, items: {type: string}}
+        status: {type: string, enum: [DRAFT, PUBLISHED, RETIRED]}
+        createdAt: {type: string}
+        updatedAt: {type: string}
+    QuizQuestionPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/QuizQuestion'}
+        page: {type: integer, minimum: 1}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+    QuizQuestionPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/QuizQuestionPage'}
+    QuizQuestionResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/QuizQuestion'}
+    CreateQuizQuestionRequest:
+      type: object
+      required: [type, stem, answer]
+      properties:
+        type: {type: string, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}
+        stem: {type: string, maxLength: 2000}
+        options:
+          type: array
+          nullable: true
+          minItems: 2
+          maxItems: 6
+          items: {type: string}
+        answer:
+          oneOf:
+          - {type: string}
+          - {type: boolean}
+          - {type: array, items: {type: string}}
+        analysis: {type: string, nullable: true, maxLength: 1000}
+        tags: {type: array, maxItems: 10, items: {type: string}}
     AssessmentProblemPageResponse:
       type: object
       required: [code, message, data]
