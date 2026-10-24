@@ -36,7 +36,9 @@ chmod 600 deploy/.env
 
 不得提交 `deploy/.env`，也不要把密码写入 shell 历史、Dockerfile、Compose 文件或日志。
 
-`REPORT_POINTS_POLICY_STATUS` 默认为 `PENDING_CONFIRMATION`，正式提交报告会返回规则未配置。只有学院确认最终 1–3 分规则后，才能设置为 `READY`。
+`REPORT_POINTS_POLICY_STATUS` 默认为 `READY`（交日报/周报立即计分）。学院尚未确认 1–3 分规则时，改为 `PENDING_CONFIRMATION` 可拦截正式提交。
+
+`ENABLE_JUDGE0` 默认为 `true`：一键脚本会自动部署本机 Judge0 判题栈（生成含随机密钥的 `judge0.conf`、创建 `judge0-link` 网络、生成 `docker-compose.override.yml` 把后端接入判题网络）并覆盖 `OJ_PROVIDER=judge0` 等判题配置，无需任何手工接线。设为 `false` 则按 `.env` 的 `OJ_PROVIDER` 自行配置。
 
 ## 4. 初始化数据库和管理员
 
@@ -75,20 +77,21 @@ chmod 600 deploy/.env
 脚本默认执行：
 
 1. 校验 Docker、Docker Compose、环境文件；
-2. 构建后端和前端镜像；
-3. 启动 MySQL、后端、前端；
-4. 等待 `/actuator/health`；
-5. 用 `deploy/.env` 中的 `ADMIN_ACCOUNT`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME` 执行首个管理员初始化；
-6. 检查首页、登录接口和前端路由；
-7. 打印访问地址和停止命令。
+2. `ENABLE_JUDGE0=true` 时：生成 Judge0 配置与密钥、创建判题网络、启动 Judge0 栈、等待 `/about` 健康并自动接线 `OJ_PROVIDER=judge0`；
+3. 构建后端和前端镜像；
+4. 启动 MySQL、后端、前端；
+5. 等待 `/actuator/health`；
+6. 用 `deploy/.env` 中的 `ADMIN_ACCOUNT`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME` 执行首个管理员初始化；
+7. 检查首页、登录接口和前端路由；
+8. 打印访问地址、判题模式、积分规则状态和停止命令。
 
 管理员密码只放在本机忽略的 `deploy/.env` 中，不写入脚本、Git、日志或命令输出。首次部署建议将 `ADMIN_PASSWORD` 设置为学院指定的私密密码。
 
 其他命令：
 
 ```bash
-./deploy/one-click-deploy.sh check   # 只检查配置
-./deploy/one-click-deploy.sh down    # 停止服务，保留 MySQL 数据卷
+./deploy/one-click-deploy.sh check   # 只检查配置（含 Judge0 配置生成与双栈校验）
+./deploy/one-click-deploy.sh down    # 停止服务与 Judge0，数据卷全部保留
 SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 ```
 
@@ -96,9 +99,7 @@ SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 
 **OJ 考核计分规则**：自动分 = 通过测试点数 ÷ 总测试点数 × 100（四舍五入），例如 6/7 为 86 分；判题内部错误或没有测试点时不自动计分，结果置为“待复核”。方向负责人和学院管理员可以在考核结果页点「评分」按提交代码人工调整分数，人工分覆盖自动分。V11 迁移会把历史 AI 分数重算为按测试点的自动分。
 
-当前默认 `OJ_PROVIDER=mock`。真实 Judge0 需要另行设置 `OJ_BASE_URL`、`OJ_API_TOKEN`，并在目标服务器完成判题验收。
-
-本地开发要真正编译执行代码时，可以用 `OJ_PROVIDER=local`：后端直接调用本机 `g++`（C++17）、`javac`/`java`（JDK 17+）、`python3`、`node` 判题，支持 `cpp` / `java` / `python` / `javascript` 四种语言，缺少对应工具链的语言返回“内部错误”而不是误判。该模式没有容器隔离，只靠进程超时、输出上限和独立临时目录约束，**禁止用于生产**；`OJ_CPU_TIME_LIMIT_SECONDS`（默认 2）与 `OJ_MEMORY_LIMIT_KB` 对所有题目统一生效。
+一键脚本默认部署本机 Judge0 并启用真实判题（`ENABLE_JUDGE0=true`，自动接线 `OJ_PROVIDER=judge0`）。`OJ_PROVIDER=mock` 仅用于无判题机的开发环境；`local` 模式供本地开发直接调用宿主机 `g++`/`javac`/`python3`/`node` 编译执行，无容器隔离，**禁止用于生产**。
 
 判题返回“内部错误 / 0 个测试点通过 / 0 ms”表示 Judge0 没有真正执行代码，不是页面或评分问题。先在服务器运行判题自检：
 

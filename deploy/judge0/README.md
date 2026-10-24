@@ -16,6 +16,17 @@
 
 ## 首次部署
 
+推荐直接使用仓库根目录的一键脚本（`ENABLE_JUDGE0=true` 时自动完成下方全部步骤：
+生成 `judge0.conf` 密钥、创建网络、启动本栈、生成应用侧 override 并接线判题配置）：
+
+```bash
+cp deploy/.env.example deploy/.env && chmod 600 deploy/.env
+# 编辑 deploy/.env 填写数据库与管理员密码
+./deploy/one-click-deploy.sh
+```
+
+以下为手工部署等价步骤（一键脚本不可用时）：
+
 ```bash
 cd deploy/judge0
 
@@ -167,4 +178,4 @@ docker compose down          # 停止（数据卷保留）
 docker compose up -d         # 启动
 ```
 
-Judge0 使用独立 compose 项目，业务应用的 `./deploy/one-click-deploy.sh down` 不会停止它。
+Judge0 使用独立 compose 项目。`./deploy/one-click-deploy.sh down` 在 `ENABLE_JUDGE0=true` 时会一并停止本栈（数据卷保留）；`ENABLE_JUDGE0=false` 的部署仍需按本节命令手工管理。
