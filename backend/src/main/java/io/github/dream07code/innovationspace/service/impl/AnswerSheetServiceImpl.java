@@ -234,11 +234,15 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
         Long actorUser =
             jdbc.queryForObject(
                 "SELECT id FROM app_user WHERE member_id=? LIMIT 1", Long.class, memberId);
-        gradeAndStore(
-            assessmentId,
-            memberId,
-            new SessionPrincipal(
-                actorUser == null ? 0 : actorUser, memberId, "STUDENT", List.of(), false, 0, 0));
+        // 判分落库必须整体成功或整体回滚：半途失败若留下“部分明细 + 仍 DRAFT”，
+        // 下一轮补交会因明细主键冲突永远卡死这张答题卡。
+        tx.executeWithoutResult(
+            ignored ->
+                gradeAndStore(
+                    assessmentId,
+                    memberId,
+                    new SessionPrincipal(
+                        actorUser == null ? 0 : actorUser, memberId, "STUDENT", List.of(), false, 0, 0)));
         submitted++;
       } catch (RuntimeException error) {
         // 单张失败不阻塞同批其余补交，下一轮 sweep 会重试这张。
@@ -432,7 +436,7 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
   private List<Map<String, Object>> itemRows(long assessmentId) {
     return jdbc.queryForList(
         "SELECT i.position,i.item_type,i.problem_id,i.question_id,i.score,"
-            + " q.type AS quiz_type,q.stem,q.options,q.tags,q.analysis,"
+            + " q.type AS quiz_type,q.stem,q.options,q.tags,"
             + " p.title,p.difficulty"
             + " FROM assessment_item i"
             + " LEFT JOIN quiz_question q ON q.id=i.question_id"
