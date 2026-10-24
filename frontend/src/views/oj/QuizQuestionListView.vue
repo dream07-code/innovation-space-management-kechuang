@@ -7,12 +7,13 @@
  */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Edit, Plus } from '@element-plus/icons-vue'
+import { Edit, Plus, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { listQuizQuestions, retireQuizQuestion } from '@/api/modules/quiz'
 import { describeError, toApiError } from '@/api/errors'
 import { QUIZ_STATUS_META, QUIZ_TYPE_META, quizAnswerPreview } from '@/components/quizMeta'
+import QuizQuestionImportDialog from '@/components/quiz/QuizQuestionImportDialog.vue'
 import type { PageData, QuizQuestion, QuizQuestionType } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
@@ -23,6 +24,7 @@ const loading = ref(false)
 const type = ref<QuizQuestionType | ''>('')
 const status = ref('')
 const keyword = ref('')
+const importVisible = ref(false)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -73,9 +75,12 @@ onMounted(load)
     <template #header>
       <div class="page__header">
         <span>客观题库</span>
-        <el-button type="primary" :icon="Plus" @click="router.push({ name: 'oj-quiz-new' })">
-          创建客观题
-        </el-button>
+        <div class="header-actions">
+          <el-button :icon="Upload" @click="importVisible = true">批量导入</el-button>
+          <el-button type="primary" :icon="Plus" @click="router.push({ name: 'oj-quiz-new' })">
+            创建客观题
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -156,6 +161,8 @@ onMounted(load)
         </template>
       </el-table-column>
     </el-table>
+
+    <QuizQuestionImportDialog v-model="importVisible" @imported="load" />
   </el-card>
 </template>
 
@@ -164,6 +171,12 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .page__filter {
