@@ -64,12 +64,30 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       long assessmentId, SessionPrincipal actor, int page, int size) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     long directionId = requireReadable(assessmentId, actor);
-    Long problemCount =
-        jdbc.queryForObject(
-            "SELECT COUNT(*) FROM assessment_item WHERE assessment_id=?",
-            Long.class,
+
+    // 条目口径：题数与满分直接来自混合条目表（程序题+客观题）。
+    var itemAgg =
+        jdbc.queryForMap(
+            "SELECT COUNT(*) AS item_count, COALESCE(SUM(score),0) AS max_score"
+                + " FROM assessment_item WHERE assessment_id=?",
             assessmentId);
-    int problems = problemCount == null ? 0 : problemCount.intValue();
+    int itemCount = ((Number) itemAgg.get("item_count")).intValue();
+    int maxScore = ((Number) itemAgg.get("max_score")).intValue();
+
+    // 已判分客观题明细数（按成员），供 completedCount 用。
+    var detailRows =
+        jdbc.queryForList(
+            "SELECT s.member_id AS member_id, COUNT(d.position) AS graded_quiz"
+                + " FROM assessment_answer_sheet s"
+                + " LEFT JOIN assessment_answer_sheet_item d ON d.sheet_id=s.id"
+                + " WHERE s.assessment_id=? AND s.status='SUBMITTED' AND s.graded_at IS NOT NULL"
+                + " GROUP BY s.member_id",
+            assessmentId);
+    var gradedQuizByMember = new java.util.HashMap<Long, Integer>();
+    for (var row : detailRows)
+      gradedQuizByMember.put(
+          ((Number) row.get("member_id")).longValue(),
+          ((Number) row.get("graded_quiz")).intValue());
 
     var filterArgs = new ArrayList<Object>();
     filterArgs.add(directionId);
@@ -79,8 +97,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       filterArgs.add(actor.memberId());
     }
 
-    // 同一成员同一题目可能多次提交：只取最后一次（提交时间最大，同刻取 id 最大），
-    // 与结果页「反复提交可对照修改」的口径一致。
+    // 程序题取每人每题最后一次提交；客观题得分取答题卡 total_score。
     String sql =
         "WITH latest AS ("
             + " SELECT s.id AS submission_id,s.member_id,s.problem_id,"
@@ -90,48 +107,88 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
             + ") SELECT m.id AS member_id,m.name AS member_name,m.student_no AS student_no,"
             + " COUNT(l.submission_id) AS answered,"
             + " COALESCE(SUM(CASE WHEN r.result_status='COMPLETE' THEN 1 ELSE 0 END),0) AS completed,"
-            + " COALESCE(SUM(r.final_score),0) AS total_score,"
-            + " MAX(s.submitted_at) AS last_submitted_at"
+            + " COALESCE(SUM(r.final_score),0) AS program_score,"
+            + " sh.answers AS sheet_answers, sh.total_score AS sheet_score, sh.submitted_at AS sheet_submitted_at,"
+            + " MAX(s.submitted_at) AS last_program_at"
             + " FROM member m"
             + " LEFT JOIN latest l ON l.member_id=m.id AND l.rn=1"
             + " LEFT JOIN assessment_submission s ON s.id=l.submission_id"
             + " LEFT JOIN assessment_result r ON r.submission_id=l.submission_id"
+            + " LEFT JOIN assessment_answer_sheet sh ON sh.assessment_id=? AND sh.member_id=m.id"
             + filter
-            + " GROUP BY m.id,m.name,m.student_no"
-            + " ORDER BY total_score DESC,student_no ASC,m.id ASC LIMIT ? OFFSET ?";
+            + " GROUP BY m.id,m.name,m.student_no,sh.answers,sh.total_score,sh.submitted_at"
+            + " ORDER BY (COALESCE(SUM(r.final_score),0)+COALESCE(sh.total_score,0)) DESC,student_no ASC,m.id ASC"
+            + " LIMIT ? OFFSET ?";
     var args = new ArrayList<Object>();
     args.add(assessmentId);
+    args.add(assessmentId);
     args.addAll(filterArgs);
-    var rows = jdbc.queryForList(sql, append(args, size, (page - 1) * size));
+    args.add(size);
+    args.add((page - 1) * size);
 
+    var rows = jdbc.queryForList(sql, args.toArray());
     var items = new ArrayList<Map<String, Object>>();
     for (var row : rows) {
-      int answered = number(row.get("answered"));
-      int completed = number(row.get("completed"));
-      int totalScore = number(row.get("total_score"));
+      int answeredPrograms = number(row.get("answered"));
+      int completedPrograms = number(row.get("completed"));
+      int programScore = number(row.get("program_score"));
+      Integer sheetScore =
+          row.get("sheet_score") == null ? null : ((Number) row.get("sheet_score")).intValue();
+      int sheetAnswered = countAnswers(row.get("sheet_answers"));
+      int gradedQuiz = gradedQuizByMember.getOrDefault(((Number) row.get("member_id")).longValue(), 0);
+      int answered = answeredPrograms + sheetAnswered;
+      int completed = completedPrograms + gradedQuiz;
+      int totalScore = programScore + (sheetScore == null ? 0 : sheetScore);
       var out = new LinkedHashMap<String, Object>();
       out.put("memberId", String.valueOf(row.get("member_id")));
       out.put("memberName", row.get("member_name"));
       out.put("memberStudentNo", row.get("student_no"));
-      out.put("problemCount", problems);
+      out.put("itemCount", itemCount);
       out.put("answeredCount", answered);
       out.put("completedCount", completed);
       out.put("pendingCount", Math.max(0, answered - completed));
       out.put("totalScore", totalScore);
-      out.put("maxScore", problems * 100);
-      // 平均分按题目总数算：少做题的人不会因为分母变小而虚高
-      out.put(
-          "averageScore",
-          problems == 0 ? 0.0 : Math.round(totalScore * 10.0 / problems) / 10.0);
-      out.put(
-          "lastSubmittedAt",
-          row.get("last_submitted_at") == null ? null : time(row.get("last_submitted_at")));
+      out.put("maxScore", maxScore);
+      // 得分率 = round(total×100/满分)；分值制下"每题平均分"已无直观意义。
+      out.put("scoreRate", maxScore > 0 ? (int) Math.round(totalScore * 100.0 / maxScore) : 0);
+      java.time.Instant sheetAt = toInstant(row.get("sheet_submitted_at"));
+      java.time.Instant programAt = toInstant(row.get("last_program_at"));
+      java.time.Instant lastAt =
+          sheetAt != null && (programAt == null || sheetAt.isAfter(programAt)) ? sheetAt : programAt;
+      out.put("lastSubmittedAt", lastAt == null ? null : time(lastAt));
       items.add(out);
     }
     Long total =
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM member m" + filter, Long.class, filterArgs.toArray());
     return Map.of("items", items, "page", page, "size", size, "total", total == null ? 0L : total);
+  }
+
+  /** JDBC 对 DATETIME 可能给 Timestamp 或 LocalDateTime，统一转 Instant。 */
+  private static java.time.Instant toInstant(Object value) {
+    if (value == null) return null;
+    if (value instanceof java.sql.Timestamp timestamp) return timestamp.toInstant();
+    if (value instanceof java.time.LocalDateTime local) return local.toInstant(java.time.ZoneOffset.UTC);
+    if (value instanceof java.time.Instant instant) return instant;
+    return null;
+  }
+
+  /** 答题卡 answers JSON 里非空答案的条数（未答不算）。 */
+  private static int countAnswers(Object answersJson) {
+    if (answersJson == null) return 0;
+    try {
+      var raw = tools.jackson.databind.json.JsonMapper.builder()
+          .build().readValue(String.valueOf(answersJson), Map.class);
+      int count = 0;
+      for (var value : raw.values()) {
+        if (value == null) continue;
+        if (value instanceof String text && text.isBlank()) continue;
+        count++;
+      }
+      return count;
+    } catch (RuntimeException error) {
+      return 0;
+    }
   }
 
   /** 校验当前账号能看这场考核的成绩，返回考核所属方向。 */

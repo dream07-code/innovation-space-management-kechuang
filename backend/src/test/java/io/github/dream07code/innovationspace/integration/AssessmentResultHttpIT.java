@@ -125,6 +125,91 @@ class AssessmentResultHttpIT {
     assertEquals(404, send(otherStudentToken, "GET", "/api/v1/assessments/999999/results?page=1&size=20", null, null).statusCode());
   }
 
+
+  @Test
+  void memberScoresAggregateMixedPaperByItemScoreScale() throws Exception {
+    // 独立小场景：2 程序题(20+30) + 2 客观题(5+5)。
+    var problemA = send(adminToken, "POST", "/api/v1/assessment-problems", """
+        {"title":"混合甲","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
+        """, java.util.UUID.randomUUID().toString());
+    var problemB = send(adminToken, "POST", "/api/v1/assessment-problems", """
+        {"title":"混合乙","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
+        """, java.util.UUID.randomUUID().toString());
+    String problemAId = HttpTestSupport.json(problemA).at("/data/id").asText();
+    String problemBId = HttpTestSupport.json(problemB).at("/data/id").asText();
+    var quizRight = send(adminToken, "POST", "/api/v1/quiz-questions",
+        "{\"type\":\"SINGLE_CHOICE\",\"stem\":\"答对\",\"options\":[\"甲\",\"乙\"],\"answer\":\"A\"}",
+        java.util.UUID.randomUUID().toString());
+    var quizWrong = send(adminToken, "POST", "/api/v1/quiz-questions",
+        "{\"type\":\"SINGLE_CHOICE\",\"stem\":\"答错\",\"options\":[\"甲\",\"乙\"],\"answer\":\"A\"}",
+        java.util.UUID.randomUUID().toString());
+    String rightId = HttpTestSupport.json(quizRight).at("/data/id").asText();
+    String wrongId = HttpTestSupport.json(quizWrong).at("/data/id").asText();
+    var mixed = send(adminToken, "POST", "/api/v1/assessments", """
+        {"title":"混合汇总","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":"%s","score":20},{"type":"PROGRAM","refId":"%s","score":30},{"type":"QUIZ","refId":"%s","score":5},{"type":"QUIZ","refId":"%s","score":5}]}
+        """.formatted(OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(1), problemAId, problemBId, rightId, wrongId),
+        java.util.UUID.randomUUID().toString());
+    assertEquals(201, mixed.statusCode());
+    String mixedId = HttpTestSupport.json(mixed).at("/data/id").asText();
+    assertEquals(200, send(adminToken, "POST", "/api/v1/assessments/" + mixedId + "/publish", "{\"version\":1}", java.util.UUID.randomUUID().toString()).statusCode());
+
+    // 学生：两道程序题 ACCEPTED（满分 20+30），客观题答 1 对 1 错（5+0）。
+    for (String problemId : new String[] {problemAId, problemBId}) {
+      assertEquals(201, send(studentToken, "POST", "/api/v1/assessments/" + mixedId + "/submissions",
+          "{\"problemId\":\"%s\",\"language\":\"java\",\"code\":\"class Main { accepted marker }\"}".formatted(problemId),
+          java.util.UUID.randomUUID().toString()).statusCode());
+    }
+    send(studentToken, "PUT", "/api/v1/assessments/" + mixedId + "/answer-sheet",
+        "{\"answers\":{\"3\":\"A\",\"4\":\"B\"}}", null);
+    assertEquals(200, send(studentToken, "POST", "/api/v1/assessments/" + mixedId + "/answer-sheet/submit", "{}",
+        java.util.UUID.randomUUID().toString()).statusCode());
+    // 等两道程序题判分完成。
+    for (int i = 0; i < 40; i++) {
+      Integer done = jdbc.queryForObject(
+          "SELECT COUNT(*) FROM assessment_result r JOIN assessment_submission s ON s.id=r.submission_id"
+              + " WHERE s.assessment_id=? AND r.result_status='COMPLETE'", Integer.class, Long.parseLong(mixedId));
+      if (done != null && done == 2) break;
+      Thread.sleep(250);
+    }
+
+    var scores = send(leaderToken, "GET", "/api/v1/assessments/" + mixedId + "/member-scores?page=1&size=20", null, null);
+    assertEquals(200, scores.statusCode());
+    var row = HttpTestSupport.json(scores).at("/data/items/0");
+    assertEquals("成员10", row.at("/memberName").asText());
+    assertEquals(4, row.at("/itemCount").asInt());
+    assertEquals(4, row.at("/answeredCount").asInt());
+    assertEquals(4, row.at("/completedCount").asInt());
+    assertEquals(0, row.at("/pendingCount").asInt());
+    assertEquals(55, row.at("/totalScore").asInt());
+    assertEquals(60, row.at("/maxScore").asInt());
+    assertEquals(92, row.at("/scoreRate").asInt());
+
+    // 未作答学生：全零、得分率 0。
+    var idle = send(leaderToken, "GET", "/api/v1/assessments/" + mixedId + "/member-scores?page=1&size=20", null, null);
+    var items = HttpTestSupport.json(idle).at("/data/items");
+    for (int i = 0; i < items.size(); i++) {
+      if ("成员12".equals(items.path(i).at("/memberName").asText())) {
+        assertEquals(0, items.path(i).at("/totalScore").asInt());
+        assertEquals(0, items.path(i).at("/answeredCount").asInt());
+        assertEquals(0, items.path(i).at("/scoreRate").asInt());
+      }
+    }
+  }
+
+  @Test
+  void legacyProgramOnlyMemberScoresKeepOldTotals() throws Exception {
+    submit(studentToken, "class Main { accepted marker }");
+    awaitResults(1);
+    var scores = send(leaderToken, "GET", "/api/v1/assessments/" + assessmentId + "/member-scores?page=1&size=20", null, null);
+    assertEquals(200, scores.statusCode());
+    var row = HttpTestSupport.json(scores).at("/data/items/0");
+    // 纯程序考核（迁移回填分值 100）：总分与旧口径逐分相等。
+    assertEquals(1, row.at("/itemCount").asInt());
+    assertEquals(100, row.at("/totalScore").asInt());
+    assertEquals(100, row.at("/maxScore").asInt());
+    assertEquals(100, row.at("/scoreRate").asInt());
+  }
+
   private void submit(String token, String code) throws Exception {
     var response = send(token, "POST", "/api/v1/assessments/" + assessmentId + "/submissions", """
         {"problemId":"%s","language":"java","code":"%s"}
