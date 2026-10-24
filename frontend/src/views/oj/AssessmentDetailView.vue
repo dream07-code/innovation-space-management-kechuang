@@ -16,6 +16,7 @@ import {
   listAssessmentProblems,
   publishAssessment,
 } from '@/api/modules/oj'
+import { listQuizQuestions } from '@/api/modules/quiz'
 import { describeError, toApiError } from '@/api/errors'
 import {
   assessmentStatusMeta,
@@ -23,8 +24,9 @@ import {
   languageLabel,
   problemStatusMeta,
 } from '@/components/ojMeta'
+import { QUIZ_TYPE_META } from '@/components/quizMeta'
 import { useAuthStore } from '@/stores/auth'
-import type { Assessment, AssessmentProblem } from '@/api/types'
+import type { Assessment, AssessmentProblem, QuizQuestion } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -34,20 +36,48 @@ const auth = useAuthStore()
 const assessmentId = computed(() => route.params.assessmentId as string)
 const assessment = ref<Assessment | null>(null)
 const problems = ref<AssessmentProblem[]>([])
+const quizzes = ref<QuizQuestion[]>([])
 const loading = ref(false)
 const actionLoading = ref(false)
 
 const canManage = computed(() => auth.isAdmin || auth.isLeader)
 
+/** 混合试卷条目结构（仅负责人/管理员展示；客观题对学生保密）。 */
+const structureItems = computed(() => {
+  const current = assessment.value
+  if (!current) return []
+  const raw = current.items ?? current.problemIds.map((refId, index) => ({
+    position: index + 1,
+    type: 'PROGRAM' as const,
+    refId,
+    score: 100,
+  }))
+  return raw.map((item) => ({
+    ...item,
+    title:
+      item.type === 'PROGRAM'
+        ? problems.value.find((p) => p.id === item.refId)?.title ?? item.refId
+        : quizzes.value.find((q) => q.id === item.refId)?.stem ?? item.refId,
+    quizType: item.type === 'QUIZ' ? quizzes.value.find((q) => q.id === item.refId)?.type : undefined,
+  }))
+})
+
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const [current, problemPage] = await Promise.all([
-      getAssessment(assessmentId.value),
-      listAssessmentProblems(),
-    ])
+    const requests: Array<Promise<unknown>> = [getAssessment(assessmentId.value), listAssessmentProblems()]
+    // 客观题接口对学生一律 404，只有负责人/管理员才拉题库做条目标题回填。
+    if (auth.isAdmin || auth.isLeader) {
+      requests.push(listQuizQuestions({ page: 1, size: 100 }))
+    }
+    const [current, problemPage, quizPage] = (await Promise.all(requests)) as [
+      Assessment,
+      { items: AssessmentProblem[] },
+      { items: QuizQuestion[] } | undefined,
+    ]
     assessment.value = current
     problems.value = problemPage.items.filter((problem) => current.problemIds.includes(problem.id))
+    if (quizPage) quizzes.value = quizPage.items
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -167,8 +197,7 @@ onMounted(load)
 
     <el-divider content-position="left">题目列表</el-divider>
 
-    <el-table :data="problems" row-key="id">
-      <el-table-column prop="title" label="题目" min-width="220" show-overflow-tooltip />
+    <el-table :data="problems" row-key="id">      <el-table-column prop="title" label="题目" min-width="220" show-overflow-tooltip />
       <el-table-column prop="summary" label="摘要" min-width="240" show-overflow-tooltip />
       <el-table-column label="难度" width="90">
         <template #default="{ row }">
@@ -201,6 +230,27 @@ onMounted(load)
         </template>
       </el-table-column>
     </el-table>
+
+    <template v-if="canManage && structureItems.length">
+      <el-divider content-position="left">条目结构（混合试卷）</el-divider>
+      <el-table :data="structureItems" row-key="position">
+        <el-table-column prop="position" label="题号" width="70" />
+        <el-table-column label="类型" width="110">
+          <template #default="{ row }">
+            <el-tag
+              :type="row.type === 'PROGRAM' ? 'primary' : 'warning'"
+              effect="plain"
+            >
+              {{ row.type === 'PROGRAM' ? '程序设计' : QUIZ_TYPE_META[row.quizType ?? 'FILL_BLANK'].label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="题目" min-width="280" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.title }}</template>
+        </el-table-column>
+        <el-table-column prop="score" label="分值" width="90" />
+      </el-table>
+    </template>
   </el-card>
 </template>
 

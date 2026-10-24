@@ -162,7 +162,14 @@ export type OjVerdict = OjJudgeResult['verdict']
 export type AssessmentReviewStatus = AssessmentReview['status']
 export type AssessmentScoreSource = AssessmentResult['scoreSource']
 export type AssessmentResultStatus = AssessmentResult['resultStatus']
-export type AssessmentMemberScore = Schemas['AssessmentMemberScore']
+/**
+ * V12 起按分值口径汇总：itemCount/scoreRate 替代 problemCount/averageScore，
+ * 契约重生成前先叠加（旧字段保留兼容，页面取新字段、缺省回退旧字段）。
+ */
+export type AssessmentMemberScore = Schemas['AssessmentMemberScore'] & {
+  itemCount?: number
+  scoreRate?: number
+}
 export type AssessmentMemberScorePage = Schemas['AssessmentMemberScorePage']
 
 // ---------------------------------------------------------------------------
@@ -244,7 +251,7 @@ export interface AssessmentPaper {
 /** 草稿答案：position（字符串键）到作答值的映射。 */
 export type AnswerDraft = Record<string, unknown>
 
-/** 逐生答题卡行（负责人/管理员视角）。 */
+/** 逐生答题卡行（负责人/管理员视角）；带 memberId 下钻时附逐题明细。 */
 export interface AnswerSheetSummary {
   memberId: string
   memberName: string
@@ -253,6 +260,15 @@ export interface AnswerSheetSummary {
   /** 交卷判分后写入；未判分为 null。 */
   totalScore: number | null
   submittedAt: string | null
+  /** 下钻明细：题号/学生答案/正确答案/对错/得分/解析（交卷后立即可见）。 */
+  items?: Array<{
+    position: number
+    answer: unknown
+    correct: boolean
+    awarded: number
+    correctAnswer: unknown
+    analysis: string | null
+  }>
 }
 
 /**

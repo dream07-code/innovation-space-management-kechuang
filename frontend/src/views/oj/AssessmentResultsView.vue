@@ -20,6 +20,7 @@ import {
   listAssessmentProblems,
   listAssessmentResults,
 } from '@/api/modules/oj'
+import { listAnswerSheets } from '@/api/modules/quiz'
 import { describeError, toApiError } from '@/api/errors'
 import {
   assessmentStatusMeta,
@@ -33,6 +34,7 @@ import type {
   AssessmentMemberScore,
   AssessmentProblem,
   AssessmentResult,
+  AnswerSheetSummary,
   PageData,
 } from '@/api/types'
 import { formatDateTime } from '@/utils/datetime'
@@ -56,6 +58,30 @@ const pageSize = ref(20)
 const memberFilter = ref<{ id: string; name: string } | null>(null)
 const codeDialogVisible = ref(false)
 const codeSubmissionId = ref<string | null>(null)
+/** 答题卡下钻（仅负责人/管理员）：某学生客观题逐题对错与解析。 */
+const sheetVisible = ref(false)
+const sheetLoading = ref(false)
+const sheetDetail = ref<AnswerSheetSummary | null>(null)
+
+function answerText(value: unknown): string {
+  if (typeof value === 'boolean') return value ? '对' : '错'
+  if (Array.isArray(value)) return value.join('')
+  return value == null ? '—' : String(value)
+}
+
+async function openSheet(row: AssessmentMemberScore): Promise<void> {
+  sheetVisible.value = true
+  sheetLoading.value = true
+  sheetDetail.value = null
+  try {
+    const page = await listAnswerSheets(assessmentId.value, { page: 1, size: 1, memberId: row.memberId })
+    sheetDetail.value = page.items[0] ?? null
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    sheetLoading.value = false
+  }
+}
 
 function openCode(submissionId: string): void {
   codeSubmissionId.value = submissionId
@@ -210,13 +236,13 @@ onMounted(load)
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="完成题数" width="130">
+      <el-table-column label="完成条目" width="130">
         <template #default="{ row }">
           <el-tag
-            :type="row.problemCount > 0 && row.completedCount === row.problemCount ? 'success' : 'info'"
+            :type="(row.itemCount ?? row.problemCount) > 0 && row.completedCount === (row.itemCount ?? row.problemCount) ? 'success' : 'info'"
             effect="plain"
           >
-            {{ row.completedCount }} / {{ row.problemCount }}
+            {{ row.completedCount }} / {{ row.itemCount ?? row.problemCount }}
           </el-tag>
         </template>
       </el-table-column>
@@ -234,18 +260,29 @@ onMounted(load)
           <span class="muted"> / {{ row.maxScore }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="平均分" width="110">
-        <template #default="{ row }">{{ row.averageScore.toFixed(1) }}</template>
+      <el-table-column label="得分率" width="110">
+        <template #default="{ row }">
+          {{ row.scoreRate !== undefined && row.scoreRate !== null ? `${row.scoreRate}%` : '—' }}
+        </template>
       </el-table-column>
       <el-table-column label="最近提交" width="180">
         <template #default="{ row }">
           {{ row.lastSubmittedAt ? formatDateTime(row.lastSubmittedAt) : '未提交' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="110" fixed="right">
+      <el-table-column label="操作" :width="canReview ? 170 : 110" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="openMemberDetail(row)">
             明细
+          </el-button>
+          <el-button
+            v-if="canReview"
+            link
+            type="primary"
+            :data-test="`sheet-${row.memberId}`"
+            @click="openSheet(row)"
+          >
+            答题卡
           </el-button>
         </template>
       </el-table-column>
@@ -337,6 +374,41 @@ onMounted(load)
     </div>
 
     <SubmissionCodeDialog v-model="codeDialogVisible" :submission-id="codeSubmissionId" />
+
+    <el-dialog v-model="sheetVisible" :title="`${sheetDetail?.memberName ?? ''} 的答题卡`" width="720px">
+      <div v-loading="sheetLoading">
+        <el-alert
+          v-if="sheetDetail && sheetDetail.status !== 'SUBMITTED'"
+          type="info"
+          :closable="false"
+          title="该学生尚未交卷，以下为草稿状态"
+          class="sheet-notice"
+        />
+        <el-table v-if="sheetDetail?.items?.length" :data="sheetDetail.items" row-key="position">
+          <el-table-column prop="position" label="题号" width="70" />
+          <el-table-column label="学生答案" min-width="140">
+            <template #default="{ row }">{{ answerText(row.answer) }}</template>
+          </el-table-column>
+          <el-table-column label="正确答案" min-width="140">
+            <template #default="{ row }">{{ answerText(row.correctAnswer) }}</template>
+          </el-table-column>
+          <el-table-column label="结果" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.correct ? 'success' : 'danger'" effect="plain">
+                {{ row.correct ? '对' : '错' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="得分" width="70">
+            <template #default="{ row }">{{ row.awarded }}</template>
+          </el-table-column>
+          <el-table-column label="解析" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.analysis ?? '—' }}</template>
+          </el-table-column>
+        </el-table>
+        <div v-else-if="!sheetLoading" class="sheet-empty">暂无客观题判分明细。</div>
+      </div>
+    </el-dialog>
   </el-card>
 </template>
 
@@ -407,5 +479,14 @@ onMounted(load)
 .member-cell__meta {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.sheet-notice {
+  margin-bottom: 12px;
+}
+
+.sheet-empty {
+  color: var(--el-text-color-secondary);
+  padding: 12px 0;
 }
 </style>

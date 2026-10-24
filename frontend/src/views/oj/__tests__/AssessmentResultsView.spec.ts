@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   listAssessmentProblem: vi.fn<() => Promise<unknown>>(),
   listAssessmentResults: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   listAssessmentMemberScores: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
+  listAnswerSheets: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
 }))
 
 vi.mock('@/api/modules/oj', () => ({
@@ -19,6 +20,9 @@ vi.mock('@/api/modules/oj', () => ({
   listAssessmentProblems: mocks.listAssessmentProblem,
   listAssessmentResults: mocks.listAssessmentResults,
   listAssessmentMemberScores: mocks.listAssessmentMemberScores,
+}))
+vi.mock('@/api/modules/quiz', () => ({
+  listAnswerSheets: mocks.listAnswerSheets,
 }))
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => auth,
@@ -52,13 +56,13 @@ const memberScore = {
   memberId: '201',
   memberName: '郑永康',
   memberStudentNo: '202502110229',
-  problemCount: 1,
-  answeredCount: 1,
-  completedCount: 1,
+  itemCount: 4,
+  answeredCount: 4,
+  completedCount: 4,
   pendingCount: 0,
-  totalScore: 100,
-  maxScore: 100,
-  averageScore: 100,
+  totalScore: 48,
+  maxScore: 60,
+  scoreRate: 80,
   lastSubmittedAt: '2026-10-23T15:46:38+08:00',
 }
 
@@ -91,17 +95,63 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
       size: 20,
       total: 1,
     })
+    mocks.listAnswerSheets.mockReset()
   })
 
-  it('默认按学生汇总，显示整场考核的总分、平均分与完成题数', async () => {
+  it('默认按学生汇总，显示分值口径总分、得分率与完成条目数', async () => {
     const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     expect(mocks.listAssessmentMemberScores).toHaveBeenCalledWith('9001', { page: 1, size: 20 })
     expect(wrapper.text()).toContain('按学生汇总')
-    expect(wrapper.text()).toContain('1 / 1')
-    expect(wrapper.text()).toContain('100')
+    expect(wrapper.text()).toContain('4 / 4')
+    expect(wrapper.text()).toContain('48')
+    expect(wrapper.text()).toContain('60')
+    expect(wrapper.text()).toContain('得分率')
+    expect(wrapper.text()).toContain('80%')
+    expect(wrapper.text()).not.toContain('平均分')
     expect(wrapper.text()).not.toContain('AI 评分')
+  })
+
+  it('工作人员可下钻某学生的答题卡逐题对错与解析', async () => {
+    mocks.listAnswerSheets.mockResolvedValue({
+      items: [
+        {
+          memberId: '201',
+          memberName: '郑永康',
+          status: 'SUBMITTED',
+          answeredCount: 2,
+          totalScore: 8,
+          submittedAt: '2026-10-23T15:46:38+08:00',
+          items: [
+            { position: 1, answer: 'A', correct: true, awarded: 5, correctAnswer: 'A', analysis: '满二叉树性质' },
+            { position: 2, answer: ['A', 'C'], correct: false, awarded: 0, correctAnswer: ['A', 'B'], analysis: 'DPCM 是有损编码' },
+          ],
+        },
+      ],
+      page: 1,
+      size: 1,
+      total: 1,
+    })
+    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    await wrapper.get('[data-test="sheet-201"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.listAnswerSheets).toHaveBeenCalledWith('9001', expect.objectContaining({ memberId: '201' }))
+    expect(wrapper.text()).toContain('答题卡')
+    expect(wrapper.text()).toContain('满二叉树性质')
+    expect(wrapper.text()).toContain('DPCM 是有损编码')
+  })
+
+  it('学生没有答题卡下钻入口', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="sheet-201"]').exists()).toBe(false)
   })
 
   it('从汇总点明细会切到按提交并只看该成员', async () => {
