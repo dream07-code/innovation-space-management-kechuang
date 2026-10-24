@@ -115,7 +115,11 @@ export type AuditEntry = Schemas['AuditEntry']
 // ---------------------------------------------------------------------------
 
 export type ProblemExample = Schemas['ProblemExample']
-export type Assessment = Schemas['Assessment']
+/**
+ * V12 起考核以混合条目（程序题+客观题）挂题；契约重生成前先在此叠加
+ * items 字段，旧 problemIds 兼容保留（见下方 AssessmentItem）。
+ */
+export type Assessment = Schemas['Assessment'] & { items?: AssessmentItem[] }
 export type AssessmentProblem = Schemas['AssessmentProblem']
 export type AssessmentSubmission = Schemas['AssessmentSubmission']
 export type OjJudgeResult = Schemas['OjJudgeResult']
@@ -124,7 +128,10 @@ export type OjTestCaseResult = Schemas['OjTestCaseResult']
 export type AssessmentReview = Schemas['AssessmentReview']
 export type AssessmentResult = Schemas['AssessmentResult']
 export type CreateAssessmentRequest = Schemas['CreateAssessmentRequest']
-export type UpdateAssessmentRequest = Schemas['UpdateAssessmentRequest']
+/** 挂题载荷改为混合条目数组（按数组顺序挂题），契约 V12 起替代 problemIds。 */
+export type UpdateAssessmentRequest = Schemas['UpdateAssessmentRequest'] & {
+  items?: Omit<AssessmentItem, 'position'>[]
+}
 export type AssessmentCommandRequest = Schemas['AssessmentCommandRequest']
 export type CreateAssessmentProblemRequest = Schemas['CreateAssessmentProblemRequest']
 export type ImportAssessmentProblemsRequest = Schemas['ImportAssessmentProblemsRequest']
@@ -157,6 +164,117 @@ export type AssessmentScoreSource = AssessmentResult['scoreSource']
 export type AssessmentResultStatus = AssessmentResult['resultStatus']
 export type AssessmentMemberScore = Schemas['AssessmentMemberScore']
 export type AssessmentMemberScorePage = Schemas['AssessmentMemberScorePage']
+
+// ---------------------------------------------------------------------------
+// 客观题与混合试卷（第三阶段）
+//
+// 契约 schema 尚未随 openapi.yaml 重新生成（后端任务并行），以下形状按
+// docs/superpowers/specs/2026-10-24-mixed-exam-quiz-design.md §5/§6 手工钉死，
+// 契约落地后应迁回 Schemas[...] 别名。
+// ---------------------------------------------------------------------------
+
+/** 客观题题型：单选/多选/判断/填空。 */
+export type QuizQuestionType = 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TRUE_FALSE' | 'FILL_BLANK'
+
+/**
+ * 客观题（题库管理端视角，可见 answer）。answer 形态随题型：
+ * 单选一个字母、多选字母数组、判断布尔、填空备选答案数组。
+ */
+export interface QuizQuestion {
+  id: string
+  type: QuizQuestionType
+  stem: string
+  /** 选择题选项数组（下标对应字母序）；判断/填空为 null。 */
+  options: string[] | null
+  answer: string | string[] | boolean
+  analysis: string | null
+  tags: string[]
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'
+  createdAt: string
+  updatedAt: string
+}
+
+/** 创建客观题；编辑时禁止改 type，因此 update 复用 Partial。 */
+export interface CreateQuizQuestionRequest {
+  type: QuizQuestionType
+  stem: string
+  options?: string[] | null
+  answer: string | string[] | boolean
+  analysis?: string | null
+  tags?: string[]
+}
+
+/** 考核条目：position 全考核统一排序，PROGRAM 引用程序题、QUIZ 引用客观题。 */
+export interface AssessmentItem {
+  position: number
+  type: 'PROGRAM' | 'QUIZ'
+  /** PROGRAM 时为 assessment_problem id，QUIZ 时为 quiz_question id。 */
+  refId: string
+  /** 该题分值，1–100。 */
+  score: number
+}
+
+/** 学生试卷条目：客观题条目绝不含 answer/analysis（服务端契约保证）。 */
+export interface PaperItem {
+  position: number
+  type: AssessmentItem['type']
+  refId: string
+  score: number
+  /** QUIZ 条目：题型细分与题干、选项、标签。 */
+  quizType?: QuizQuestionType | null
+  stem?: string | null
+  options?: string[] | null
+  tags?: string[] | null
+  /** PROGRAM 条目：题目元信息。 */
+  problemTitle?: string | null
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
+}
+
+/** 学生试卷：PUBLISHED 且本方向才可读。 */
+export interface AssessmentPaper {
+  assessmentId: string
+  title: string
+  startAt: string
+  endAt: string
+  items: PaperItem[]
+  /** 本人答题卡草稿；从未暂存过时为 null。 */
+  mySheet: { status: 'DRAFT' | 'SUBMITTED'; answers: AnswerDraft | null } | null
+}
+
+/** 草稿答案：position（字符串键）到作答值的映射。 */
+export type AnswerDraft = Record<string, unknown>
+
+/** 逐生答题卡行（负责人/管理员视角）。 */
+export interface AnswerSheetSummary {
+  memberId: string
+  memberName: string
+  status: 'DRAFT' | 'SUBMITTED'
+  answeredCount: number
+  /** 交卷判分后写入；未判分为 null。 */
+  totalScore: number | null
+  submittedAt: string | null
+}
+
+/**
+ * 答题卡明细（本人视角）。考核 CLOSED/ARCHIVED 前服务端剥离判分字段，
+ * items 为 null；结束后含逐题对错、正确答案与解析。
+ */
+export interface AnswerSheetDetail {
+  status: 'DRAFT' | 'SUBMITTED'
+  answeredCount: number
+  totalScore: number | null
+  submittedAt: string | null
+  items:
+    | {
+        position: number
+        answer: unknown
+        correct: boolean
+        awarded: number
+        correctAnswer: unknown
+        analysis: string | null
+      }[]
+    | null
+}
 
 // ---------------------------------------------------------------------------
 // 角色数据看板
