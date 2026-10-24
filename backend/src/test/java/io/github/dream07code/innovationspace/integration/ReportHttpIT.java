@@ -216,8 +216,11 @@ class ReportHttpIT {
         send(otherLeader, "POST", "/api/v1/daily-reports/" + id + "/score", "{\"score\":2}", null)
             .statusCode());
 
-    // 学院管理员可评任意方向。
-    insertMember(11, "MOCK011", 1, "学院管理员", "COLLEGE_ADMIN");
+    // 学院管理员可评任意方向。管理员是无成员身份的独立账号（ck_user_identity）。
+    jdbc.update(
+        "INSERT INTO app_user(id,member_id,account,password_hash,role,must_change_password,status,display_name,created_at,updated_at)"
+            + " VALUES(11,NULL,'MOCK011',?,'COLLEGE_ADMIN',false,'ENABLED','学院管理员',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
+        passwords.encode("synthetic-password12"));
     String admin = sessions.issue(11).accessToken();
     var scored =
         send(
@@ -250,7 +253,8 @@ class ReportHttpIT {
         "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=?",
         Integer.class, Long.valueOf(id)));
     assertEquals(3, HttpTestSupport.json(rescored).path("data").path("finalScore").asInt());
-    assertEquals(1, jdbc.queryForObject(
+    // 两次成功评分（2 分、改 3 分）各记一条审计；被拒的 4 分不落审计。
+    assertEquals(2, jdbc.queryForObject(
         "SELECT COUNT(*) FROM audit_log WHERE action='REPORT_MANUAL_SCORE'", Integer.class));
 
     // 超出 1–3 分范围被拒绝，评分与积分保持不变。

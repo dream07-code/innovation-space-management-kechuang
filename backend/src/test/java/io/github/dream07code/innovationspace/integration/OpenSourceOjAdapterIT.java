@@ -84,8 +84,14 @@ class OpenSourceOjAdapterIT {
                         "class Main {}",
                         java.util.List.of(new OjSubmission.TestCase("", "x"))));
         assertEquals(expected[1], result.verdict());
-        assertFalse(String.valueOf(result).contains("raw output"));
-        assertFalse(String.valueOf(result).contains("raw error"));
+        // 安全口径针对 safeError 通道：原始 stdout/stderr 不得进入任何 safeError。
+        // actualOutput 例外——那是练习预览故意带回的学生自身程序输出（≤2000 字符）。
+        assertFalse(String.valueOf(result.safeError()).contains("raw output"));
+        assertFalse(String.valueOf(result.safeError()).contains("raw error"));
+        for (var one : result.testCaseResults()) {
+          assertFalse(String.valueOf(one.safeError()).contains("raw output"));
+          assertFalse(String.valueOf(one.safeError()).contains("raw error"));
+        }
       } finally {
         server.stop(0);
       }

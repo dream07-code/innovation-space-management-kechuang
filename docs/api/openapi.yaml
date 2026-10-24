@@ -2485,7 +2485,7 @@ paths:
       tags:
       - OJ考核
       summary: 查询考核
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2519,7 +2519,7 @@ paths:
       tags:
       - OJ考核
       summary: 创建考核
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2562,7 +2562,7 @@ paths:
       tags:
       - OJ考核
       summary: 获取考核详情
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2596,7 +2596,7 @@ paths:
       tags:
       - OJ考核
       summary: 修改考核
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2640,7 +2640,7 @@ paths:
       - OJ考核
       summary: 发布考核
       description: 发布考核并同步将关联的 DRAFT 题目设为 PUBLISHED，确保学生可以在题库、考核详情和代码提交页看到题目。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2683,7 +2683,7 @@ paths:
       tags:
       - OJ考核
       summary: 关闭考核
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2724,7 +2724,7 @@ paths:
       tags:
       - OJ题目
       summary: 查询题库
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2758,7 +2758,7 @@ paths:
       tags:
       - OJ题目
       summary: 创建题目
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2800,7 +2800,7 @@ paths:
       - OJ题目
       summary: 批量导入题目
       description: 单次最多 100 道题、请求不超过 5 MB；任何题目校验失败时整批回滚。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -2848,7 +2848,7 @@ paths:
       - OJ题目
       summary: 读取题库练习测试点（仅学生）
       description: 只返回公开给学生的题库练习测试点，不返回正式考核隐藏测试点。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - STUDENT
       responses:
@@ -2885,7 +2885,7 @@ paths:
       - OJ题目
       summary: 正式考核做题时试运行（仅学生，随机 1 个正式测试点）
       description: 从该题的正式考核测试点中随机抽取一个，用当前代码执行一次并返回该点的输入、实际输出与期望输出。不写入提交记录、判题结果或成绩；每名成员每分钟最多 10 次，超出返回 429。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - STUDENT
       responses:
@@ -2933,7 +2933,7 @@ paths:
       - OJ题目
       summary: 执行题库练习判题（仅学生）
       description: 使用独立练习测试点同步判题；不写入正式考核提交、结果或积分。若该题没有练习测试点，则随机抽取 1 个正式考核测试点执行（与 trial-run 相同，每分钟最多 10 次），避免返回空结果。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - STUDENT
       responses:
@@ -2975,7 +2975,7 @@ paths:
       tags:
       - OJ题目
       summary: 获取题目
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3009,7 +3009,7 @@ paths:
       tags:
       - OJ题目
       summary: 修改题目
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3053,7 +3053,7 @@ paths:
       - OJ题目
       summary: 读取题目测试点（仅工作人员）
       description: 返回正式考核隐藏测试点与题库练习测试点，学生访问返回 403。
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3090,7 +3090,7 @@ paths:
       tags:
       - OJ题目
       summary: 退役题目
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3133,7 +3133,7 @@ paths:
       tags:
       - OJ提交
       summary: 提交代码
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - STUDENT
       responses:
@@ -3173,7 +3173,7 @@ paths:
       tags:
       - OJ提交
       summary: 查询提交记录
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3211,7 +3211,7 @@ paths:
       tags:
       - OJ提交
       summary: 获取提交与OJ结果
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3249,7 +3249,7 @@ paths:
       tags:
       - OJ提交
       summary: 获取提交的源代码（管理员、方向负责人或提交者本人）
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3285,7 +3285,7 @@ paths:
       tags:
       - OJ评分
       summary: 查询人工批阅
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3318,7 +3318,7 @@ paths:
       tags:
       - OJ评分
       summary: 提交人工批阅
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
@@ -3410,8 +3410,8 @@ paths:
       - OJ评分
       summary: 查询按成员汇总的考核成绩
       description: |
-        每人一行。同一成员同一题目多次提交以最后一次为准；未提交的题目按 0 分计入平均分，
-        平均分的分母是考核题目总数，所以少做题的人不会因为分母变小而虚高。
+        每人一行。程序题同一题目多次提交以最后一次为准，客观题取答题卡判分结果；
+        总分为各条目得分之和，满分 maxScore 为各条目分值之和，scoreRate 为得分率。
       x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
@@ -4670,6 +4670,174 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: access token；客户端视为不透明字符串。受限改密token不具备一般业务权限。
+  parameters:
+    AssessmentId:
+      name: assessmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+    ProblemId:
+      name: problemId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+    SubmissionId:
+      name: submissionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。
+      schema:
+        type: string
+        format: uuid
+        example: 11111111-1111-4111-8111-111111111111
+  responses:
+    BadRequest:
+      description: HTTP 400；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_REQUEST
+            message: Request could not be completed
+            data: null
+    Unauthorized:
+      description: HTTP 401；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: Request could not be completed
+            data: null
+    Forbidden:
+      description: HTTP 403；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: FORBIDDEN
+            message: Request could not be completed
+            data: null
+    NotFound:
+      description: HTTP 404；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: NOT_FOUND
+            message: Request could not be completed
+            data: null
+    MethodNotAllowed:
+      description: HTTP 405；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: METHOD_NOT_ALLOWED
+            message: Request could not be completed
+            data: null
+      headers:
+        Allow:
+          schema:
+            type: string
+          description: 资源支持的 HTTP 方法。
+    Conflict:
+      description: HTTP 409；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: VERSION_CONFLICT
+            message: Request could not be completed
+            data: null
+    UnsupportedMediaType:
+      description: HTTP 415；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_REQUEST
+            message: Request could not be completed
+            data: null
+    TooManyRequests:
+      description: HTTP 429；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: RATE_LIMITED
+            message: Request could not be completed
+            data: null
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+          description: 建议等待秒数。
+    InternalError:
+      description: HTTP 500；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INTERNAL_ERROR
+            message: Request could not be completed
+            data: null
+    Unavailable:
+      description: HTTP 503；业务细分错误码见 ErrorResponse 和中文说明。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: RULES_NOT_CONFIGURED
+            message: Request could not be completed
+            data: null
   schemas:
     Role:
       type: string
@@ -6130,28 +6298,28 @@ components:
         data: {$ref: '#/components/schemas/AssessmentResultPage'}
     AssessmentMemberScore:
       type: object
-      description: 单个成员在一场考核里的汇总成绩。
+      description: 单个成员在一场考核里的汇总成绩（V12 起按混合条目分值口径）。
       required:
       - memberId
-      - problemCount
+      - itemCount
       - answeredCount
       - completedCount
       - pendingCount
       - totalScore
       - maxScore
-      - averageScore
+      - scoreRate
       properties:
         memberId: {type: string}
         memberName: {type: string, nullable: true}
         memberStudentNo: {type: string, nullable: true}
-        problemCount: {type: integer, minimum: 0, description: 考核题目总数}
-        answeredCount: {type: integer, minimum: 0, description: 提交过的题目数}
-        completedCount: {type: integer, minimum: 0, description: 已出分的题目数}
-        pendingCount: {type: integer, minimum: 0, description: 已提交但还没有分数，需要人工评阅}
-        totalScore: {type: integer, minimum: 0, description: 各题最终分之和}
-        maxScore: {type: integer, minimum: 0, description: 满分，problemCount × 100}
-        averageScore: {type: number, minimum: 0, maximum: 100, description: totalScore ÷ problemCount，保留一位小数}
-        lastSubmittedAt: {type: string, format: date-time, nullable: true}
+        itemCount: {type: integer, minimum: 0, description: 考核条目总数（程序题+客观题）}
+        answeredCount: {type: integer, minimum: 0, description: 有作答痕迹的条目数（提交的程序题+答题卡非空作答）}
+        completedCount: {type: integer, minimum: 0, description: 判分就绪的条目数}
+        pendingCount: {type: integer, minimum: 0, description: 已作答但还没有分数，需要人工评阅}
+        totalScore: {type: integer, minimum: 0, description: 程序题最终分之和 + 客观题得分}
+        maxScore: {type: integer, minimum: 0, description: 各条目分值之和}
+        scoreRate: {type: integer, minimum: 0, maximum: 100, description: 得分率 = round(totalScore*100/maxScore)，满分 0 时为 0}
+        lastSubmittedAt: {type: string, format: date-time, nullable: true, description: 最近一次提交/交卷时间}
     AssessmentMemberScorePage:
       type: object
       required: [items, page, size, total]

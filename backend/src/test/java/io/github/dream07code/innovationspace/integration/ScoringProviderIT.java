@@ -44,7 +44,8 @@ class ScoringProviderIT {
       var result = provider.score(new ScoringInput("DAILY", "1", "v1", "学习了安全接口"));
       assertEquals(3, result.score()); result.validate();
       assertTrue(observed.get().contains("学习了安全接口"));
-      assertTrue(observed.get().contains("评1至3分"));
+      // 规则文案现行为「给出 1–3 分的整数评分」（ScoringRubric.current）。
+    assertTrue(observed.get().contains("1–3 分"));
       assertTrue(observed.get().contains("untrusted content"));
       assertFalse(observed.get().contains("synthetic-not-a-real-key"));
       assertFalse(observed.get().contains("20260001"));

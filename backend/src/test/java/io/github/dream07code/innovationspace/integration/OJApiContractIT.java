@@ -9,12 +9,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class OJApiContractIT {
   @Test
-  void plannedOjAssessmentContractSupportsFrontendParallelDevelopment() throws Exception {
+  void ojContractMatchesImplementationAndSupportsFrontendParallelDevelopment() throws Exception {
     OpenAPI api;
     try (var stream = getClass().getResourceAsStream("/api-contract.yaml")) {
       api = Yaml.mapper().readValue(stream, OpenAPI.class);
     }
 
+    // OJ 端点均已实现：契约如实标 implemented（设计先行的 planned 阶段已结束）。
     for (String path : new String[] {
         "/api/v1/assessments",
         "/api/v1/assessments/{assessmentId}",
@@ -38,7 +39,7 @@ class OJApiContractIT {
       assertNotNull(api.getPaths().get(path), path);
       assertTrue(
           api.getPaths().get(path).readOperations().stream()
-              .allMatch(operation -> "planned".equals(operation.getExtensions().get("x-implementation-status"))),
+              .allMatch(operation -> "implemented".equals(operation.getExtensions().get("x-implementation-status"))),
           path);
     }
 
