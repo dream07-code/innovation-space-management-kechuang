@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { get } from '@/api/client'
-import type { CreateQuizQuestionRequest } from '@/api/types'
 
 vi.mock('@/api/client', () => ({
   API_PREFIX: '/api/v1',

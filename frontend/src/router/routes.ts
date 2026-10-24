@@ -205,6 +205,24 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/oj/ReviewSubmissionView.vue'),
         meta: { roles: STAFF_ROLES, title: 'OJ 人工批阅' },
       },
+      {
+        path: 'quiz-bank',
+        name: 'oj-quiz-bank',
+        component: () => import('@/views/oj/QuizQuestionListView.vue'),
+        meta: { roles: STAFF_ROLES, title: '客观题库' },
+      },
+      {
+        path: 'quiz-bank/new',
+        name: 'oj-quiz-new',
+        component: () => import('@/views/oj/QuizQuestionEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '创建客观题' },
+      },
+      {
+        path: 'quiz-bank/:questionId/edit',
+        name: 'oj-quiz-edit',
+        component: () => import('@/views/oj/QuizQuestionEditView.vue'),
+        meta: { roles: STAFF_ROLES, title: '编辑客观题' },
+      },
     ],
   },
 

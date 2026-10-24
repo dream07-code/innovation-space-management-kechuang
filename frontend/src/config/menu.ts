@@ -48,6 +48,7 @@ const OJ_STAFF_GROUP: MenuGroup = {
   items: [
     { label: '考核管理', path: '/oj/assessments', icon: 'medal' },
     { label: '题库管理', path: '/oj/problems', icon: 'list' },
+    { label: '客观题库', path: '/oj/quiz-bank', icon: 'list' },
     { label: '提交记录', path: '/oj/submissions', icon: 'document' },
   ],
 }
