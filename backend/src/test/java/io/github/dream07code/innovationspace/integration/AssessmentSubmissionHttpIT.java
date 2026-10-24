@@ -5,6 +5,7 @@ import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.ContractAssertions;
 import io.github.dream07code.testsupport.HttpTestSupport;
 import io.github.dream07code.testsupport.MysqlTestSupport;
+import io.github.dream07code.testsupport.OjFixtureSupport;
 import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -68,11 +69,18 @@ class AssessmentSubmissionHttpIT {
     studentToken = sessions.issue(10).accessToken();
     otherStudentToken = sessions.issue(12).accessToken();
 
-    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"提交题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java","python"],"assessmentTestCases":[{"input":"assessment-hidden-1","expectedOutput":"A1"},{"input":"assessment-hidden-2","expectedOutput":"A2"}],"practiceTestCases":[{"input":"practice-visible-1","expectedOutput":"P1"},{"input":"practice-visible-2","expectedOutput":"P2"}]}
-        """, UUID.randomUUID().toString());
-    assertEquals(201, problem.statusCode());
-    problemId = HttpTestSupport.json(problem).at("/data/id").asText();
+    // 存量 STDIO 题目（新建已收敛为 FUNCTION，此处用夹具保留 STDIO 判题链路覆盖）。
+    problemId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc,
+            "提交题",
+            "[\"java\",\"python\"]",
+            java.util.List.of(
+                new String[] {"assessment-hidden-1", "A1"},
+                new String[] {"assessment-hidden-2", "A2"}),
+            java.util.List.of(
+                new String[] {"practice-visible-1", "P1"},
+                new String[] {"practice-visible-2", "P2"}));
 
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
         {"title":"提交考核","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java","python"],"items":[{"type":"PROGRAM","refId":"%s","score":100}]}

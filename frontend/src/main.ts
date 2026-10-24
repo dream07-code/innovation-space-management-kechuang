@@ -28,6 +28,13 @@ async function bootstrap(): Promise<void> {
       onUnhandledFrame: 'bypass',
       quiet: false,
     })
+  } else if (import.meta.env.DEV) {
+    // 关闭 mock 时注销可能残留的 MSW service worker：它注册在源上且不会自行
+    // 退出，残留实例会继续拦截 /api 请求，导致真实后端永远收不到登录。
+    void navigator.serviceWorker
+      ?.getRegistration('/mockServiceWorker.js')
+      .then((registration) => registration?.unregister())
+      .catch(() => undefined)
   }
 
   const app = createApp(App)

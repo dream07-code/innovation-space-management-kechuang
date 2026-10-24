@@ -152,6 +152,18 @@ export async function retireAssessmentProblem(
   return post<AssessmentProblem>(`${PROBLEMS}/${problemId}/retire`, payload, { idempotencyKey })
 }
 
+/**
+ * 物理删除未被引用的题目；被考核条目引用或已有提交记录时后端返回
+ * 409 PROBLEM_IN_USE，此时应改用退役接口。
+ */
+export async function deleteAssessmentProblem(
+  problemId: string,
+  payload: AssessmentCommandRequest,
+  idempotencyKey: string,
+): Promise<null> {
+  return post<null>(`${PROBLEMS}/${problemId}/delete`, payload, { idempotencyKey })
+}
+
 // ---------------------------------------------------------------------------
 // 提交、按测试点计分和人工批阅
 // ---------------------------------------------------------------------------

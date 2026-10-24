@@ -66,7 +66,7 @@ class AssessmentManagementHttpIT {
   @Test
   void adminCreatesProblemAndAssessmentThenPublishesAndCloses() throws Exception {
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"一行数组","outputFormat":"两个下标","examples":[{"input":"[2,7]\\n9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"[2,7]\\n9","expectedOutput":"0 1"},{"input":"[3,3]\\n6","expectedOutput":"0 1"}],"practiceTestCases":[{"input":"[1,2]\\n3","expectedOutput":"0 1"}]}
+        {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"无","outputFormat":"两个下标","examples":[{"input":"数组 [2,7,11,15] 与目标 9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"functionName":"twoSum","parameterTypes":["int[]","int"],"returnType":"int[]","assessmentTestCases":[{"input":"[[2,7,11,15],9]","expectedOutput":"[0,1]"},{"input":"[[3,3],6]","expectedOutput":"[0,1]"}],"practiceTestCases":[{"input":"[[1,2],3]","expectedOutput":"[0,1]"}]}
         """, "11111111-1111-4111-8111-111111111111");
     assertEquals(201, problem.statusCode());
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
@@ -176,14 +176,10 @@ class AssessmentManagementHttpIT {
 
   @Test
   void managementPermissionsAndVersionConflictsAreEnforced() throws Exception {
-    var studentCreate = send(studentToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"学生不能创建","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, "55555555-5555-4555-8555-555555555555");
+    var studentCreate = send(studentToken, "POST", "/api/v1/assessment-problems", functionProblem("学生不能创建"), "55555555-5555-4555-8555-555555555555");
     assertEquals(403, studentCreate.statusCode());
 
-    var problem = send(leaderToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"负责人题目","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, "66666666-6666-4666-8666-666666666666");
+    var problem = send(leaderToken, "POST", "/api/v1/assessment-problems", functionProblem("负责人题目"), "66666666-6666-4666-8666-666666666666");
     assertEquals(201, problem.statusCode());
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
 
@@ -203,20 +199,18 @@ class AssessmentManagementHttpIT {
 
   @Test
   void problemTestCasesCanBeReplacedByStaffButNotReadByStudents() throws Exception {
-    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"测试点替换题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, "99999999-9999-4999-8999-999999999999");
+    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", functionProblem("测试点替换题"), "99999999-9999-4999-8999-999999999999");
     assertEquals(201, problem.statusCode());
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
     var updated = send(adminToken, "PATCH", "/api/v1/assessment-problems/" + problemId, """
-        {"version":1,"assessmentTestCases":[{"input":"2","expectedOutput":"2"},{"input":"3","expectedOutput":"3"}],"practiceTestCases":[{"input":"4","expectedOutput":"4"}]}
+        {"version":1,"assessmentTestCases":[{"input":"[2,3]","expectedOutput":"5"},{"input":"[3,4]","expectedOutput":"7"}],"practiceTestCases":[{"input":"[4,6]","expectedOutput":"10"}]}
         """, null);
     assertEquals(200, updated.statusCode());
     assertEquals(2, HttpTestSupport.json(updated).path("data").path("version").asInt());
     var cases = send(adminToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null);
     assertEquals(200, cases.statusCode());
     assertEquals(2, HttpTestSupport.json(cases).path("data").path("assessmentTestCases").size());
-    assertEquals("2", HttpTestSupport.json(cases).path("data").path("assessmentTestCases").path(0).path("input").asText());
+    assertEquals("[2,3]", HttpTestSupport.json(cases).path("data").path("assessmentTestCases").path(0).path("input").asText());
     assertEquals(1, HttpTestSupport.json(cases).path("data").path("practiceTestCases").size());
     assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
   }
@@ -291,9 +285,142 @@ class AssessmentManagementHttpIT {
     assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Integer.class));
   }
 
+  @Test
+  void judgeModePolicyIsFunctionOnlyForNewProblems() throws Exception {
+    // 缺省 judgeMode：按 FUNCTION 创建并回显函数签名。
+    var implicit =
+        send(adminToken, "POST", "/api/v1/assessment-problems", functionProblem("缺省函数题"),
+            "10101010-1111-4111-8111-111111111101");
+    assertEquals(201, implicit.statusCode());
+    var data = HttpTestSupport.json(implicit).path("data");
+    assertEquals("FUNCTION", data.path("judgeMode").asText());
+    assertEquals("add", data.path("functionName").asText());
+    ContractAssertions.response("POST", "/api/v1/assessment-problems", implicit);
+    String problemId = data.path("id").asText();
+
+    // 显式 STDIO 创建拒绝。
+    var stdio =
+        send(adminToken, "POST", "/api/v1/assessment-problems",
+            functionProblem("显式命令行题").replaceFirst("\\{", "{\"judgeMode\":\"STDIO\","),
+            "10101010-2222-4222-8222-222222222202");
+    assertEquals(400, stdio.statusCode());
+
+    // 批量导入同样拒绝 STDIO，按逐题错误返回。
+    var importStdio =
+        send(adminToken, "POST", "/api/v1/assessment-problems/import",
+            "{\"problems\":[" + functionProblem("导入命令行题").replaceFirst("\\{", "{\"judgeMode\":\"STDIO\",") + "]}",
+            "10101010-3333-4333-8333-333333333303");
+    assertEquals(400, importStdio.statusCode());
+    assertEquals("INVALID_PROBLEM", HttpTestSupport.json(importStdio).path("data").path("errors").path(0).path("code").asText());
+
+    // FUNCTION 题不能被 PATCH 切成 STDIO。
+    assertEquals(
+        400,
+        send(adminToken, "PATCH", "/api/v1/assessment-problems/" + problemId,
+                "{\"version\":1,\"judgeMode\":\"STDIO\"}", null)
+            .statusCode());
+
+    // 存量 STDIO 题是历史数据：不传 judgeMode 的普通编辑不受影响。
+    jdbc.update(
+        "INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,judge_mode,status,version,created_by,created_at,updated_at)"
+            + " VALUES('存量命令行题','s','d','i','o','[]','EASY','[]',1000,65536,'[\"java\"]','STDIO','DRAFT',1,20,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
+    Long legacyId =
+        jdbc.queryForObject(
+            "SELECT id FROM assessment_problem WHERE title='存量命令行题'", Long.class);
+    var legacy =
+        send(adminToken, "PATCH", "/api/v1/assessment-problems/" + legacyId,
+            "{\"version\":1,\"title\":\"存量命令行题改名\"}", null);
+    assertEquals(200, legacy.statusCode());
+    assertEquals("STDIO", HttpTestSupport.json(legacy).path("data").path("judgeMode").asText());
+  }
+
+  @Test
+  void unreferencedProblemCanBeDeletedButReferencedOnesCannot() throws Exception {
+    var problem =
+        send(leaderToken, "POST", "/api/v1/assessment-problems", functionProblem("待删除题"),
+            "12121212-1111-4111-8111-111111111111");
+    assertEquals(201, problem.statusCode());
+    String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
+
+    assertEquals(
+        403,
+        send(studentToken, "POST", "/api/v1/assessment-problems/" + problemId + "/delete",
+                "{\"version\":1}", "12121212-2222-4222-8222-222222222222")
+            .statusCode());
+    assertEquals(
+        409,
+        send(leaderToken, "POST", "/api/v1/assessment-problems/" + problemId + "/delete",
+                "{\"version\":99}", "12121212-3333-4333-8333-333333333333")
+            .statusCode());
+
+    // 被考核条目引用：409 PROBLEM_IN_USE。
+    var assessment =
+        send(adminToken, "POST", "/api/v1/assessments",
+            "{\"title\":\"引用考核\",\"description\":\"x\",\"directionId\":\"1\",\"startAt\":\"2026-10-12T09:00:00+08:00\",\"endAt\":\"2026-10-13T09:00:00+08:00\",\"allowedLanguages\":[\"java\"],\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":100}]}"
+                .formatted(problemId),
+            "12121212-4444-4444-8444-444444444444");
+    assertEquals(201, assessment.statusCode());
+    String assessmentId = HttpTestSupport.json(assessment).path("data").path("id").asText();
+    var inUse =
+        send(leaderToken, "POST", "/api/v1/assessment-problems/" + problemId + "/delete",
+            "{\"version\":1}", "12121212-5555-4555-8555-555555555555");
+    assertEquals(409, inUse.statusCode());
+    assertEquals("PROBLEM_IN_USE", HttpTestSupport.json(inUse).path("code").asText());
+
+    // 解除引用后可删除；删除后详情 404、测试点级联清理、审计留痕、幂等重放一致。
+    jdbc.update("DELETE FROM assessment_item WHERE problem_id=" + problemId);
+    var deleted =
+        send(leaderToken, "POST", "/api/v1/assessment-problems/" + problemId + "/delete",
+            "{\"version\":1}", "12121212-6666-4666-8666-666666666666");
+    assertEquals(200, deleted.statusCode());
+    assertEquals("OK", HttpTestSupport.json(deleted).path("code").asText());
+    var replay =
+        send(leaderToken, "POST", "/api/v1/assessment-problems/" + problemId + "/delete",
+            "{\"version\":1}", "12121212-6666-4666-8666-666666666666");
+    assertEquals(200, replay.statusCode());
+    // 幂等存储层回放可能重排 JSON 键序，按结构比较响应体。
+    assertTrue(HttpTestSupport.json(deleted).equals(HttpTestSupport.json(replay)));
+    assertEquals(
+        404, send(leaderToken, "GET", "/api/v1/assessment-problems/" + problemId, "", null).statusCode());
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_problem_assessment_test_case WHERE problem_id="
+                + problemId,
+            Integer.class));
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_audit WHERE action='ASSESSMENT_PROBLEM_DELETED' AND resource_id="
+                + problemId,
+            Integer.class));
+
+    // 有提交记录的题同样拒绝删除。
+    var other =
+        send(adminToken, "POST", "/api/v1/assessment-problems", functionProblem("有提交题"),
+            "12121212-7777-4777-8777-777777777777");
+    assertEquals(201, other.statusCode());
+    String otherId = HttpTestSupport.json(other).path("data").path("id").asText();
+    jdbc.update(
+        "INSERT INTO assessment_submission(assessment_id,problem_id,member_id,language,status,submitted_at,updated_at) VALUES(%s,%s,10,'java','RECEIVED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))"
+            .formatted(assessmentId, otherId));
+    var hasSubmission =
+        send(adminToken, "POST", "/api/v1/assessment-problems/" + otherId + "/delete",
+            "{\"version\":1}", "12121212-8888-4888-8888-888888888888");
+    assertEquals(409, hasSubmission.statusCode());
+    assertEquals("PROBLEM_IN_USE", HttpTestSupport.json(hasSubmission).path("code").asText());
+  }
+
   private static String validImportProblem(String title) {
     return """
-        {"title":"%s","summary":"导入摘要","description":"导入题面","inputFormat":"一行输入","outputFormat":"一行输出","examples":[],"difficulty":"EASY","tags":["导入"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
+        {"title":"%s","summary":"导入摘要","description":"导入题面","inputFormat":"无","outputFormat":"返回两数之和","examples":[],"difficulty":"EASY","tags":["导入"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"functionName":"add","parameterTypes":["int","int"],"returnType":"int","assessmentTestCases":[{"input":"[1,2]","expectedOutput":"3"}]}
+        """.formatted(title).strip();
+  }
+
+  /** 函数传参模式的合法创建载荷：judgeMode 缺省（后端默认 FUNCTION）。 */
+  private static String functionProblem(String title) {
+    return """
+        {"title":"%s","summary":"函数题摘要","description":"实现 add(a,b) 返回两数之和。","inputFormat":"无","outputFormat":"返回两数之和","examples":[],"difficulty":"EASY","tags":["函数"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"functionName":"add","parameterTypes":["int","int"],"returnType":"int","assessmentTestCases":[{"input":"[1,2]","expectedOutput":"3"},{"input":"[10,20]","expectedOutput":"30"}],"practiceTestCases":[{"input":"[4,6]","expectedOutput":"10"}]}
         """.formatted(title).strip();
   }
 

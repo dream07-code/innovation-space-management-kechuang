@@ -1295,6 +1295,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-problems/{problemId}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 删除题目
+         * @description 物理删除未被引用的题目及其测试点；被考核条目引用或已有提交记录时 409 PROBLEM_IN_USE，此时应改用退役接口。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssessmentCommandRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功；响应无数据。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmptyResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessments/{assessmentId}/submissions": {
         parameters: {
             query?: never;
@@ -1639,8 +1695,8 @@ export interface paths {
         };
         /**
          * 查询按成员汇总的考核成绩
-         * @description 每人一行。同一成员同一题目多次提交以最后一次为准；未提交的题目按 0 分计入平均分，
-         *     平均分的分母是考核题目总数，所以少做题的人不会因为分母变小而虚高。
+         * @description 每人一行。程序题同一题目多次提交以最后一次为准，客观题取答题卡判分结果；
+         *     总分为各条目得分之和，满分 maxScore 为各条目分值之和，scoreRate 为得分率。
          */
         get: {
             parameters: {
@@ -1948,6 +2004,462 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/quiz-questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询客观题库
+         * @description 仅学院管理员与方向负责人可用；学生一律 404。默认排除已停用题目。
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    size?: number;
+                    type?: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRUE_FALSE" | "FILL_BLANK";
+                    status?: "DRAFT" | "PUBLISHED" | "RETIRED";
+                    keyword?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizQuestionPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /**
+         * 创建客观题
+         * @description 单选/多选答案为界内字母（多选升序去重），判断为布尔且不带选项，填空为备选答案数组。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizQuestionResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quiz-questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询客观题 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    questionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizQuestionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 编辑客观题
+         * @description 仅 DRAFT 可编辑且禁止改题型；发布后的题目不可变，防止交卷后改答案翻盘。
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    questionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizQuestionResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/quiz-questions/{questionId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 停用客观题
+         * @description 退出题库选择；已被考核引用的条目判分不受影响。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    questionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizQuestionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    securitySchemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    parameters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    responses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/paper": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 读取学生试卷
+         * @description PUBLISHED 且本方向才可读；客观题条目只含题干与选项，绝不含 answer/analysis。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssessmentPaperResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/answer-sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 暂存答题卡草稿
+         * @description answers 整体覆盖；仅窗口开放内、DRAFT 状态可写，交卷后 409。
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnswerSheetSummaryResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/answer-sheet/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 交卷并同步判分
+         * @description 单选/多选/判断/填空按 spec 规则判分；未作答按 0 分且不落明细行。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnswerSheetDetailResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/my-answer-sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 本人答题卡
+         * @description 考核 CLOSED/ARCHIVED 前剥离一切判分字段（防泄题），结束后含逐题对错与解析。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnswerSheetDetailResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/answer-sheets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 逐生答题卡列表
+         * @description 负责人/管理员分页查看；带 memberId 时附逐题明细（正确答案与解析）。学生仅可查本人。
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    size?: number;
+                    memberId?: string;
+                };
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnswerSheetPageResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2112,6 +2624,102 @@ export interface components {
             output: string;
             explanation?: string | null;
         };
+        AnswerSheetSummary: {
+            memberId: string;
+            memberName: string;
+            /** @enum {string} */
+            status: "DRAFT" | "SUBMITTED";
+            answeredCount: number;
+            totalScore?: number | null;
+            submittedAt?: string | null;
+            items?: components["schemas"]["AnswerSheetItemDetail"][] | null;
+        };
+        AnswerSheetItemDetail: {
+            position: number;
+            answer: unknown;
+            correct: boolean;
+            awarded: number;
+            correctAnswer?: unknown;
+            analysis?: string | null;
+        };
+        AnswerSheetSummaryResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AnswerSheetSummary"];
+        };
+        AnswerSheetDetail: {
+            /** @enum {string} */
+            status: "DRAFT" | "SUBMITTED";
+            answeredCount: number;
+            totalScore?: number | null;
+            submittedAt?: string | null;
+            items?: components["schemas"]["AnswerSheetItemDetail"][] | null;
+        };
+        AnswerSheetDetailResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["AnswerSheetDetail"];
+        };
+        AnswerSheetPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                items: components["schemas"]["AnswerSheetSummary"][];
+                page: number;
+                size: number;
+                total: number;
+            };
+        };
+        AssessmentPaperResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                assessmentId: string;
+                title: string;
+                /** Format: date-time */
+                startAt: string;
+                /** Format: date-time */
+                endAt: string;
+                items: components["schemas"]["AssessmentPaperItem"][];
+                mySheet?: {
+                    /** @enum {string} */
+                    status?: "DRAFT" | "SUBMITTED";
+                    answers?: {
+                        [key: string]: unknown;
+                    } | null;
+                } | null;
+            };
+        };
+        AssessmentPaperItem: {
+            position: number;
+            /** @enum {string} */
+            type: "PROGRAM" | "QUIZ";
+            refId: string;
+            score: number;
+            /** @enum {string|null} */
+            quizType?: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRUE_FALSE" | "FILL_BLANK" | null;
+            stem?: string | null;
+            options?: string[] | null;
+            tags?: string[] | null;
+            problemTitle?: string | null;
+            /** @enum {string|null} */
+            difficulty?: "EASY" | "MEDIUM" | "HARD" | null;
+        };
+        AssessmentItem: {
+            position: number;
+            /** @enum {string} */
+            type: "PROGRAM" | "QUIZ";
+            refId: string;
+            score: number;
+        };
         Assessment: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -2133,7 +2741,10 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
+            /** @description 兼容字段：仅程序题条目的 refId（按 position 排序）。 */
             problemIds: string[];
+            /** @description 混合试卷条目（程序题+客观题），按 position 排序。 */
+            items: components["schemas"]["AssessmentItem"][];
             version: number;
             /** Format: date-time */
             createdAt: string;
@@ -2159,7 +2770,7 @@ export interface components {
             memoryLimitKb: number;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
             /**
-             * @description STDIO 为命令行读写；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
+             * @description STDIO 为存量题目的命令行读写（历史模式，不再新建）；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
              * @enum {string}
              */
             judgeMode: "STDIO" | "FUNCTION";
@@ -2370,7 +2981,7 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
-            problemIds: string[];
+            items: components["schemas"]["AssessmentItem"][];
         };
         UpdateAssessmentRequest: {
             version: number;
@@ -2382,6 +2993,7 @@ export interface components {
             endAt?: string;
             allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
             problemIds?: string[];
+            items?: components["schemas"]["AssessmentItem"][];
         };
         AssessmentCommandRequest: {
             version: number;
@@ -2399,8 +3011,11 @@ export interface components {
             timeLimitMs: number;
             memoryLimitKb: number;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
-            /** @enum {string} */
-            judgeMode?: "STDIO" | "FUNCTION";
+            /**
+             * @description 缺省即 FUNCTION；命令行读写(STDIO)仅存量题目保留，不接受新建。
+             * @enum {string}
+             */
+            judgeMode?: "FUNCTION";
             functionName?: string | null;
             parameterTypes?: ("int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]")[] | null;
             /** @enum {string|null} */
@@ -2441,7 +3056,10 @@ export interface components {
             timeLimitMs?: number;
             memoryLimitKb?: number;
             allowedLanguages?: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
-            /** @enum {string} */
+            /**
+             * @description 仅允许存量 STDIO 题显式保持原模式；不允许把 FUNCTION 题切换为 STDIO。
+             * @enum {string}
+             */
             judgeMode?: "STDIO" | "FUNCTION";
             functionName?: string | null;
             parameterTypes?: ("int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]")[] | null;
@@ -2556,6 +3174,49 @@ export interface components {
             size: number;
             total: number;
         };
+        QuizQuestion: {
+            id: string;
+            /** @enum {string} */
+            type: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRUE_FALSE" | "FILL_BLANK";
+            stem: string;
+            options?: string[] | null;
+            answer: string | boolean | string[];
+            analysis?: string | null;
+            tags: string[];
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "RETIRED";
+            createdAt: string;
+            updatedAt: string;
+        };
+        QuizQuestionPage: {
+            items: components["schemas"]["QuizQuestion"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        QuizQuestionPageResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["QuizQuestionPage"];
+        };
+        QuizQuestionResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["QuizQuestion"];
+        };
+        CreateQuizQuestionRequest: {
+            /** @enum {string} */
+            type: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRUE_FALSE" | "FILL_BLANK";
+            stem: string;
+            options?: string[] | null;
+            answer: string | boolean | string[];
+            analysis?: string | null;
+            tags?: string[];
+        };
         AssessmentProblemPageResponse: {
             /** @enum {string} */
             code: "OK";
@@ -2616,26 +3277,29 @@ export interface components {
             message: string;
             data: components["schemas"]["AssessmentResultPage"];
         };
-        /** @description 单个成员在一场考核里的汇总成绩。 */
+        /** @description 单个成员在一场考核里的汇总成绩（V12 起按混合条目分值口径）。 */
         AssessmentMemberScore: {
             memberId: string;
             memberName?: string | null;
             memberStudentNo?: string | null;
-            /** @description 考核题目总数 */
-            problemCount: number;
-            /** @description 提交过的题目数 */
+            /** @description 考核条目总数（程序题+客观题） */
+            itemCount: number;
+            /** @description 有作答痕迹的条目数（提交的程序题+答题卡非空作答） */
             answeredCount: number;
-            /** @description 已出分的题目数 */
+            /** @description 判分就绪的条目数 */
             completedCount: number;
-            /** @description 已提交但还没有分数，需要人工评阅 */
+            /** @description 已作答但还没有分数，需要人工评阅 */
             pendingCount: number;
-            /** @description 各题最终分之和 */
+            /** @description 程序题最终分之和 + 客观题得分 */
             totalScore: number;
-            /** @description 满分，problemCount × 100 */
+            /** @description 各条目分值之和 */
             maxScore: number;
-            /** @description totalScore ÷ problemCount，保留一位小数 */
-            averageScore: number;
-            /** Format: date-time */
+            /** @description 得分率 = round(totalScore*100/maxScore)，满分 0 时为 0 */
+            scoreRate: number;
+            /**
+             * Format: date-time
+             * @description 最近一次提交/交卷时间
+             */
             lastSubmittedAt?: string | null;
         };
         AssessmentMemberScorePage: {

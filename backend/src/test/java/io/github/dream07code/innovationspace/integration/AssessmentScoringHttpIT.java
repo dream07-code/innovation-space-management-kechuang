@@ -4,6 +4,7 @@ import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.ContractAssertions;
 import io.github.dream07code.testsupport.HttpTestSupport;
 import io.github.dream07code.testsupport.MysqlTestSupport;
+import io.github.dream07code.testsupport.OjFixtureSupport;
 import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -68,11 +69,13 @@ class AssessmentScoringHttpIT {
     studentToken = sessions.issue(10).accessToken();
     otherStudentToken = sessions.issue(12).accessToken();
 
-    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"按测试点计分题","summary":"计分","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"},{"input":"2","expectedOutput":"2"}]}
-        """, UUID.randomUUID().toString());
-    assertEquals(201, problem.statusCode());
-    problemId = HttpTestSupport.json(problem).at("/data/id").asText();
+    problemId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc,
+            "按测试点计分题",
+            "[\"java\"]",
+            java.util.List.of(new String[] {"1", "1"}, new String[] {"2", "2"}),
+            java.util.List.of());
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
         {"title":"计分考核","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":"%s","score":100}]}
         """.formatted(OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(1), problemId), UUID.randomUUID().toString());

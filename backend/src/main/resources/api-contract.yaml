@@ -3126,6 +3126,50 @@ paths:
             schema:
               $ref: '#/components/schemas/AssessmentCommandRequest'
 
+  /api/v1/assessment-problems/{problemId}/delete:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags:
+      - OJ题目
+      summary: 删除题目
+      description: 物理删除未被引用的题目及其测试点；被考核条目引用或已有提交记录时 409 PROBLEM_IN_USE，此时应改用退役接口。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应无数据。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentCommandRequest'
+
   /api/v1/assessments/{assessmentId}/submissions:
     parameters:
     - $ref: '#/components/parameters/AssessmentId'
@@ -5482,7 +5526,7 @@ components:
         judgeMode:
           type: string
           enum: [STDIO, FUNCTION]
-          description: STDIO 为命令行读写；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
+          description: STDIO 为存量题目的命令行读写（历史模式，不再新建）；FUNCTION 为力扣式函数传参，测试点输入是 JSON 参数数组。
         functionName:
           type: string
           nullable: true
@@ -5907,7 +5951,7 @@ components:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
           minItems: 1
-        judgeMode: {type: string, enum: [STDIO, FUNCTION]}
+        judgeMode: {type: string, enum: [FUNCTION], description: 缺省即 FUNCTION；命令行读写(STDIO)仅存量题目保留，不接受新建。}
         functionName: {type: string, nullable: true, maxLength: 64, pattern: '^[A-Za-z_][A-Za-z0-9_]{0,63}$'}
         parameterTypes:
           type: array
@@ -5981,7 +6025,7 @@ components:
         allowedLanguages:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
-        judgeMode: {type: string, enum: [STDIO, FUNCTION]}
+        judgeMode: {type: string, enum: [STDIO, FUNCTION], description: 仅允许存量 STDIO 题显式保持原模式；不允许把 FUNCTION 题切换为 STDIO。}
         functionName: {type: string, nullable: true, maxLength: 64, pattern: '^[A-Za-z_][A-Za-z0-9_]{0,63}$'}
         parameterTypes:
           type: array

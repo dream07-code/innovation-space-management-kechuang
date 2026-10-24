@@ -279,6 +279,8 @@ export function describeError(error: ApiError): string {
       return '存在待处理的评分或复核，暂不能执行'
     case 'RULES_NOT_CONFIGURED':
       return '相关规则尚未配置完成，暂不能执行'
+    case 'PROBLEM_IN_USE':
+      return '该题目已被考核引用或已有提交记录，无法删除；可改为退役'
     case 'RATE_LIMITED':
       return error.retryAfterSeconds
         ? `操作过于频繁，请 ${error.retryAfterSeconds} 秒后重试`

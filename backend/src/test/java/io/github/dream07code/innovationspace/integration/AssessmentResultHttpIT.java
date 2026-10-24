@@ -5,6 +5,7 @@ import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.ContractAssertions;
 import io.github.dream07code.testsupport.HttpTestSupport;
 import io.github.dream07code.testsupport.MysqlTestSupport;
+import io.github.dream07code.testsupport.OjFixtureSupport;
 import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -68,11 +69,10 @@ class AssessmentResultHttpIT {
     studentToken = sessions.issue(10).accessToken();
     otherStudentToken = sessions.issue(12).accessToken();
 
-    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"结果题","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, UUID.randomUUID().toString());
-    assertEquals(201, problem.statusCode());
-    problemId = HttpTestSupport.json(problem).at("/data/id").asText();
+    problemId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc, "结果题", "[\"java\"]",
+            java.util.List.<String[]>of(new String[] {"1", "1"}), java.util.List.of());
 
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
         {"title":"结果考核","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":"%s","score":100}]}
@@ -129,14 +129,14 @@ class AssessmentResultHttpIT {
   @Test
   void memberScoresAggregateMixedPaperByItemScoreScale() throws Exception {
     // 独立小场景：2 程序题(20+30) + 2 客观题(5+5)。
-    var problemA = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"混合甲","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, java.util.UUID.randomUUID().toString());
-    var problemB = send(adminToken, "POST", "/api/v1/assessment-problems", """
-        {"title":"混合乙","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
-        """, java.util.UUID.randomUUID().toString());
-    String problemAId = HttpTestSupport.json(problemA).at("/data/id").asText();
-    String problemBId = HttpTestSupport.json(problemB).at("/data/id").asText();
+    String problemAId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc, "混合甲", "[\"java\"]",
+            java.util.List.<String[]>of(new String[] {"1", "1"}), java.util.List.of());
+    String problemBId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc, "混合乙", "[\"java\"]",
+            java.util.List.<String[]>of(new String[] {"1", "1"}), java.util.List.of());
     var quizRight = send(adminToken, "POST", "/api/v1/quiz-questions",
         "{\"type\":\"SINGLE_CHOICE\",\"stem\":\"答对\",\"options\":[\"甲\",\"乙\"],\"answer\":\"A\"}",
         java.util.UUID.randomUUID().toString());

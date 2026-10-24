@@ -7,10 +7,14 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Edit, Plus, Upload, View } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { Delete, Edit, Plus, Upload, View } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { importAssessmentProblems, listAssessmentProblems } from '@/api/modules/oj'
+import {
+  deleteAssessmentProblem,
+  importAssessmentProblems,
+  listAssessmentProblems,
+} from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { readOjImportFile, type OjImportPreview } from '@/utils/ojImport'
 import {
@@ -61,6 +65,24 @@ async function load(): Promise<void> {
 
 function goDetail(row: AssessmentProblem): void {
   void router.push({ name: 'oj-problem-detail', params: { problemId: row.id } })
+}
+
+async function removeProblem(row: AssessmentProblem): Promise<void> {
+  const confirmed = await ElMessageBox.confirm(
+    '删除后题目及其测试点将被彻底移除，无法恢复；被考核引用或已有提交记录的题目无法删除。',
+    '确认删除题目？',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
+  )
+    .then(() => true)
+    .catch(() => false)
+  if (!confirmed) return
+  try {
+    await deleteAssessmentProblem(row.id, { version: row.version }, newIdempotencyKey())
+    ElMessage.success('题目已删除')
+    await load()
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  }
 }
 
 function chooseImportFile(): void {
@@ -155,6 +177,15 @@ onMounted(load)
       </div>
     </template>
 
+    <el-alert
+      class="page__notice"
+      type="info"
+      :closable="false"
+      show-icon
+      title="本题库采用函数传参（力扣风格）判题"
+      description="学生只需实现题目指定的函数，无需处理标准输入输出；历史命令行读写题目仍可正常练习与判题。"
+    />
+
     <el-form inline class="page__filter">
       <el-form-item label="状态">
         <el-select v-model="status" clearable placeholder="全部" style="width: 130px">
@@ -198,7 +229,7 @@ onMounted(load)
       <el-table-column label="语言" min-width="170">
         <template #default="{ row }">{{ row.allowedLanguages.map(languageLabel).join('、') }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="150">
+      <el-table-column label="操作" width="200">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="goDetail(row)">查看</el-button>
           <el-button
@@ -209,6 +240,16 @@ onMounted(load)
             @click="router.push({ name: 'oj-problem-edit', params: { problemId: row.id } })"
           >
             编辑
+          </el-button>
+          <el-button
+            v-if="canManage"
+            link
+            type="danger"
+            :icon="Delete"
+            :data-test="`delete-${row.id}`"
+            @click="removeProblem(row)"
+          >
+            删除
           </el-button>
         </template>
       </el-table-column>
@@ -289,6 +330,10 @@ onMounted(load)
 }
 
 .page__filter {
+  margin-bottom: 16px;
+}
+
+.page__notice {
   margin-bottom: 16px;
 }
 </style>

@@ -26,7 +26,7 @@ class FlywayMigrationIT {
                     r.next(); assertTrue(r.getInt(1)>0,index);
                 }
             }
-            try(var r=statement.executeQuery("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")) { r.next();assertEquals(12,r.getInt(1)); }
+            try(var r=statement.executeQuery("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")) { r.next();assertEquals(13,r.getInt(1)); }
         }
     }
 

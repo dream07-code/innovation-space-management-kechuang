@@ -24,4 +24,5 @@ public interface AssessmentProblemService {
 
   Map<String, Object> trialRun(long id, Map<String, Object> request, SessionPrincipal actor);
   IdempotencyService.StoredResponse retire( long id, Map<String, Object> request, SessionPrincipal actor, String key);
+  IdempotencyService.StoredResponse delete( long id, Map<String, Object> request, SessionPrincipal actor, String key);
 }

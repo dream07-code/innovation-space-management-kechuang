@@ -8,10 +8,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, ArrowUp, Delete, Plus } from '@element-plus/icons-vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 import {
   createAssessmentProblem,
+  deleteAssessmentProblem,
   getAssessmentProblem,
   getAssessmentProblemTestCases,
   retireAssessmentProblem,
@@ -44,6 +45,7 @@ const problem = ref<AssessmentProblem | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const retiring = ref(false)
+const deleting = ref(false)
 const formRef = ref<FormInstance>()
 
 const form = reactive({
@@ -57,7 +59,7 @@ const form = reactive({
   timeLimitMs: 1000,
   memoryLimitKb: 131072,
   allowedLanguages: ['java', 'python'] as AssessmentLanguage[],
-  judgeMode: 'STDIO' as 'STDIO' | 'FUNCTION',
+  judgeMode: 'FUNCTION' as 'STDIO' | 'FUNCTION',
   functionName: '',
   parameterTypes: ['int'] as FunctionValueType[],
   returnType: 'int' as FunctionValueType,
@@ -125,7 +127,8 @@ async function load(): Promise<void> {
     form.timeLimitMs = problem.value.timeLimitMs
     form.memoryLimitKb = problem.value.memoryLimitKb
     form.allowedLanguages = [...problem.value.allowedLanguages]
-    form.judgeMode = problem.value.judgeMode === 'FUNCTION' ? 'FUNCTION' : 'STDIO'
+    // 存量题目可能是 STDIO（历史模式，仅保持可编辑）；新题目一律 FUNCTION。
+    form.judgeMode = problem.value.judgeMode
     form.functionName = problem.value.functionName ?? ''
     form.parameterTypes = (problem.value.parameterTypes ?? []) as FunctionValueType[]
     form.returnType = (problem.value.returnType ?? 'int') as FunctionValueType
@@ -223,6 +226,38 @@ async function retire(): Promise<void> {
   }
 }
 
+async function remove(): Promise<void> {
+  if (!problem.value) return
+  const confirmed = await ElMessageBox.confirm(
+    '删除后题目及其测试点将被彻底移除，无法恢复；被考核引用或已有提交记录的题目无法删除。',
+    '确认删除题目？',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
+  )
+    .then(() => true)
+    .catch(() => false)
+  if (!confirmed) return
+  deleting.value = true
+  try {
+    await deleteAssessmentProblem(
+      problem.value.id,
+      { version: problem.value.version },
+      newIdempotencyKey(),
+    )
+    ElMessage.success('题目已删除')
+    void router.replace({ name: 'oj-problems' })
+  } catch (error) {
+    const apiError = toApiError(error)
+    if (apiError.isVersionConflict) {
+      await load()
+      ElMessage.warning('题目版本已变化，已刷新')
+    } else {
+      ElMessage.error(describeError(apiError))
+    }
+  } finally {
+    deleting.value = false
+  }
+}
+
 function addExample(): void {
   form.examples.push({ input: '', output: '', explanation: '' })
 }
@@ -267,15 +302,20 @@ onMounted(load)
     <template #header>
       <div class="page__header">
         <span>{{ isNew ? '创建 OJ 题目' : '编辑 OJ 题目' }}</span>
-        <el-button
-          v-if="!isNew && problem?.status !== 'RETIRED'"
-          type="danger"
-          plain
-          :loading="retiring"
-          @click="retire"
-        >
-          退役题目
-        </el-button>
+        <div class="header-actions">
+          <el-button
+            v-if="!isNew && problem?.status !== 'RETIRED'"
+            type="danger"
+            plain
+            :loading="retiring"
+            @click="retire"
+          >
+            退役题目
+          </el-button>
+          <el-button v-if="!isNew" type="danger" :loading="deleting" @click="remove">
+            删除题目
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -327,10 +367,12 @@ onMounted(load)
 
       <el-form-item label="判题方式">
         <div class="judge-mode">
-          <el-radio-group v-model="form.judgeMode">
-            <el-radio-button value="STDIO">命令行读写</el-radio-button>
-            <el-radio-button value="FUNCTION">函数传参（力扣风格）</el-radio-button>
-          </el-radio-group>
+          <div class="judge-mode__head">
+            <el-tag v-if="form.judgeMode === 'FUNCTION'" type="success" effect="plain">
+              函数传参（力扣风格）
+            </el-tag>
+            <el-tag v-else type="warning" effect="plain">命令行读写（存量旧模式）</el-tag>
+          </div>
           <div v-if="form.judgeMode === 'FUNCTION'" class="signature">
             <el-input
               v-model="form.functionName"
@@ -379,8 +421,8 @@ onMounted(load)
           <p class="judge-mode__hint">
             {{
               form.judgeMode === 'FUNCTION'
-                ? '学员只写函数，判题时系统按签名把测试点参数传进去并比对返回值。测试点输入填写 JSON 参数数组，例如 [10] 或 [[2,7,11,15],9]。'
-                : '学员按标准输入输出写完整程序，测试点输入即程序的标准输入。'
+                ? '学员只写函数，判题时系统按签名把测试点参数传进去并比对返回值。测试点输入填写 JSON 参数数组，例如 [10] 或 [[2,7,11,15],9]。新建题目统一为函数传参模式。'
+                : '学员按标准输入输出写完整程序，测试点输入即程序的标准输入。这是历史存量题目，新建题目已统一为函数传参模式。'
             }}
           </p>
         </div>
@@ -563,8 +605,18 @@ onMounted(load)
   max-width: 920px;
 }
 
+.page__header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .judge-mode {
   width: 100%;
+}
+
+.judge-mode__head {
+  margin-bottom: 2px;
 }
 
 .judge-mode__hint {

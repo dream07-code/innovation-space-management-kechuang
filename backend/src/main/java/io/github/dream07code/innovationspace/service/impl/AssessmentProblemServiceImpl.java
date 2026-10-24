@@ -304,6 +304,9 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
               values.containsKey("judgeMode")
                   ? judgeMode(values.get("judgeMode"))
                   : String.valueOf(before.get("judge_mode"));
+          // 禁止把题目切换成命令行读写；存量 STDIO 题显式保持原模式视为未变更。
+          if ("STDIO".equals(effectiveMode)
+              && !"STDIO".equals(String.valueOf(before.get("judge_mode")))) throw bad();
           if ("FUNCTION".equals(effectiveMode)) {
             var effective = new LinkedHashMap<String, Object>();
             effective.put("functionName", values.getOrDefault("functionName", before.get("function_name")));
@@ -397,6 +400,45 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
                 }));
   }
 
+  /**
+   * 物理删除未被引用的题目。被考核条目引用或已有提交记录的题目返回 409 PROBLEM_IN_USE，
+   * 只能退役；测试点两表随外键级联清理。
+   */
+  public IdempotencyService.StoredResponse delete(
+      long id, Map<String, Object> request, SessionPrincipal actor, String key) {
+    if (request == null || request.size() != 1 || !request.containsKey("version")) throw bad();
+    long version = version(request.get("version"));
+    return idem.execute(
+        actor,
+        "POST",
+        "/api/v1/assessment-problems/" + id + "/delete",
+        key,
+        json.writeValueAsString(request),
+        () ->
+            tx.execute(
+                status -> {
+                  var before = locked(id);
+                  requireManage(actor);
+                  if (version != ((Number) before.get("version")).longValue())
+                    throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
+                  if (referenced(id)) throw new ApiException(409, ErrorCode.PROBLEM_IN_USE);
+                  jdbc.update("DELETE FROM assessment_problem WHERE id=?", id);
+                  audit(actor, "ASSESSMENT_PROBLEM_DELETED", id);
+                  return new IdempotencyService.StoredResponse(
+                      200, json.writeValueAsString(ApiResponse.success(null)));
+                }));
+  }
+
+  private boolean referenced(long id) {
+    Long items =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_item WHERE problem_id=?", Long.class, id);
+    Long submissions =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_submission WHERE problem_id=?", Long.class, id);
+    return (items != null && items > 0) || (submissions != null && submissions > 0);
+  }
+
   private void requireStudent(SessionPrincipal actor) {
     if (!"STUDENT".equals(actor.role()) || actor.memberId() == null)
       throw new ApiException(403, ErrorCode.FORBIDDEN);
@@ -481,6 +523,8 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     integer(request.get("memoryLimitKb"), 1024, 1048576);
     languages(request.get("allowedLanguages"));
     String mode = judgeMode(request.get("judgeMode"));
+    // 新建题目只允许函数传参模式；命令行读写仅限存量题目继续判题。
+    if ("STDIO".equals(mode)) throw bad();
     var signature = signatureFor(mode, request);
     if ("FUNCTION".equals(mode)) {
       validateFunctionTestCases(signature, request.get("assessmentTestCases"), true);
@@ -489,7 +533,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   }
 
   private static String judgeMode(Object value) {
-    if (value == null) return "STDIO";
+    if (value == null) return "FUNCTION";
     if (!(value instanceof String text) || !Set.of("STDIO", "FUNCTION").contains(text)) throw bad();
     return text;
   }

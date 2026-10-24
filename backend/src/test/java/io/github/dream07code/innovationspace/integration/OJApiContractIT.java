@@ -29,6 +29,7 @@ class OJApiContractIT {
         "/api/v1/assessment-problems/{problemId}",
         "/api/v1/assessment-problems/{problemId}/test-cases",
         "/api/v1/assessment-problems/{problemId}/retire",
+        "/api/v1/assessment-problems/{problemId}/delete",
         "/api/v1/assessments/{assessmentId}/submissions",
         "/api/v1/assessment-submissions",
         "/api/v1/assessment-submissions/{submissionId}",
@@ -85,6 +86,11 @@ class OJApiContractIT {
     var createProblem = api.getComponents().getSchemas().get("CreateAssessmentProblemRequest");
     assertTrue(createProblem.getRequired().contains("assessmentTestCases"));
     assertTrue(createProblem.getProperties().containsKey("practiceTestCases"));
+    // 新建题目只允许函数传参判题。
+    assertEquals(
+        java.util.List.of("FUNCTION"),
+        ((io.swagger.v3.oas.models.media.StringSchema) createProblem.getProperties().get("judgeMode"))
+            .getEnum());
     var problemTestCases = api.getComponents().getSchemas().get("AssessmentProblemTestCasesResponse");
     var problemTestCasesData =
         ((io.swagger.v3.oas.models.media.ObjectSchema)

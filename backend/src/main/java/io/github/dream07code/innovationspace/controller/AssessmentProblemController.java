@@ -76,6 +76,14 @@ public class AssessmentProblemController {
     return stored(service.retire(problemId, request, actor(), key));
   }
 
+  @PostMapping("/{problemId}/delete")
+  public ResponseEntity<String> delete(
+      @PathVariable long problemId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    return stored(service.delete(problemId, request, actor(), key));
+  }
+
   private static io.github.dream07code.innovationspace.security.SessionPrincipal actor() {
     return MemberController.actor();
   }
