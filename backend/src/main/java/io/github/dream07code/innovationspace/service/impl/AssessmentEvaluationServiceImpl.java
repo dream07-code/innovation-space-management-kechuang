@@ -48,6 +48,7 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
     Integer humanScore =
         review.isEmpty() ? null : ((Number) review.getFirst().get("score")).intValue();
     Integer autoScore = autoScore(judge);
+    int itemScore = itemScoreOf(submissionId);
 
     String scoreSource;
     String resultStatus;
@@ -55,11 +56,11 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
     if (humanScore != null) {
       scoreSource = "HUMAN";
       resultStatus = "COMPLETE";
-      finalScore = humanScore;
+      finalScore = scale(itemScore, humanScore);
     } else if (autoScore != null) {
       scoreSource = "AUTO";
       resultStatus = "COMPLETE";
-      finalScore = autoScore;
+      finalScore = scale(itemScore, autoScore);
     } else {
       scoreSource = "PENDING";
       resultStatus = "NEEDS_REVIEW";
@@ -123,6 +124,27 @@ public class AssessmentEvaluationServiceImpl implements AssessmentEvaluationServ
     if (judge.verdict() == OjVerdict.INTERNAL_ERROR || judge.totalTestCases() <= 0) return null;
     int passed = Math.max(0, Math.min(judge.passedTestCases(), judge.totalTestCases()));
     return (int) Math.round(passed * 100.0 / judge.totalTestCases());
+  }
+
+  /**
+   * 分值口径换算：final = round(条目分值 × 百分比 / 100)。四舍五入与 autoScore 一致；
+   * 条目分值 100（迁移回填值）时结果与旧百分数逐例相等。无百分比（待人工）时为 null。
+   */
+  public static Integer scale(int itemScore, Integer ratioPercent) {
+    if (ratioPercent == null) return null;
+    return (int) Math.round(itemScore * ratioPercent / 100.0);
+  }
+
+  /** 该提交对应考核条目的分值；条目缺失时按 100 兜底（旧口径防御）。 */
+  private int itemScoreOf(long submissionId) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT i.score FROM assessment_item i"
+                + " JOIN assessment_submission s ON s.assessment_id=i.assessment_id"
+                + " AND s.problem_id=i.problem_id"
+                + " WHERE s.id=? AND i.item_type='PROGRAM'",
+            submissionId);
+    return rows.isEmpty() ? 100 : ((Number) rows.getFirst().get("score")).intValue();
   }
 
   private OjJudgeResult judge(long submissionId) {

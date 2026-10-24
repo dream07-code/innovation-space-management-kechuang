@@ -30,6 +30,26 @@ class AssessmentScoringTest {
     assertFalse(String.valueOf(review).contains("public class Main"));
   }
 
+  @Test
+  void finalScoreScalesAutoAndHumanByItemScore() {
+    // 20 分题通过 2/3：auto=67%，final=round(20*2/3)=13。
+    assertEquals(13, AssessmentEvaluationServiceImpl.scale(20, 67));
+    // 7 分题人工 85：final=round(7*85/100)=6。
+    assertEquals(6, AssessmentEvaluationServiceImpl.scale(7, 85));
+  }
+
+  @Test
+  void itemScore100KeepsLegacyPercentageIntact() {
+    assertEquals(86, AssessmentEvaluationServiceImpl.scale(100, 86));
+    assertEquals(100, AssessmentEvaluationServiceImpl.scale(100, 100));
+    assertEquals(0, AssessmentEvaluationServiceImpl.scale(100, 0));
+  }
+
+  @Test
+  void scaleRejectsMissingRatioAsNoFinalScore() {
+    assertNull(AssessmentEvaluationServiceImpl.scale(20, null));
+  }
+
   private static OjJudgeResult judge(OjVerdict verdict, int passed, int total) {
     return new OjJudgeResult(verdict, passed, total, 12, 2048, null);
   }
