@@ -4546,6 +4546,130 @@ paths:
             code: RULES_NOT_CONFIGURED
             message: Request could not be completed
             data: null
+  /api/v1/assessments/{assessmentId}/paper:
+    get:
+      tags:
+      - 客观题库
+      summary: 读取学生试卷
+      description: PUBLISHED 且本方向才可读；客观题条目只含题干与选项，绝不含 answer/analysis。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentPaperResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/assessments/{assessmentId}/answer-sheet:
+    put:
+      tags:
+      - 客观题库
+      summary: 暂存答题卡草稿
+      description: answers 整体覆盖；仅窗口开放内、DRAFT 状态可写，交卷后 409。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerSheetSummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/assessments/{assessmentId}/answer-sheet/submit:
+    post:
+      tags:
+      - 客观题库
+      summary: 交卷并同步判分
+      description: 单选/多选/判断/填空按 spec 规则判分；未作答按 0 分且不落明细行。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerSheetDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/assessments/{assessmentId}/my-answer-sheet:
+    get:
+      tags:
+      - 客观题库
+      summary: 本人答题卡
+      description: 考核 CLOSED/ARCHIVED 前剥离一切判分字段（防泄题），结束后含逐题对错与解析。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerSheetDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/assessments/{assessmentId}/answer-sheets:
+    get:
+      tags:
+      - 客观题库
+      summary: 逐生答题卡列表
+      description: 负责人/管理员分页查看；带 memberId 时附逐题明细（正确答案与解析）。学生仅可查本人。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 20}}
+      - {name: memberId, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerSheetPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
   schemas:
     Role:
       type: string
@@ -4929,6 +5053,113 @@ paths:
           type: string
           nullable: true
       additionalProperties: false
+    AnswerSheetSummary:
+      type: object
+      required: [memberId, memberName, status, answeredCount]
+      properties:
+        memberId: {type: string}
+        memberName: {type: string}
+        status: {type: string, enum: [DRAFT, SUBMITTED]}
+        answeredCount: {type: integer, minimum: 0}
+        totalScore: {type: integer, nullable: true}
+        submittedAt: {type: string, nullable: true}
+        items:
+          type: array
+          nullable: true
+          items: {$ref: '#/components/schemas/AnswerSheetItemDetail'}
+    AnswerSheetItemDetail:
+      type: object
+      required: [position, answer, correct, awarded]
+      properties:
+        position: {type: integer, minimum: 1}
+        answer: {}
+        correct: {type: boolean}
+        awarded: {type: integer, minimum: 0}
+        correctAnswer: {}
+        analysis: {type: string, nullable: true}
+    AnswerSheetSummaryResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AnswerSheetSummary'}
+    AnswerSheetDetail:
+      type: object
+      required: [status, answeredCount]
+      properties:
+        status: {type: string, enum: [DRAFT, SUBMITTED]}
+        answeredCount: {type: integer, minimum: 0}
+        totalScore: {type: integer, nullable: true}
+        submittedAt: {type: string, nullable: true}
+        items:
+          type: array
+          nullable: true
+          items: {$ref: '#/components/schemas/AnswerSheetItemDetail'}
+    AnswerSheetDetailResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/AnswerSheetDetail'}
+    AnswerSheetPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [items, page, size, total]
+          properties:
+            items:
+              type: array
+              items: {$ref: '#/components/schemas/AnswerSheetSummary'}
+            page: {type: integer, minimum: 1}
+            size: {type: integer, minimum: 1, maximum: 200}
+            total: {type: integer, minimum: 0}
+    AssessmentPaperResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [assessmentId, title, startAt, endAt, items]
+          properties:
+            assessmentId: {type: string}
+            title: {type: string}
+            startAt: {type: string, format: date-time}
+            endAt: {type: string, format: date-time}
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssessmentPaperItem'
+            mySheet:
+              type: object
+              nullable: true
+              properties:
+                status: {type: string, enum: [DRAFT, SUBMITTED]}
+                answers:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
+    AssessmentPaperItem:
+      type: object
+      required: [position, type, refId, score]
+      properties:
+        position: {type: integer, minimum: 1}
+        type: {type: string, enum: [PROGRAM, QUIZ]}
+        refId: {type: string}
+        score: {type: integer, minimum: 1, maximum: 100}
+        quizType: {type: string, nullable: true, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}
+        stem: {type: string, nullable: true}
+        options: {type: array, nullable: true, items: {type: string}}
+        tags: {type: array, nullable: true, items: {type: string}}
+        problemTitle: {type: string, nullable: true}
+        difficulty: {type: string, nullable: true, enum: [EASY, MEDIUM, HARD]}
     AssessmentItem:
       type: object
       required: [position, type, refId, score]
