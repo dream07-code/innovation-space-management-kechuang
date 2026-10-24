@@ -4871,6 +4871,14 @@ components:
           type: string
           nullable: true
       additionalProperties: false
+    AssessmentItem:
+      type: object
+      required: [position, type, refId, score]
+      properties:
+        position: {type: integer, minimum: 1}
+        type: {type: string, enum: [PROGRAM, QUIZ]}
+        refId: {type: string}
+        score: {type: integer, minimum: 1, maximum: 100}
     Assessment:
       type: object
       required:
@@ -4884,6 +4892,7 @@ components:
       - endAt
       - allowedLanguages
       - problemIds
+      - items
       - version
       - createdAt
       - updatedAt
@@ -4927,6 +4936,12 @@ components:
           type: array
           items:
             type: string
+          description: 兼容字段：仅程序题条目的 refId（按 position 排序）。
+        items:
+          type: array
+          description: 混合试卷条目（程序题+客观题），按 position 排序。
+          items:
+            $ref: '#/components/schemas/AssessmentItem'
         version:
           type: integer
           minimum: 1
@@ -5366,7 +5381,7 @@ components:
       additionalProperties: false
     CreateAssessmentRequest:
       type: object
-      required: [title, description, directionId, startAt, endAt, allowedLanguages, problemIds]
+      required: [title, description, directionId, startAt, endAt, allowedLanguages, items]
       properties:
         title: {type: string, minLength: 1, maxLength: 120}
         description: {type: string, maxLength: 10000}
@@ -5377,9 +5392,11 @@ components:
           type: array
           items: {type: string, enum: [java, python, cpp, javascript, go, rust]}
           minItems: 1
-        problemIds:
+        items:
           type: array
-          items: {type: string}
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AssessmentItem'
       additionalProperties: false
     UpdateAssessmentRequest:
       type: object
@@ -5396,6 +5413,11 @@ components:
         problemIds:
           type: array
           items: {type: string}
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AssessmentItem'
       minProperties: 2
       additionalProperties: false
     AssessmentCommandRequest:

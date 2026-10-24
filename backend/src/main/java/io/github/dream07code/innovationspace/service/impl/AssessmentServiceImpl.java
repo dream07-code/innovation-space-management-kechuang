@@ -70,7 +70,7 @@ public class AssessmentServiceImpl implements AssessmentService {
                       Timestamp.from(now),
                       Timestamp.from(now));
                   long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-                  saveProblems(id, problemIds(request.get("problemIds")));
+                  saveItems(id, parseItems(request.get("items")));
                   audit(actor, "ASSESSMENT_CREATED", id, "Created assessment");
                   return new IdempotencyService.StoredResponse(
                       201, json.writeValueAsString(ApiResponse.success(response(id))));
@@ -136,7 +136,7 @@ public class AssessmentServiceImpl implements AssessmentService {
             throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
           Map<String, Object> values = new LinkedHashMap<>(request);
           values.remove("version");
-          if (!Set.of("title", "description", "startAt", "endAt", "allowedLanguages", "problemIds")
+          if (!Set.of("title", "description", "startAt", "endAt", "allowedLanguages", "items")
               .containsAll(values.keySet())) throw bad();
           var fields = new ArrayList<String>();
           var args = new ArrayList<Object>();
@@ -145,15 +145,16 @@ public class AssessmentServiceImpl implements AssessmentService {
           if (values.containsKey("startAt")) { fields.add("start_at=?"); args.add(offset(values.get("startAt"))); }
           if (values.containsKey("endAt")) { fields.add("end_at=?"); args.add(offset(values.get("endAt"))); }
           if (values.containsKey("allowedLanguages")) { fields.add("allowed_languages=?"); args.add(json.writeValueAsString(languages(values.get("allowedLanguages")))); }
-          if (fields.isEmpty() && !values.containsKey("problemIds")) throw bad();
+          if (fields.isEmpty() && !values.containsKey("items")) throw bad();
           fields.add("version=version+1");
           fields.add("updated_at=?");
           args.add(Timestamp.from(clock.instant()));
           args.add(id);
           jdbc.update("UPDATE assessment SET " + String.join(",", fields) + " WHERE id=?", args.toArray());
-          if (values.containsKey("problemIds")) {
-            jdbc.update("DELETE FROM assessment_problem_link WHERE assessment_id=?", id);
-            saveProblems(id, problemIds(values.get("problemIds")));
+          if (values.containsKey("items")) {
+            var parsedItems = parseItems(values.get("items"));
+            jdbc.update("DELETE FROM assessment_item WHERE assessment_id=?", id);
+            saveItems(id, parsedItems);
           }
           audit(actor, "ASSESSMENT_UPDATED", id, "Updated assessment");
           return response(id);
@@ -191,19 +192,26 @@ public class AssessmentServiceImpl implements AssessmentService {
                   if (target == AssessmentStatus.PUBLISHED) {
                     var publishedProblemIds =
                         jdbc.queryForList(
-                            "SELECT p.id FROM assessment_problem p JOIN assessment_problem_link l"
-                                + " ON l.problem_id=p.id WHERE l.assessment_id=? AND p.status='DRAFT'"
-                                + " ORDER BY l.position",
+                            "SELECT p.id FROM assessment_problem p JOIN assessment_item i"
+                                + " ON i.problem_id=p.id WHERE i.assessment_id=? AND p.status='DRAFT'"
+                                + " ORDER BY i.position",
                             Long.class,
                             id);
                     jdbc.update(
-                        "UPDATE assessment_problem p JOIN assessment_problem_link l"
-                            + " ON l.problem_id=p.id SET p.status='PUBLISHED',p.version=p.version+1,"
-                            + " p.updated_at=? WHERE l.assessment_id=? AND p.status='DRAFT'",
+                        "UPDATE assessment_problem p JOIN assessment_item i"
+                            + " ON i.problem_id=p.id SET p.status='PUBLISHED',p.version=p.version+1,"
+                            + " p.updated_at=? WHERE i.assessment_id=? AND p.status='DRAFT'",
                         Timestamp.from(clock.instant()),
                         id);
                     for (Long problemId : publishedProblemIds)
                       auditProblem(actor, "ASSESSMENT_PROBLEM_PUBLISHED", problemId);
+                    // 客观题同口径：发布即锁定，杜绝交卷后改答案翻盘。
+                    jdbc.update(
+                        "UPDATE quiz_question q JOIN assessment_item i"
+                            + " ON i.question_id=q.id SET q.status='PUBLISHED',q.updated_at=?"
+                            + " WHERE i.assessment_id=? AND q.status='DRAFT'",
+                        Timestamp.from(clock.instant()),
+                        id);
                   }
                   audit(actor, "ASSESSMENT_" + target.name(), id, "Changed assessment state");
                   return new IdempotencyService.StoredResponse(
@@ -220,23 +228,60 @@ public class AssessmentServiceImpl implements AssessmentService {
     var end = offset(request.get("endAt"));
     if (!end.isAfter(start)) throw bad();
     languages(request.get("allowedLanguages"));
-    problemIds(request.get("problemIds"));
+    parseItems(request.get("items"));
     return directionId;
   }
 
-  private void saveProblems(long assessmentId, List<Long> problemIds) {
+  /** 混合条目：type+refId 去重，引用必须存在且未停用，分值 1–100。 */
+  private record ParsedItem(String type, long refId, int score) {}
+
+  private List<ParsedItem> parseItems(Object value) {
+    if (!(value instanceof List<?> list) || list.isEmpty()) throw bad();
+    var seen = new java.util.HashSet<String>();
+    var out = new ArrayList<ParsedItem>();
+    for (Object entry : list) {
+      if (!(entry instanceof Map<?, ?> item)) throw bad();
+      String type = String.valueOf(item.get("type"));
+      if (!Set.of("PROGRAM", "QUIZ").contains(type)) throw bad();
+      Object refIdValue = item.get("refId");
+      if (!(refIdValue instanceof String refIdText)) throw bad();
+      long refId;
+      try {
+        refId = Long.parseLong(refIdText);
+      } catch (NumberFormatException error) {
+        throw bad();
+      }
+      Object scoreValue = item.get("score");
+      if (!(scoreValue instanceof Number scoreNumber)
+          || scoreNumber.intValue() != scoreNumber.doubleValue()
+          || scoreNumber.intValue() < 1
+          || scoreNumber.intValue() > 100) throw bad();
+      if (!seen.add(type + ":" + refId)) throw bad();
+      out.add(new ParsedItem(type, refId, scoreNumber.intValue()));
+    }
+    return out;
+  }
+
+  private void saveItems(long assessmentId, List<ParsedItem> items) {
     int position = 1;
-    for (Long problemId : problemIds) {
-      Integer exists = jdbc.queryForObject(
-          "SELECT COUNT(*) FROM assessment_problem WHERE id=? AND status<>'RETIRED'",
-          Integer.class,
-          problemId);
+    for (ParsedItem item : items) {
+      String table = "PROGRAM".equals(item.type()) ? "assessment_problem" : "quiz_question";
+      Integer exists =
+          jdbc.queryForObject(
+              "SELECT COUNT(*) FROM " + table + " WHERE id=? AND status<>'RETIRED'",
+              Integer.class,
+              item.refId());
       if (exists == null || exists == 0) throw new ApiException(400, ErrorCode.INVALID_REQUEST);
       jdbc.update(
-          "INSERT INTO assessment_problem_link(assessment_id,problem_id,position) VALUES(?,?,?)",
+          "INSERT INTO assessment_item(assessment_id,position,item_type,problem_id,question_id,score)"
+              + " VALUES(?,?,?,?,?,?)",
           assessmentId,
-          problemId,
-          position++);
+          position,
+          item.type(),
+          "PROGRAM".equals(item.type()) ? item.refId() : null,
+          "QUIZ".equals(item.type()) ? item.refId() : null,
+          item.score());
+      position++;
     }
   }
 
@@ -285,7 +330,26 @@ public class AssessmentServiceImpl implements AssessmentService {
     out.put("startAt", time(row.get("start_at")));
     out.put("endAt", time(row.get("end_at")));
     out.put("allowedLanguages", json.readValue(String.valueOf(row.get("allowed_languages")), List.class));
-    out.put("problemIds", jdbc.queryForList("SELECT problem_id FROM assessment_problem_link WHERE assessment_id=? ORDER BY position", String.class, id));
+    var itemRows =
+        jdbc.queryForList(
+            "SELECT position,item_type,COALESCE(problem_id,question_id) AS ref_id,score"
+                + " FROM assessment_item WHERE assessment_id=? ORDER BY position",
+            id);
+    var items = new ArrayList<Map<String, Object>>();
+    var problemIds = new ArrayList<String>();
+    for (var itemRow : itemRows) {
+      var item = new LinkedHashMap<String, Object>();
+      item.put("position", ((Number) itemRow.get("position")).intValue());
+      item.put("type", itemRow.get("item_type"));
+      item.put("refId", String.valueOf(itemRow.get("ref_id")));
+      item.put("score", ((Number) itemRow.get("score")).intValue());
+      items.add(item);
+      if ("PROGRAM".equals(itemRow.get("item_type")))
+        problemIds.add(String.valueOf(itemRow.get("ref_id")));
+    }
+    out.put("items", items);
+    // problemIds 为兼容旧学生视图保留的派生字段（仅程序题条目）。
+    out.put("problemIds", problemIds);
     out.put("version", row.get("version"));
     out.put("createdAt", time(row.get("created_at")));
     out.put("updatedAt", time(row.get("updated_at")));
@@ -349,17 +413,6 @@ public class AssessmentServiceImpl implements AssessmentService {
       if (!(item instanceof String language)
           || !Set.of("java", "python", "cpp", "javascript", "go", "rust").contains(language)) throw bad();
       result.add(language);
-    }
-    return result;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static List<Long> problemIds(Object value) {
-    if (!(value instanceof List<?> list)) throw bad();
-    var result = new ArrayList<Long>();
-    for (Object item : list) {
-      if (!(item instanceof String id)) throw bad();
-      result.add(parseId(id));
     }
     return result;
   }

@@ -50,7 +50,7 @@ class AssessmentManagementHttpIT {
   @BeforeEach
   void fixture() {
     MysqlTestSupport.migrate(MYSQL);
-    for (String table : new String[] {"assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result","assessment_submission","assessment_problem_link","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
+    for (String table : new String[] {"assessment_audit","assessment_answer_sheet_item","assessment_answer_sheet","assessment_item","quiz_question","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result","assessment_submission","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
       jdbc.update("DELETE FROM " + table);
     }
     seedMember(10, "STUDENT", 1);
@@ -79,7 +79,7 @@ class AssessmentManagementHttpIT {
     assertEquals(403, send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId + "/test-cases", "", null).statusCode());
 
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
-        {"title":"基础算法考核","description":"第一期考核","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-19T09:00:00+08:00","allowedLanguages":["java"],"problemIds":[%s]}
+        {"title":"基础算法考核","description":"第一期考核","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-19T09:00:00+08:00","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":%s,"score":100}]}
         """.formatted("\"" + problemId + "\""), "22222222-2222-4222-8222-222222222222");
     assertEquals(201, assessment.statusCode());
     assertEquals(201, assessment.statusCode());
@@ -88,7 +88,7 @@ class AssessmentManagementHttpIT {
     ContractAssertions.response("POST", "/api/v1/assessments", assessment);
 
     var replay = send(adminToken, "POST", "/api/v1/assessments", """
-        {"title":"基础算法考核","description":"第一期考核","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-19T09:00:00+08:00","allowedLanguages":["java"],"problemIds":[%s]}
+        {"title":"基础算法考核","description":"第一期考核","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-19T09:00:00+08:00","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":%s,"score":100}]}
         """.formatted("\"" + problemId + "\""), "22222222-2222-4222-8222-222222222222");
     assertEquals(201, replay.statusCode());
     assertEquals(assessmentId, HttpTestSupport.json(replay).path("data").path("id").asText());
@@ -109,6 +109,72 @@ class AssessmentManagementHttpIT {
   }
 
   @Test
+  void mixedItemsCanBeLinkedValidatedAndLockedByPublish() throws Exception {
+    var problem = send(adminToken, "POST", "/api/v1/assessment-problems", validImportProblem("混合条目程序题"), "a1a1a1a1-1111-4111-8111-1111111111a1");
+    assertEquals(201, problem.statusCode());
+    String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
+
+    var quizBody =
+        "{\"type\":\"MULTI_CHOICE\",\"stem\":\"哪些是无损编码？\",\"options\":[\"哈夫曼\",\"PCM\",\"行程\",\"DPCM\"],\"answer\":[\"A\",\"C\"]}";
+    var quiz = send(adminToken, "POST", "/api/v1/quiz-questions", quizBody, "a1a1a1a1-2222-4222-8222-222222222222");
+    assertEquals(201, quiz.statusCode());
+    String quizId = HttpTestSupport.json(quiz).path("data").path("id").asText();
+
+    var body =
+        "{\"title\":\"混合考核\",\"description\":\"x\",\"directionId\":\"1\",\"startAt\":\"2026-10-24T09:00:00+08:00\",\"endAt\":\"2026-10-25T09:00:00+08:00\",\"allowedLanguages\":[\"java\"],\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":20},{\"type\":\"QUIZ\",\"refId\":\"%s\",\"score\":5}]}"
+            .formatted(problemId, quizId);
+    var created = send(adminToken, "POST", "/api/v1/assessments", body, "a1a1a1a1-3333-4333-8333-333333333333");
+    assertEquals(201, created.statusCode());
+    var data = HttpTestSupport.json(created).path("data");
+    assertEquals(2, data.path("items").size());
+    assertEquals("QUIZ", data.path("items").path(1).path("type").asText());
+    assertEquals(5, data.path("items").path(1).path("score").asInt());
+    assertEquals(1, data.path("problemIds").size());
+    String assessmentId = data.path("id").asText();
+
+    // 重复挂同一题拒绝。
+    var duplicate =
+        send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId,
+            "{\"version\":1,\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":10},{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":10}]}"
+                .formatted(problemId, problemId), null);
+    assertEquals(400, duplicate.statusCode());
+    // 分值越界拒绝。
+    assertEquals(
+        400,
+        send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId,
+                "{\"version\":1,\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":0}]}".formatted(problemId), null)
+            .statusCode());
+    // 不存在的引用拒绝。
+    assertEquals(
+        400,
+        send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId,
+                "{\"version\":1,\"items\":[{\"type\":\"QUIZ\",\"refId\":\"999999\",\"score\":5}]}", null)
+            .statusCode());
+    // 已停用的客观题拒绝再挂。
+    jdbc.update("UPDATE quiz_question SET status='RETIRED' WHERE id=" + quizId);
+    assertEquals(
+        400,
+        send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId,
+                "{\"version\":1,\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":10},{\"type\":\"QUIZ\",\"refId\":\"%s\",\"score\":5}]}"
+                    .formatted(problemId, quizId), null)
+            .statusCode());
+    jdbc.update("UPDATE quiz_question SET status='DRAFT' WHERE id=" + quizId);
+
+    // 发布：程序题与客观题一并 DRAFT→PUBLISHED；发布后条目不可再改。
+    var published =
+        send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish", "{\"version\":1}", "a1a1a1a1-4444-4444-8444-444444444444");
+    assertEquals(200, published.statusCode());
+    assertEquals(
+        "PUBLISHED",
+        jdbc.queryForObject("SELECT status FROM quiz_question WHERE id=" + quizId, String.class));
+    assertEquals(
+        409,
+        send(adminToken, "PATCH", "/api/v1/assessments/" + assessmentId,
+                "{\"version\":2,\"items\":[{\"type\":\"PROGRAM\",\"refId\":\"%s\",\"score\":99}]}".formatted(problemId), null)
+            .statusCode());
+  }
+
+  @Test
   void managementPermissionsAndVersionConflictsAreEnforced() throws Exception {
     var studentCreate = send(studentToken, "POST", "/api/v1/assessment-problems", """
         {"title":"学生不能创建","summary":"x","description":"x","inputFormat":"x","outputFormat":"x","examples":[],"difficulty":"EASY","tags":[],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"assessmentTestCases":[{"input":"1","expectedOutput":"1"}]}
@@ -122,12 +188,12 @@ class AssessmentManagementHttpIT {
     String problemId = HttpTestSupport.json(problem).path("data").path("id").asText();
 
     var crossDirection = send(leaderToken, "POST", "/api/v1/assessments", """
-        {"title":"跨方向","description":"x","directionId":"2","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-13T09:00:00+08:00","allowedLanguages":["java"],"problemIds":[%s]}
+        {"title":"跨方向","description":"x","directionId":"2","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-13T09:00:00+08:00","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":%s,"score":100}]}
         """.formatted("\"" + problemId + "\""), "77777777-7777-4777-8777-777777777777");
     assertEquals(403, crossDirection.statusCode());
 
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
-        {"title":"版本考核","description":"x","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-13T09:00:00+08:00","allowedLanguages":["java"],"problemIds":[%s]}
+        {"title":"版本考核","description":"x","directionId":"1","startAt":"2026-10-12T09:00:00+08:00","endAt":"2026-10-13T09:00:00+08:00","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":%s,"score":100}]}
         """.formatted("\"" + problemId + "\""), "88888888-8888-4888-8888-888888888888");
     assertEquals(201, assessment.statusCode());
     String assessmentId = HttpTestSupport.json(assessment).path("data").path("id").asText();

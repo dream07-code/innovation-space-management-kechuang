@@ -194,8 +194,8 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     if (!languageList(assessment.get("allowed_languages")).contains(language)) throw bad();
     var problems =
         jdbc.queryForList(
-            "SELECT p.* FROM assessment_problem p JOIN assessment_problem_link l ON l.problem_id=p.id"
-                + " WHERE l.assessment_id=? AND l.problem_id=?",
+            "SELECT p.* FROM assessment_problem p JOIN assessment_item i ON i.problem_id=p.id"
+                + " WHERE i.assessment_id=? AND i.problem_id=? AND i.item_type='PROGRAM'",
             assessmentId,
             problemId);
     if (problems.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);

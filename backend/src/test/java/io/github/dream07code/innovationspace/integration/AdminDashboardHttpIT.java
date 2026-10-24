@@ -55,7 +55,7 @@ class AdminDashboardHttpIT {
     MysqlTestSupport.migrate(MYSQL);
     for (String table : new String[] {
         "assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result",
-        "assessment_submission_code","assessment_submission","assessment_problem_link","assessment_problem","assessment",
+        "assessment_submission_code","assessment_submission","assessment_answer_sheet_item","assessment_answer_sheet","assessment_item","quiz_question","assessment_problem","assessment",
         "point_ledger","report_review","report_scoring_task","report_version","report",
         "leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
       jdbc.update("DELETE FROM " + table);
@@ -231,7 +231,7 @@ class AdminDashboardHttpIT {
             + " VALUES('考核','x',1,'PUBLISHED',UTC_TIMESTAMP(6),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 DAY),'[\"java\"]',1,30,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
     long assessmentId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
     jdbc.update(
-        "INSERT INTO assessment_problem_link(assessment_id,problem_id,position) VALUES(?,?,1)",
+        "INSERT INTO assessment_item(assessment_id,position,item_type,problem_id,score) VALUES(?,1,'PROGRAM',?,100)",
         assessmentId,
         problemId);
     jdbc.update(

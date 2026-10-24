@@ -66,7 +66,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     long directionId = requireReadable(assessmentId, actor);
     Long problemCount =
         jdbc.queryForObject(
-            "SELECT COUNT(*) FROM assessment_problem_link WHERE assessment_id=?",
+            "SELECT COUNT(*) FROM assessment_item WHERE assessment_id=?",
             Long.class,
             assessmentId);
     int problems = problemCount == null ? 0 : problemCount.intValue();

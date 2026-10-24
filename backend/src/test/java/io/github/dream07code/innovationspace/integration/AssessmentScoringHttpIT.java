@@ -55,7 +55,7 @@ class AssessmentScoringHttpIT {
   @BeforeEach
   void fixture() throws Exception {
     MysqlTestSupport.migrate(MYSQL);
-    for (String table : new String[] {"assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result","assessment_submission_code","assessment_submission","assessment_problem_link","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
+    for (String table : new String[] {"assessment_audit","assessment_result","assessment_review","ai_evaluation","oj_test_case_result","oj_judge_result","assessment_submission_code","assessment_submission","assessment_answer_sheet_item","assessment_answer_sheet","assessment_item","quiz_question","assessment_problem","assessment","point_ledger","leader_direction_scope","auth_session","api_idempotency","audit_log","app_user","member"}) {
       jdbc.update("DELETE FROM " + table);
     }
     seedMember(10, "STUDENT", 1);
@@ -74,7 +74,7 @@ class AssessmentScoringHttpIT {
     assertEquals(201, problem.statusCode());
     problemId = HttpTestSupport.json(problem).at("/data/id").asText();
     var assessment = send(adminToken, "POST", "/api/v1/assessments", """
-        {"title":"计分考核","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java"],"problemIds":["%s"]}
+        {"title":"计分考核","description":"x","directionId":"1","startAt":"%s","endAt":"%s","allowedLanguages":["java"],"items":[{"type":"PROGRAM","refId":"%s","score":100}]}
         """.formatted(OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(1), problemId), UUID.randomUUID().toString());
     assertEquals(201, assessment.statusCode());
     assessmentId = HttpTestSupport.json(assessment).at("/data/id").asText();
