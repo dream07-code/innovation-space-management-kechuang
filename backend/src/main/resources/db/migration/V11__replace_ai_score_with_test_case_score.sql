@@ -3,6 +3,9 @@
 ALTER TABLE assessment_result
   RENAME COLUMN ai_score TO auto_score;
 
+-- 旧约束只允许 HUMAN/AI/PENDING/UNAVAILABLE，必须先移除，否则下面写入 AUTO 会违反约束。
+ALTER TABLE assessment_result DROP CHECK ck_assessment_result_source;
+
 UPDATE assessment_result
 SET auto_score = CASE
     WHEN total_test_cases > 0 AND technical_verdict <> 'INTERNAL_ERROR'
@@ -24,8 +27,6 @@ SET result_status = CASE
     WHEN final_score IS NOT NULL THEN 'COMPLETE'
     ELSE 'NEEDS_REVIEW'
   END;
-
-ALTER TABLE assessment_result DROP CHECK ck_assessment_result_source;
 
 ALTER TABLE assessment_result
   ADD CONSTRAINT ck_assessment_result_source CHECK (score_source IN ('HUMAN','AUTO','PENDING'));

@@ -276,7 +276,9 @@ public class Judge0OjAdapter implements OjAdapter {
 
   private static String decodeIfBase64(String value) {
     try {
-      return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+      // Judge0 在 base64 模式下会在字段末尾附加换行，Java 基础解码器不接受空白字符
+      return new String(
+          Base64.getDecoder().decode(value.replaceAll("\\s+", "")), StandardCharsets.UTF_8);
     } catch (IllegalArgumentException error) {
       return value;
     }
