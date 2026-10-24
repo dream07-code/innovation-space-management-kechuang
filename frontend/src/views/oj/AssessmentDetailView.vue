@@ -144,6 +144,13 @@ onMounted(load)
           <el-button :icon="DataAnalysis" @click="router.push({ name: 'oj-assessment-results', params: { assessmentId } })">
             查看结果
           </el-button>
+          <el-button
+            v-if="assessment.status === 'PUBLISHED' && auth.isStudent && (assessment.items?.length ?? assessment.problemIds.length) > 0"
+            type="success"
+            @click="router.push({ name: 'oj-assessment-paper', params: { assessmentId } })"
+          >
+            进入考试
+          </el-button>
         </div>
       </div>
     </template>
