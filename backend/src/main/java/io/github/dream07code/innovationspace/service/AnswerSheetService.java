@@ -21,4 +21,10 @@ public interface AnswerSheetService {
   /** 逐生答题卡（负责人/管理员）；学生仅可查本人。 */
   Map<String, Object> sheets(
       long assessmentId, SessionPrincipal actor, int page, int size, Long memberId);
+
+  /** 调度器入口：补交窗口已结束考核的全部 DRAFT 答题卡并判分，返回处理数。 */
+  int submitExpiredDrafts();
+
+  /** 提前关闭联动：不限窗口补交该考核全部 DRAFT 答题卡并判分，返回处理数。 */
+  int submitAllDrafts(long assessmentId);
 }

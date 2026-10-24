@@ -43,6 +43,7 @@ class QuizAnswerSheetHttpIT {
 
   @Autowired JdbcTemplate jdbc;
   @Autowired SessionService sessions;
+  @Autowired io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets;
   @Value("${local.server.port}") int port;
   String adminToken;
   String leaderToken;
@@ -245,6 +246,39 @@ class QuizAnswerSheetHttpIT {
         send(studentToken, "GET",
                 "/api/v1/assessments/" + assessmentId + "/answer-sheets?memberId=12", "", null)
             .statusCode());
+  }
+
+
+  @Test
+  void closingAssessmentForceSubmitsDraftSheets() throws Exception {
+    send(studentToken, "PUT", "/api/v1/assessments/" + assessmentId + "/answer-sheet",
+        "{\"answers\":{\"1\":\"B\"}}", null);
+    // 提前关闭 = 提前截止：在批草稿自动交卷判分，不留在批学生被清零。
+    var closed = send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/close",
+        "{\"version\":2}", UUID.randomUUID().toString());
+    assertEquals(200, closed.statusCode());
+    var row = jdbc.queryForMap(
+        "SELECT status,total_score FROM assessment_answer_sheet WHERE assessment_id=? AND member_id=10",
+        Long.parseLong(assessmentId));
+    assertEquals("SUBMITTED", row.get("status"));
+    assertEquals(5, ((Number) row.get("total_score")).intValue());
+  }
+
+  @Test
+  void sweepSubmitsExpiredDraftSheetsOnly() throws Exception {
+    send(studentToken, "PUT", "/api/v1/assessments/" + assessmentId + "/answer-sheet",
+        "{\"answers\":{\"1\":\"A\"}}", null);
+    // 窗口未结束：sweep 不动它。
+    assertEquals(0, answerSheets.submitExpiredDrafts());
+    // 截止后：sweep 补交判分。
+    jdbc.update(
+        "UPDATE assessment SET end_at=UTC_TIMESTAMP(6) - INTERVAL 1 MINUTE WHERE id=" + assessmentId);
+    assertEquals(1, answerSheets.submitExpiredDrafts());
+    var row = jdbc.queryForMap(
+        "SELECT status,total_score FROM assessment_answer_sheet WHERE assessment_id=? AND member_id=10",
+        Long.parseLong(assessmentId));
+    assertEquals("SUBMITTED", row.get("status"));
+    assertEquals(0, ((Number) row.get("total_score")).intValue());
   }
 
   private void seedMember(int id, String role, int directionId) {

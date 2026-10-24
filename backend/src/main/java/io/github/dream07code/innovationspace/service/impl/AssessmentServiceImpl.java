@@ -33,14 +33,20 @@ public class AssessmentServiceImpl implements AssessmentService {
   private final Clock clock;
   private final TransactionTemplate tx;
   private final AssessmentStatePolicy states = new AssessmentStatePolicy();
+  private final io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public AssessmentServiceImpl(
-      JdbcTemplate jdbc, IdempotencyService idem, Clock clock, PlatformTransactionManager manager) {
+      JdbcTemplate jdbc,
+      IdempotencyService idem,
+      Clock clock,
+      PlatformTransactionManager manager,
+      io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
+    this.answerSheets = answerSheets;
   }
 
   public IdempotencyService.StoredResponse create(
@@ -189,6 +195,10 @@ public class AssessmentServiceImpl implements AssessmentService {
                       target.name(),
                       Timestamp.from(clock.instant()),
                       id);
+                  if (target == AssessmentStatus.CLOSED) {
+                    // 提前关闭等同提前截止：在批草稿自动交卷判分，不留在批学生被清零。
+                    answerSheets.submitAllDrafts(id);
+                  }
                   if (target == AssessmentStatus.PUBLISHED) {
                     var publishedProblemIds =
                         jdbc.queryForList(

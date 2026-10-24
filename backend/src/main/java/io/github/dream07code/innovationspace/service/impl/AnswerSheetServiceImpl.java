@@ -203,6 +203,50 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
     return out;
   }
 
+
+  @Override
+  public int submitExpiredDrafts() {
+    var rows =
+        jdbc.queryForList(
+            "SELECT s.id AS sheet_id, s.assessment_id, s.member_id"
+                + " FROM assessment_answer_sheet s JOIN assessment a ON a.id=s.assessment_id"
+                + " WHERE s.status='DRAFT' AND a.end_at < ?",
+            Timestamp.from(clock.instant()));
+    return submitRows(rows);
+  }
+
+  @Override
+  public int submitAllDrafts(long assessmentId) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT id AS sheet_id, assessment_id, member_id FROM assessment_answer_sheet"
+                + " WHERE assessment_id=? AND status='DRAFT'",
+            assessmentId);
+    return submitRows(rows);
+  }
+
+  private int submitRows(List<Map<String, Object>> rows) {
+    int submitted = 0;
+    for (var row : rows) {
+      long assessmentId = ((Number) row.get("assessment_id")).longValue();
+      long memberId = ((Number) row.get("member_id")).longValue();
+      try {
+        Long actorUser =
+            jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE member_id=? LIMIT 1", Long.class, memberId);
+        gradeAndStore(
+            assessmentId,
+            memberId,
+            new SessionPrincipal(
+                actorUser == null ? 0 : actorUser, memberId, "STUDENT", List.of(), false, 0, 0));
+        submitted++;
+      } catch (RuntimeException error) {
+        // 单张失败不阻塞同批其余补交，下一轮 sweep 会重试这张。
+      }
+    }
+    return submitted;
+  }
+
   // -- 判分 ------------------------------------------------------------
 
   /** 交卷判分：QuizGrader 纯函数 → 明细行（仅已作答）+ 总分一次落库。 */
