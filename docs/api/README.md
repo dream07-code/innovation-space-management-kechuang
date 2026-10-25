@@ -98,7 +98,7 @@ Content-Type: application/json
 - 业务请求携带 `Authorization: Bearer <accessToken>`。前端将 token 当不透明字符串，不根据 JWT 内容自行判定权限。签名算法和存储技术不属于页面契约。
 - 本版普通 access token 建议 900 秒、refresh token 604800 秒；受限 token 300 秒。**前端以响应 expiresIn 为准**，不能写死倒计时。均属可调整的技术默认值。
 - Refresh token 通过 `/auth/refresh` 的 JSON 请求体交换并轮换，旧 refresh token 立即失效；服务端检测重复使用并撤销该 session。前端对刷新使用 single-flight，禁止多个并发刷新。刷新重新读取账号状态及权限，不从旧 token 复制过期权限。
-- 本版不是 Cookie 认证：接口不设置认证 Cookie。前端 token 默认只放内存；刷新页面可要求重新登录，不为“记住登录”擅自使用持久 localStorage。若后续改 HttpOnly Cookie，要同时修订 CORS/CSRF 和此契约。
+- 本版不是 Cookie 认证：接口不设置认证 Cookie。前端 access token 只放内存；refreshToken 允许镜像到 sessionStorage（2026-10 修订）：同一标签页内刷新页面可静默恢复会话，关闭标签页即清除，仍然禁止持久 localStorage 与任何「记住登录」式长期存储。若后续改 HttpOnly Cookie，要同时修订 CORS/CSRF 和此契约。
 - 登录、刷新响应带 `Cache-Control: no-store`。密码/token 不放 URL、日志、审计详情或错误回显；生产使用 HTTPS、登录限流、通用错误信息，不能通过登录响应枚举学号。
 - `/auth/logout` 撤销当前 session 及其刷新能力；重复用已失效 token 退出可返回 401，前端仍清空本地状态。
 - 修改密码、管理员重置密码、学号更正、停用/移出、负责人授权调整均立即撤销相关账号已有 session。不能只等 JWT 自然过期。

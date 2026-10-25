@@ -11,7 +11,8 @@ import { server } from '@/mocks/server'
 import { resetMockState } from '@/mocks/state'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/errors'
-import { getAccessToken } from '@/api/tokenStore'
+import { getAccessToken, hasRefreshToken, restore as restoreTokens } from '@/api/tokenStore'
+import { resetMockState as _reset } from '@/mocks/state'
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 
@@ -136,6 +137,46 @@ describe('退出登录', () => {
 
     // 契约：重复用已失效 token 退出可返回 401，前端仍清空本地状态。
     expect(auth.sessionState).toBe('anonymous')
+  })
+})
+
+describe('刷新页面静默恢复会话', () => {
+  it('sessionStorage 有有效 refreshToken 时恢复会话', async () => {
+    // 先登录一次拿到有效 refresh token 并写入 sessionStorage。
+    const seeded = freshStore()
+    await seeded.login('MOCK20260001', 'Example-Only9!')
+    expect(hasRefreshToken()).toBe(true)
+
+    // 模拟刷新页面：内存清空，仅 sessionStorage 残留。
+    const store = freshStore()
+    restoreTokens()
+    expect(hasRefreshToken()).toBe(true)
+
+    const restored = await store.restoreSession()
+    expect(restored).toBe(true)
+    expect(store.sessionState).toBe('active')
+    expect(getAccessToken()).not.toBeNull()
+  })
+
+  it('refresh 被拒绝时清空凭据回到匿名态', async () => {
+    // 植入一个服务端不认识的 refresh token。
+    sessionStorage.setItem('is.refresh', 'stolen-or-expired')
+    const store = freshStore()
+    restoreTokens()
+    expect(hasRefreshToken()).toBe(true)
+
+    const restored = await store.restoreSession()
+
+    expect(restored).toBe(false)
+    expect(store.sessionState).toBe('anonymous')
+    expect(hasRefreshToken()).toBe(false)
+    expect(sessionStorage.getItem('is.refresh')).toBeNull()
+  })
+
+  it('没有 refreshToken 时直接返回 false 且不发起请求', async () => {
+    const store = freshStore()
+    expect(await store.restoreSession()).toBe(false)
+    expect(store.sessionState).toBe('anonymous')
   })
 })
 

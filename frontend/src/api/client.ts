@@ -155,7 +155,8 @@ function performRefresh(): Promise<string> {
 }
 
 /** 取得刷新结果；并发调用共享同一个进行中的刷新。 */
-function refreshAccessToken(): Promise<string> {
+/** 供启动静默恢复会话使用；与 401 拦截器共用 single-flight 队列。 */
+export function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
     refreshInFlight = performRefresh().finally(() => {
       refreshInFlight = null

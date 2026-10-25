@@ -15,9 +15,15 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { refreshAccessToken } from '@/api/client'
 import * as authApi from '@/api/modules/auth'
 import { ApiError } from '@/api/errors'
-import { clearTokens, getAccessToken, hasRefreshToken as storeHasRefreshToken } from '@/api/tokenStore'
+import {
+  clearTokens,
+  getAccessToken,
+  hasRefreshToken as storeHasRefreshToken,
+  restore as restoreTokens,
+} from '@/api/tokenStore'
 import type { Identity, Me, Role, Session } from '@/api/types'
 
 /** 会话可用性状态。用于驱动路由守卫与阻断页。 */
@@ -165,6 +171,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 应用启动（页面刷新）时静默恢复会话。
+   *
+   * sessionStorage 里有 refreshToken → 换新 access token → loadMe 重建身份；
+   * 任何一步失败（token 过期、重用检测、网络）都清空凭据回到匿名态，
+   * 由路由守卫引导去登录页。返回是否恢复成功。
+   */
+  async function restoreSession(): Promise<boolean> {
+    restoreTokens()
+    if (!storeHasRefreshToken()) return false
+    try {
+      await refreshAccessToken()
+      await loadMe()
+      return true
+    } catch {
+      reset()
+      return false
+    }
+  }
+
+  /**
    * 修改本人密码。
    *
    * 契约：成功后全部会话失效且不返回新 token，因此这里直接清空本地状态，
@@ -242,6 +268,7 @@ export const useAuthStore = defineStore('auth', () => {
     blockedReason,
     loading,
     // 派生
+    restoreSession,
     sessionState,
     isAuthenticated,
     role,

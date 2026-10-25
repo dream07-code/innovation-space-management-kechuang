@@ -39,12 +39,18 @@ async function bootstrap(): Promise<void> {
 
   const app = createApp(App)
 
-  app.use(createPinia())
+  const pinia = createPinia()
+  app.use(pinia)
   app.use(ElementPlus, { locale: zhCn })
   app.use(router)
 
   // pinia 已就绪，可以安装依赖 store 的认证钩子。
   installAuthHooks()
+
+  // 刷新页面后用 sessionStorage 里的 refreshToken 静默恢复会话；
+  // 恢复失败（过期/无凭据）保持匿名态，由路由守卫引导去登录页。
+  const { useAuthStore } = await import('./stores/auth')
+  await useAuthStore(pinia).restoreSession()
 
   app.mount('#app')
 }
