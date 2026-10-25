@@ -6473,6 +6473,7 @@ components:
       - totalScore
       - maxScore
       - scoreRate
+      - sheetStatus
       properties:
         memberId: {type: string}
         memberName: {type: string, nullable: true}
@@ -6485,6 +6486,11 @@ components:
         maxScore: {type: integer, minimum: 0, description: 各条目分值之和}
         scoreRate: {type: integer, minimum: 0, maximum: 100, description: 得分率 = round(totalScore*100/maxScore)，满分 0 时为 0}
         lastSubmittedAt: {type: string, format: date-time, nullable: true, description: 最近一次提交/交卷时间}
+        sheetStatus:
+          type: string
+          enum: [NONE, DRAFT, SUBMITTED]
+          description: 客观题答题卡状态。NONE=未开始作答；DRAFT=有草稿未交卷（客观题不判分、totalScore 只含程序分）；SUBMITTED=已交卷并完成自动判分。
+        sheetScore: {type: integer, minimum: 0, nullable: true, description: 客观题判分总分；未交卷时为 null}
     AssessmentMemberScorePage:
       type: object
       required: [items, page, size, total]

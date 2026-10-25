@@ -246,12 +246,19 @@ onMounted(load)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="待评分" width="100">
+      <el-table-column label="客观题状态" width="120">
         <template #default="{ row }">
-          <el-tag v-if="row.pendingCount" type="warning" effect="plain">
-            {{ row.pendingCount }} 题
+          <el-tooltip
+            v-if="row.sheetStatus !== 'SUBMITTED'"
+            content="学生尚未交卷：客观题在交卷后自动判分，考核结束后未交卷的草稿会自动代交"
+            placement="top"
+          >
+            <el-tag type="info" effect="plain">{{ row.sheetStatus === 'DRAFT' ? '未交卷(有草稿)' : '未交卷' }}</el-tag>
+          </el-tooltip>
+          <el-tag v-else-if="row.pendingCount" type="warning" effect="plain">
+            {{ row.pendingCount }} 题待评分
           </el-tag>
-          <span v-else class="muted">—</span>
+          <el-tag v-else type="success" effect="plain">已判分</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="总分" width="140">
@@ -379,9 +386,10 @@ onMounted(load)
       <div v-loading="sheetLoading">
         <el-alert
           v-if="sheetDetail && sheetDetail.status !== 'SUBMITTED'"
-          type="info"
+          type="warning"
           :closable="false"
-          title="该学生尚未交卷，以下为草稿状态"
+          title="该学生尚未交卷"
+          description="客观题在交卷时自动判分；草稿答案不生成对错与得分。考核结束后未交卷的草稿会被系统自动代交并判分。"
           class="sheet-notice"
         />
         <el-table v-if="sheetDetail?.items?.length" :data="sheetDetail.items" row-key="position">
@@ -406,7 +414,9 @@ onMounted(load)
             <template #default="{ row }">{{ row.analysis ?? '—' }}</template>
           </el-table-column>
         </el-table>
-        <div v-else-if="!sheetLoading" class="sheet-empty">暂无客观题判分明细。</div>
+        <div v-else-if="!sheetLoading" class="sheet-empty">
+          {{ sheetDetail && sheetDetail.status !== 'SUBMITTED' ? '学生尚未交卷，暂无判分明细。' : '本场考核没有客观题，或该学生未作答。' }}
+        </div>
       </div>
     </el-dialog>
   </el-card>

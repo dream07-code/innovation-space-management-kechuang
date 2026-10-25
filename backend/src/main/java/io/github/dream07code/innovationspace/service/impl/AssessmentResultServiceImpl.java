@@ -108,7 +108,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
             + " COUNT(l.submission_id) AS answered,"
             + " COALESCE(SUM(CASE WHEN r.result_status='COMPLETE' THEN 1 ELSE 0 END),0) AS completed,"
             + " COALESCE(SUM(r.final_score),0) AS program_score,"
-            + " sh.answers AS sheet_answers, sh.total_score AS sheet_score, sh.submitted_at AS sheet_submitted_at,"
+            + " sh.answers AS sheet_answers, sh.total_score AS sheet_score, sh.status AS sheet_status,"
+            + " sh.submitted_at AS sheet_submitted_at,"
             + " MAX(s.submitted_at) AS last_program_at"
             + " FROM member m"
             + " LEFT JOIN latest l ON l.member_id=m.id AND l.rn=1"
@@ -116,7 +117,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
             + " LEFT JOIN assessment_result r ON r.submission_id=l.submission_id"
             + " LEFT JOIN assessment_answer_sheet sh ON sh.assessment_id=? AND sh.member_id=m.id"
             + filter
-            + " GROUP BY m.id,m.name,m.student_no,sh.answers,sh.total_score,sh.submitted_at"
+            + " GROUP BY m.id,m.name,m.student_no,sh.answers,sh.total_score,sh.status,sh.submitted_at"
             + " ORDER BY (COALESCE(SUM(r.final_score),0)+COALESCE(sh.total_score,0)) DESC,student_no ASC,m.id ASC"
             + " LIMIT ? OFFSET ?";
     var args = new ArrayList<Object>();
@@ -149,6 +150,10 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       out.put("pendingCount", Math.max(0, answered - completed));
       out.put("totalScore", totalScore);
       out.put("maxScore", maxScore);
+      // 客观题按「交卷统一判」设计：草稿/未作答时 sheetScore 为空，结果页据
+      // sheetStatus 显示「未交卷」而不是把没有的分数误报成待人工评分。
+      out.put("sheetStatus", row.get("sheet_status") == null ? "NONE" : String.valueOf(row.get("sheet_status")));
+      out.put("sheetScore", sheetScore);
       // 得分率 = round(total×100/满分)；分值制下"每题平均分"已无直观意义。
       out.put("scoreRate", maxScore > 0 ? (int) Math.round(totalScore * 100.0 / maxScore) : 0);
       java.time.Instant sheetAt = toInstant(row.get("sheet_submitted_at"));

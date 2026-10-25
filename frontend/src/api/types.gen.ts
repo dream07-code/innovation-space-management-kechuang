@@ -3341,6 +3341,13 @@ export interface components {
              * @description 最近一次提交/交卷时间
              */
             lastSubmittedAt?: string | null;
+            /**
+             * @description 客观题答题卡状态。NONE=未开始作答；DRAFT=有草稿未交卷（客观题不判分、totalScore 只含程序分）；SUBMITTED=已交卷并完成自动判分。
+             * @enum {string}
+             */
+            sheetStatus: "NONE" | "DRAFT" | "SUBMITTED";
+            /** @description 客观题判分总分；未交卷时为 null */
+            sheetScore?: number | null;
         };
         AssessmentMemberScorePage: {
             items: components["schemas"]["AssessmentMemberScore"][];

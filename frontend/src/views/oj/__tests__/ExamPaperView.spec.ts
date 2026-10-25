@@ -91,6 +91,15 @@ describe('ExamPaperView 学生试卷', () => {
     expect(wrapper.text()).toContain('已交卷')
     expect(wrapper.get('[data-test="fill-4"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="submit-paper"]').attributes('disabled')).toBeDefined()
+    // 交卷后不再显示草稿提示。
+    expect(wrapper.find('[data-test="draft-notice"]').exists()).toBe(false)
+  })
+
+  it('草稿状态常驻提示尚未交卷，客观题交卷后才判分', async () => {
+    const wrapper = await mountPaper()
+    const notice = wrapper.get('[data-test="draft-notice"]')
+    expect(notice.text()).toContain('尚未交卷')
+    expect(notice.text()).toContain('判分')
   })
 
   it('交卷需确认并带幂等键，成功后锁定', async () => {

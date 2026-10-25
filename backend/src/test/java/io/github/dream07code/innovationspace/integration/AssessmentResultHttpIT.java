@@ -183,8 +183,12 @@ class AssessmentResultHttpIT {
     assertEquals(55, row.at("/totalScore").asInt());
     assertEquals(60, row.at("/maxScore").asInt());
     assertEquals(92, row.at("/scoreRate").asInt());
+    // 已交卷学生：答题卡状态与客观分可见。
+    assertEquals("SUBMITTED", row.at("/sheetStatus").asText());
+    // 2 道客观题各 5 分，该学生只答对 1 道。
+    assertEquals(5, row.at("/sheetScore").asInt());
 
-    // 未作答学生：全零、得分率 0。
+    // 未作答学生：全零、得分率 0、答题卡状态 NONE。
     var idle = send(leaderToken, "GET", "/api/v1/assessments/" + mixedId + "/member-scores?page=1&size=20", null, null);
     var items = HttpTestSupport.json(idle).at("/data/items");
     for (int i = 0; i < items.size(); i++) {
@@ -192,6 +196,8 @@ class AssessmentResultHttpIT {
         assertEquals(0, items.path(i).at("/totalScore").asInt());
         assertEquals(0, items.path(i).at("/answeredCount").asInt());
         assertEquals(0, items.path(i).at("/scoreRate").asInt());
+        assertEquals("NONE", items.path(i).at("/sheetStatus").asText());
+        assertTrue(items.path(i).at("/sheetScore").isNull());
       }
     }
   }

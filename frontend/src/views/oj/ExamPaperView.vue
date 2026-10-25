@@ -150,7 +150,17 @@ onBeforeUnmount(stopAutosave)
       title="试卷不可用：考核不存在、未发布或不属于你的方向"
     />
 
-    <template v-else-if="paper">
+    <el-alert
+      v-if="!unavailable && paper && !locked"
+      type="warning"
+      :closable="false"
+      show-icon
+      data-test="draft-notice"
+      title="当前为草稿，尚未交卷"
+      description="答案会自动保存，但客观题只在点击右上角「交卷」后才判分出成绩；考核结束时会自动代交未交卷的草稿。"
+    />
+
+    <template v-if="paper">
       <el-divider content-position="left">客观题</el-divider>
       <div
         v-for="item in quizItems"
