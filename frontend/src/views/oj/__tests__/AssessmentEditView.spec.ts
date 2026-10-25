@@ -148,8 +148,8 @@ describe('AssessmentEditView 混合条目', () => {
       expect.objectContaining({
         title: '期中考核',
         items: [
-          { type: 'PROGRAM', refId: 'p1', score: 100 },
-          { type: 'QUIZ', refId: 'q2', score: 5 },
+          { position: 1, type: 'PROGRAM', refId: 'p1', score: 100 },
+          { position: 2, type: 'QUIZ', refId: 'q2', score: 5 },
         ],
       }),
       expect.any(String),
@@ -185,8 +185,8 @@ describe('AssessmentEditView 混合条目', () => {
       expect.objectContaining({
         version: 3,
         items: [
-          { type: 'PROGRAM', refId: 'p1', score: 80 },
-          { type: 'QUIZ', refId: 'q1', score: 5 },
+          { position: 1, type: 'PROGRAM', refId: 'p1', score: 80 },
+          { position: 2, type: 'QUIZ', refId: 'q1', score: 5 },
         ],
       }),
     )

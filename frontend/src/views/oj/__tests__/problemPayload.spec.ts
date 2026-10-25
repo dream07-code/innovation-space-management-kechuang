@@ -123,11 +123,16 @@ describe('函数式判题载荷', () => {
     ).toContain('JSON 数组')
   })
 
-  it('命令行模式不发送函数签名', () => {
-    const payload = buildCreateProblemPayload({ ...baseForm, judgeMode: 'STDIO' })
-    expect(payload.judgeMode).toBe('STDIO')
-    expect(payload.functionName).toBeNull()
-    expect(payload.parameterTypes).toBeNull()
-    expect(payload.returnType).toBeNull()
+  it('新建载荷恒为函数传参模式，命令行仅在存量题目更新时透传', () => {
+    // 契约：create 的 judgeMode 只接受 FUNCTION，STDIO 不再新建。
+    const created = buildCreateProblemPayload({ ...baseForm, judgeMode: 'STDIO' })
+    expect(created.judgeMode).toBe('FUNCTION')
+
+    // 存量 STDIO 题目更新时保留命令行模式且不发送函数签名。
+    const updated = buildUpdateProblemPayload(2, { ...baseForm, judgeMode: 'STDIO' })
+    expect(updated.judgeMode).toBe('STDIO')
+    expect(updated.functionName).toBeNull()
+    expect(updated.parameterTypes).toBeNull()
+    expect(updated.returnType).toBeNull()
   })
 })

@@ -86,7 +86,7 @@ describe('函数传参（FUNCTION）签名校验', () => {
   ]
 
   it.each(cases)('%s 时返回 INVALID_PROBLEM', (_name, override) => {
-    const problem = { ...validProblem('签名题'), ...override }
+    const problem = { ...validProblem('签名题'), ...(override as Record<string, unknown>) }
     const result = parseOjImportJson(JSON.stringify({ problems: [problem] }))
     expect(result.errors).toEqual([{ index: 0, code: 'INVALID_PROBLEM' }])
   })
