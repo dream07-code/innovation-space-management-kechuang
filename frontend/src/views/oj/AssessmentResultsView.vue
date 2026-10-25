@@ -5,7 +5,7 @@
  * OJ 技术判定、AI 评分、人工评分分别展示；人工评分优先。
  * 结果不写入日报/周报积分流水，也不改变现有排行榜或淘汰状态。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { EditPen, View } from '@element-plus/icons-vue'
@@ -130,7 +130,58 @@ async function loadMemberScores(): Promise<void> {
   })
 }
 
-async function load(): Promise<void> {
+/**
+ * 视图状态唯一来源是路由 query：明细下钻、评分返回、浏览器前进后退
+ * 都走同一套驱动。这样左上「返回」在明细视图先回到汇总视图，再点才
+ * 离开本页；人工评分评完也能精确回到「只看某学生」的列表。
+ */
+function applyRouteQuery(force = false): void {
+  const view = route.query.view === 'submission' ? 'submission' : 'member'
+  const memberId = typeof route.query.member === 'string' ? route.query.member : ''
+  const memberName =
+    typeof route.query.memberName === 'string' ? route.query.memberName : memberId
+  const nextFilter = memberId ? { id: memberId, name: memberName } : null
+  const modeChanged = viewMode.value !== view
+  const filterChanged = (memberFilter.value?.id ?? null) !== (nextFilter?.id ?? null)
+  viewMode.value = view
+  memberFilter.value = nextFilter
+  if (force || modeChanged || filterChanged) {
+    page.value = 1
+    if (view === 'submission') void loadSubmission()
+    else void loadMemberScores()
+  }
+}
+
+watch(() => route.query, () => applyRouteQuery(), { deep: true })
+
+async function switchQuery(query: Record<string, string>): Promise<void> {
+  await router.push({ query })
+}
+
+/** 汇总表点「明细」：以路由 query 记录下钻状态，返回键可回到汇总。 */
+async function openMemberDetail(row: AssessmentMemberScore): Promise<void> {
+  await switchQuery({
+    view: 'submission',
+    member: row.memberId,
+    memberName: row.memberName ?? row.memberStudentNo ?? row.memberId,
+  })
+}
+
+function onModeChange(value: string | number | boolean | undefined): void {
+  void switchQuery(value === 'submission' ? { view: 'submission' } : {})
+}
+
+/** 点「只看 xx ×」：清除成员过滤，停在按提交·全部成员。 */
+async function clearMemberFilter(): Promise<void> {
+  await switchQuery({ view: 'submission' })
+}
+
+onMounted(() => {
+  void Promise.all([loadBase(), Promise.resolve()]).then(() => applyRouteQuery(true))
+})
+
+/** 考核与题目列表加载（与视图无关），视图取数由 applyRouteQuery 驱动。 */
+async function loadBase(): Promise<void> {
   loading.value = true
   try {
     const [currentAssessment, problemPage] = await Promise.all([
@@ -139,62 +190,12 @@ async function load(): Promise<void> {
     ])
     assessment.value = currentAssessment
     problems.value = problemPage.items
-    if (viewMode.value === 'member') await loadMemberScores()
-    else await loadSubmission()
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
     loading.value = false
   }
 }
-
-/** 切换「按学生 / 按提交」时重新取数，两种视图分页互不影响。 */
-async function switchMode(mode: 'submission' | 'member'): Promise<void> {
-  viewMode.value = mode
-  loading.value = true
-  try {
-    if (mode === 'member') await loadMemberScores()
-    else await loadSubmission()
-  } catch (error) {
-    ElMessage.error(describeError(toApiError(error)))
-  } finally {
-    loading.value = false
-  }
-}
-
-/** 从汇总表点进某个成员，回到提交视图并只看他。 */
-async function openMemberDetail(row: AssessmentMemberScore): Promise<void> {
-  memberFilter.value = {
-    id: row.memberId,
-    name: row.memberName ?? row.memberStudentNo ?? row.memberId,
-  }
-  page.value = 1
-  await switchMode('submission')
-}
-
-function onModeChange(value: string | number | boolean | undefined): void {
-  void switchMode(value === 'submission' ? 'submission' : 'member')
-}
-
-async function clearMemberFilter(): Promise<void> {
-  memberFilter.value = null
-  page.value = 1
-  await loadSubmission()
-}
-
-onMounted(() => {
-  // 人工评分返回时通过 query 恢复视图状态：按提交 + 只看某学生。
-  if (route.query.view === 'submission') {
-    viewMode.value = 'submission'
-    const memberId = typeof route.query.member === 'string' ? route.query.member : ''
-    if (memberId) {
-      const memberName =
-        typeof route.query.memberName === 'string' ? route.query.memberName : memberId
-      memberFilter.value = { id: memberId, name: memberName }
-    }
-  }
-  void load()
-})
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { reactive } from 'vue'
 import ElementPlus from 'element-plus'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AssessmentResultsView from '@/views/oj/AssessmentResultsView.vue'
 
@@ -27,13 +28,14 @@ vi.mock('@/api/modules/quiz', () => ({
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => auth,
 }))
-const routeQuery = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
+/** 模拟 vue-router 的 route.query：reactive 让组件内 watch 能响应「导航」。 */
+const routeQuery = reactive<Record<string, unknown>>({})
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: { assessmentId: '9001' },
     fullPath: '/oj/assessments/9001/results',
-    query: routeQuery.value,
+    query: routeQuery,
   }),
   useRouter: () => ({ push }),
 }))
@@ -72,15 +74,33 @@ const memberScore = {
   lastSubmittedAt: '2026-10-23T15:46:38+08:00',
 }
 
-/** 默认进入「按学生汇总」，看提交明细的用例先切到「按提交」。 */
-async function switchToSubmission(wrapper: VueWrapper): Promise<void> {
-  await wrapper.find('input[type="radio"][value="submission"]').setValue(true)
+/** 深度 watch 让组件持续订阅 routeQuery，用例结束必须卸载，避免旧实例串扰。 */
+const mounted: VueWrapper[] = []
+function trackMount(...args: Parameters<typeof mount>): VueWrapper {
+  const wrapper = mount(...args)
+  mounted.push(wrapper)
+  return wrapper
+}
+
+/** 模拟路由导航到 query：组件内 watch 会驱动视图切换与取数。 */
+async function navigateQuery(query: Record<string, string>): Promise<void> {
+  Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
+  Object.assign(routeQuery, query)
   await flushPromises()
 }
 
+/** 默认进入「按学生汇总」，看提交明细的用例先切到「按提交」。 */
+async function switchToSubmission(): Promise<void> {
+  await navigateQuery({ view: 'submission' })
+}
+
 describe('AssessmentResultsView 评分来源与人工评分入口', () => {
+  afterEach(() => {
+    while (mounted.length) mounted.pop()!.unmount()
+  })
+
   beforeEach(() => {
-    routeQuery.value = {}
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     auth.isAdmin = true
     auth.isLeader = false
     push.mockReset()
@@ -108,7 +128,7 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
   })
 
   it('默认按学生汇总，显示分值口径总分、得分率与完成条目数', async () => {
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     expect(mocks.listAssessmentMemberScores).toHaveBeenCalledWith('9001', { page: 1, size: 20 })
@@ -142,7 +162,7 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
       size: 1,
       total: 1,
     })
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     await wrapper.get('[data-test="sheet-201"]').trigger('click')
@@ -157,14 +177,14 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
   it('学生没有答题卡下钻入口', async () => {
     auth.isAdmin = false
     auth.isLeader = false
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     expect(wrapper.find('[data-test="sheet-201"]').exists()).toBe(false)
   })
 
-  it('从汇总点明细会切到按提交并只看该成员', async () => {
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+  it('点明细产生携带视图状态的下钻导航，返回时恢复汇总视图', async () => {
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     const detail = wrapper.findAll('button').find((item) => item.text().includes('明细'))
@@ -172,17 +192,21 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
     await detail!.trigger('click')
     await flushPromises()
 
-    expect(mocks.listAssessmentResults).toHaveBeenLastCalledWith(
-      '9001',
-      expect.objectContaining({ memberId: '201' }),
-    )
-    expect(wrapper.text()).toContain('只看 郑永康')
+    // 下钻是真实导航：query 携带 view/member，浏览器返回键因此能回到汇总。
+    expect(push).toHaveBeenCalledWith({
+      query: { view: 'submission', member: '201', memberName: '郑永康' },
+    })
+
+    // 模拟用户点浏览器返回（query 回到无参）：应切回按学生汇总。
+    await navigateQuery({})
+    expect(mocks.listAssessmentMemberScores).toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('只看 郑永康')
   })
 
   it('按通过的测试点显示自动分与计分规则，不再出现 AI 评分列', async () => {
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
-    await switchToSubmission(wrapper)
+    await switchToSubmission()
 
     expect(wrapper.text()).toContain('自动分')
     expect(wrapper.text()).toContain('100 分')
@@ -207,18 +231,18 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
       size: 20,
       total: 1,
     })
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
-    await switchToSubmission(wrapper)
+    await switchToSubmission()
 
     expect(wrapper.text()).toContain('有 1 条提交没有自动分')
     expect(wrapper.text()).toContain('需要人工评分')
   })
 
   it('管理员可以从结果页直接进入人工评分并带回跳地址', async () => {
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
-    await switchToSubmission(wrapper)
+    await switchToSubmission()
 
     const reviewButton = wrapper.findAll('button').find((item) => item.text().includes('评分'))
     expect(reviewButton).toBeTruthy()
@@ -231,8 +255,8 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
   })
 
   it('评分返回时通过 query 恢复按提交视图与成员过滤', async () => {
-    routeQuery.value = { view: 'submission', member: '201', memberName: '冀玉成' }
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    Object.assign(routeQuery, { view: 'submission', member: '201', memberName: '冀玉成' })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
     expect(mocks.listAssessmentResults).toHaveBeenCalledWith('9001', {
@@ -248,9 +272,9 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
   it('学生看不到人工评分入口', async () => {
     auth.isAdmin = false
     auth.isLeader = false
-    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
-    await switchToSubmission(wrapper)
+    await switchToSubmission()
 
     const reviewButton = wrapper.findAll('button').find((item) => item.text().includes('评分'))
     expect(reviewButton).toBeUndefined()
