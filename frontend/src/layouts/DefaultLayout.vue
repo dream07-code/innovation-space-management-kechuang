@@ -66,7 +66,9 @@ const showBackButton = computed(() => isSubpagePath(route.path, homePath.value))
 const backAction = computed(() => {
   const historyBack =
     typeof window.history.state?.back === 'string' ? window.history.state.back : null
-  return backActionFor(route.path, historyBack, auth.homeRouteName)
+  // 与 history.state.back（fullPath，含 query）比较必须用 fullPath：同一路径
+  // 仅 query 不同的两条历史（如结果页汇总 ↔ 明细下钻）不算缺失历史。
+  return backActionFor(route.fullPath, historyBack, auth.homeRouteName)
 })
 
 const directionName = computed(() => directions.nameOf(auth.user?.directionId))

@@ -9,6 +9,16 @@ describe('子页面返回导航', () => {
     })
   })
 
+  it('同一路径仅 query 不同不算缺失历史（结果页明细下钻返回）', () => {
+    expect(
+      backActionFor(
+        '/oj/assessments/4/results?view=submission&member=3&memberName=x',
+        '/oj/assessments/4/results',
+        'dashboard',
+      ),
+    ).toEqual({ kind: 'history' })
+  })
+
   it('无浏览器历史时回到当前角色的首页', () => {
     expect(backActionFor('/reports/daily/new', null, 'dashboard')).toEqual({
       kind: 'route',
