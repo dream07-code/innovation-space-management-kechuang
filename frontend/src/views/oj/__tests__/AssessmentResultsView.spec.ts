@@ -27,8 +27,14 @@ vi.mock('@/api/modules/quiz', () => ({
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => auth,
 }))
+const routeQuery = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
+
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { assessmentId: '9001' }, fullPath: '/oj/assessments/9001/results' }),
+  useRoute: () => ({
+    params: { assessmentId: '9001' },
+    fullPath: '/oj/assessments/9001/results',
+    query: routeQuery.value,
+  }),
   useRouter: () => ({ push }),
 }))
 
@@ -74,9 +80,12 @@ async function switchToSubmission(wrapper: VueWrapper): Promise<void> {
 
 describe('AssessmentResultsView 评分来源与人工评分入口', () => {
   beforeEach(() => {
+    routeQuery.value = {}
     auth.isAdmin = true
     auth.isLeader = false
     push.mockReset()
+    mocks.listAssessmentResults.mockReset()
+    mocks.listAssessmentMemberScores.mockReset()
     mocks.getAssessment.mockResolvedValue({
       id: '9001',
       title: '正式考核',
@@ -215,9 +224,25 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
     expect(reviewButton).toBeTruthy()
     await reviewButton!.trigger('click')
 
+    // redirect 携带当前视图状态，评分完成才能回到「按提交」而不是回落汇总。
     expect(push).toHaveBeenCalledWith(
-      '/oj/submissions/9201/review?redirect=%2Foj%2Fassessments%2F9001%2Fresults',
+      '/oj/submissions/9201/review?redirect=%2Foj%2Fassessments%2F9001%2Fresults%3Fview%3Dsubmission',
     )
+  })
+
+  it('评分返回时通过 query 恢复按提交视图与成员过滤', async () => {
+    routeQuery.value = { view: 'submission', member: '201', memberName: '冀玉成' }
+    const wrapper = mount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(mocks.listAssessmentResults).toHaveBeenCalledWith('9001', {
+      page: 1,
+      size: 20,
+      memberId: '201',
+    })
+    expect(wrapper.text()).toContain('只看 冀玉成')
+    // 不应请求按学生汇总。
+    expect(mocks.listAssessmentMemberScores).not.toHaveBeenCalled()
   })
 
   it('学生看不到人工评分入口', async () => {

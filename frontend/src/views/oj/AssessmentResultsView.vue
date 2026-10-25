@@ -93,8 +93,16 @@ const canReview = computed(() => auth.isAdmin || auth.isLeader)
 
 function openReview(submissionId: string): void {
   if (!submissionId) return
-  // 用字符串路径跳转，避免 name+params 解析在某些导航时序下拿到空路径
-  const redirect = encodeURIComponent(`/oj/assessments/${assessmentId.value}/results`)
+  // 评分按钮只在「按提交」视图出现；把当前视图与成员过滤一并带进 redirect，
+  // 评完才能回到「只看某学生」的列表，而不是回落到按学生汇总。
+  const params = new URLSearchParams({ view: 'submission' })
+  if (memberFilter.value) {
+    params.set('member', memberFilter.value.id)
+    params.set('memberName', memberFilter.value.name)
+  }
+  const redirect = encodeURIComponent(
+    `/oj/assessments/${assessmentId.value}/results?${params.toString()}`,
+  )
   void router.push(`/oj/submissions/${submissionId}/review?redirect=${redirect}`)
 }
 
@@ -174,7 +182,19 @@ async function clearMemberFilter(): Promise<void> {
   await loadSubmission()
 }
 
-onMounted(load)
+onMounted(() => {
+  // 人工评分返回时通过 query 恢复视图状态：按提交 + 只看某学生。
+  if (route.query.view === 'submission') {
+    viewMode.value = 'submission'
+    const memberId = typeof route.query.member === 'string' ? route.query.member : ''
+    if (memberId) {
+      const memberName =
+        typeof route.query.memberName === 'string' ? route.query.memberName : memberId
+      memberFilter.value = { id: memberId, name: memberName }
+    }
+  }
+  void load()
+})
 </script>
 
 <template>
