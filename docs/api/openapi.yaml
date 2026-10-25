@@ -2599,6 +2599,123 @@ paths:
             example:
               score: 2
               reason: 内容较完整，人工核定 2 分。
+  /api/v1/announcements:
+    get:
+      tags:
+      - 公告
+      operationId: listAnnouncements
+      summary: 查看当前用户可见的公告
+      description: 学院级公告全体可见；方向级公告仅该方向学生、所辖负责人与学院管理员可见。只返回未撤回公告，created_at 倒序，最多 5 条。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - 公告
+      operationId: createAnnouncement
+      summary: 发布公告
+      description: 管理员可发布学院级（不带 directionId）或任意方向级；负责人必须带 directionId 且限于所辖方向（403 越权）；学生 403。title 1-120 字，content 1-2000 字。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '201':
+          description: 已发布；响应为完整资源。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnouncementRequest'
+
+  /api/v1/announcements/{announcementId}/withdraw:
+    parameters:
+    - name: announcementId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+        example: '1'
+    post:
+      tags:
+      - 公告
+      operationId: withdrawAnnouncement
+      summary: 撤回公告
+      description: 管理员可撤回任意公告；负责人仅可撤回本方向内本人发布的公告（403 非本人，404 不可见方向）；重复撤回幂等返回现状。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状（含 withdrawn 状态口径）。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
+
   /api/v1/assessments:
     get:
       tags:
@@ -5053,6 +5170,48 @@ components:
           nullable: true
           enum:
           - null
+    AnnouncementItem:
+      type: object
+      required: [id, title, content, scope, createdAt]
+      properties:
+        id: {type: string}
+        title: {type: string, maxLength: 120}
+        content: {type: string, maxLength: 2000}
+        scope: {type: string, enum: [COLLEGE, DIRECTION]}
+        directionId: {type: string, nullable: true}
+        directionName: {type: string, nullable: true}
+        createdAt: {type: string, format: date-time}
+    AnnouncementListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        data:
+          type: object
+          required: [items, total]
+          properties:
+            items:
+              type: array
+              items: {$ref: '#/components/schemas/AnnouncementItem'}
+            total: {type: integer, minimum: 0}
+    AnnouncementResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        data: {$ref: '#/components/schemas/AnnouncementItem'}
+    CreateAnnouncementRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120}
+        content: {type: string, minLength: 1, maxLength: 2000}
+        directionId:
+          type: string
+          pattern: ^[1-9][0-9]{0,18}$
+          description: 缺省为学院级；负责人必须携带本人所辖方向 ID。
     EmptyResponse:
       type: object
       required:

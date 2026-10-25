@@ -313,6 +313,8 @@ export type StudentRankingPreview = Schemas['StudentRankingPreview']
 export type AdminDashboard = Schemas['AdminDashboard']
 export type LeaderDashboard = Schemas['LeaderDashboard']
 export type StudentDashboard = Schemas['StudentDashboard']
+export type AnnouncementItem = Schemas['AnnouncementItem']
+export type CreateAnnouncementRequest = Schemas['CreateAnnouncementRequest']
 
 // ---------------------------------------------------------------------------
 // 枚举（供 UI 映射与筛选使用）

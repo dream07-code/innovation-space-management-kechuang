@@ -569,6 +569,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查看当前用户可见的公告
+         * @description 学院级公告全体可见；方向级公告仅该方向学生、所辖负责人与学院管理员可见。只返回未撤回公告，created_at 倒序，最多 5 条。
+         */
+        get: operations["listAnnouncements"];
+        put?: never;
+        /**
+         * 发布公告
+         * @description 管理员可发布学院级（不带 directionId）或任意方向级；负责人必须带 directionId 且限于所辖方向（403 越权）；学生 403。title 1-120 字，content 1-2000 字。
+         */
+        post: operations["createAnnouncement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcementId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                announcementId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 撤回公告
+         * @description 管理员可撤回任意公告；负责人仅可撤回本方向内本人发布的公告（403 非本人，404 不可见方向）；重复撤回幂等返回现状。
+         */
+        post: operations["withdrawAnnouncement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessments": {
         parameters: {
             query?: never;
@@ -2513,6 +2559,36 @@ export interface components {
             message: string;
             /** @enum {object|null} */
             data: never | null;
+        };
+        AnnouncementItem: {
+            id: string;
+            title: string;
+            content: string;
+            /** @enum {string} */
+            scope: "COLLEGE" | "DIRECTION";
+            directionId?: string | null;
+            directionName?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AnnouncementListResponse: {
+            code: string;
+            message: string;
+            data: {
+                items: components["schemas"]["AnnouncementItem"][];
+                total: number;
+            };
+        };
+        AnnouncementResponse: {
+            code: string;
+            message: string;
+            data: components["schemas"]["AnnouncementItem"];
+        };
+        CreateAnnouncementRequest: {
+            title: string;
+            content: string;
+            /** @description 缺省为学院级；负责人必须携带本人所辖方向 ID。 */
+            directionId?: string;
         };
         EmptyResponse: {
             /** @enum {string} */
@@ -6766,6 +6842,100 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listAnnouncements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createAnnouncement: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description 已发布；响应为完整资源。 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    withdrawAnnouncement: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                announcementId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description 成功；响应为完整资源现状（含 withdrawn 状态口径）。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];

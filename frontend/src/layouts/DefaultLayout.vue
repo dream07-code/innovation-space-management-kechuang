@@ -29,6 +29,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import { menuForRole, ROLE_LABELS, type MenuIconKey } from '@/config/menu'
 import { backActionFor, isSubpagePath } from '@/layouts/backNavigation'
+import { listAnnouncements } from '@/api/modules/announcements'
+import type { AnnouncementItem } from '@/api/types'
+import { formatDateTime } from '@/utils/datetime'
 
 const auth = useAuthStore()
 const directions = useDirectionsStore()
@@ -72,6 +75,33 @@ const backAction = computed(() => {
 })
 
 const directionName = computed(() => directions.nameOf(auth.user?.directionId))
+
+/** 全站公告横幅：取当前用户可见的最新一条，关闭状态按公告 id 记在 localStorage。 */
+const announcement = ref<AnnouncementItem | null>(null)
+const announcementDismissed = ref(false)
+
+function announcementScopeLabel(item: AnnouncementItem): string {
+  return item.scope === 'COLLEGE' ? '学院' : (item.directionName ?? '方向')
+}
+
+function dismissAnnouncement(): void {
+  if (announcement.value) {
+    localStorage.setItem(`is.announcement-dismissed-${announcement.value.id}`, '1')
+  }
+  announcementDismissed.value = true
+}
+
+async function loadAnnouncementBanner(): Promise<void> {
+  try {
+    const { items } = await listAnnouncements()
+    const latest = items[0] ?? null
+    announcement.value = latest
+    announcementDismissed.value =
+      latest !== null && localStorage.getItem(`is.announcement-dismissed-${latest.id}`) === '1'
+  } catch {
+    // 横幅是增强信息，加载失败不打扰主功能。
+  }
+}
 const roleLabel = computed(() => (auth.role ? ROLE_LABELS[auth.role] : ''))
 const userInitial = computed(() => auth.displayName.trim().slice(0, 1) || 'U')
 const loggingOut = ref(false)
@@ -108,6 +138,7 @@ async function handleLogout(): Promise<void> {
 }
 
 onMounted(() => {
+  void loadAnnouncementBanner()
   void directions.ensureLoaded().catch(() => {
     // 页面使用方向数据时会再次加载并展示错误。
   })
@@ -137,6 +168,22 @@ onMounted(() => {
     </el-aside>
 
     <el-container class="app-content">
+      <el-alert
+        v-if="announcement && !announcementDismissed"
+        class="announcement-banner"
+        type="info"
+        :closable="true"
+        show-icon
+        :data-test="`announcement-banner-${announcement.id}`"
+        @close="dismissAnnouncement"
+      >
+        <template #title>
+          <span class="announcement-banner__tag">{{ announcementScopeLabel(announcement) }}</span>
+          <strong>{{ announcement.title }}</strong>
+          <span class="announcement-banner__content">{{ announcement.content }}</span>
+          <span class="announcement-banner__time">{{ formatDateTime(announcement.createdAt) }}</span>
+        </template>
+      </el-alert>
       <el-header class="app-header">
         <div class="app-header__left">
           <el-button
@@ -454,5 +501,28 @@ onMounted(() => {
   .app-nav :deep(.el-menu-item) {
     transition: none;
   }
+}
+
+.announcement-banner {
+  margin-bottom: 8px;
+}
+
+.announcement-banner__tag {
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.announcement-banner__content {
+  margin-left: 10px;
+  color: var(--el-text-color-regular);
+}
+
+.announcement-banner__time {
+  margin-left: 10px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>

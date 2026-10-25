@@ -200,6 +200,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'OJ 提交记录' },
       },
       {
+        path: 'announcements',
+        name: 'admin-announcements',
+        component: () => import('@/views/admin/AnnouncementsManageView.vue'),
+        meta: { roles: STAFF_ROLES, title: '公告管理' },
+      },
+      {
         path: 'submissions/:submissionId',
         name: 'oj-submission-detail',
         component: () => import('@/views/oj/SubmissionDetailView.vue'),

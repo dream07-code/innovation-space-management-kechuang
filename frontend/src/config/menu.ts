@@ -77,6 +77,10 @@ const STAFF_GROUPS: MenuGroup[] = [
       { label: '积分流水', path: '/admin/points', icon: 'medal' },
     ],
   },
+  {
+    title: '公告',
+    items: [{ label: '公告管理', path: '/admin/announcements', icon: 'document' }],
+  },
 ]
 
 /** 仅学院管理员可见。 */
