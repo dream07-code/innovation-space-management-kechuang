@@ -30,11 +30,15 @@ const monthly = ref<RankingPage | null>(null)
 const myOverall = ref<MyRanking | null>(null)
 const myMonthly = ref<MyRanking | null>(null)
 
+/** 方向榜当前查看的方向：默认本人方向，管理员没有方向则取第一个。 */
+const selectedDirectionId = ref('')
 const page = ref(1)
 const size = ref(20)
 
-const isAdmin = computed(() => auth.isAdmin)
 const showPersonalRankings = computed(() => shouldShowPersonalRankings(auth.role))
+const directionOptions = computed(() =>
+  directions.items.map((item) => ({ value: item.id, label: item.name })),
+)
 
 async function loadOverall(): Promise<void> {
   loading.value = true
@@ -50,7 +54,7 @@ async function loadOverall(): Promise<void> {
 async function loadDirection(): Promise<void> {
   loading.value = true
   try {
-    const dirId = auth.user?.directionId
+    const dirId = selectedDirectionId.value || auth.user?.directionId
     if (!dirId) return
     direction.value = await getDirectionRanking(dirId, { page: page.value, size: size.value })
   } catch (error) {
@@ -58,6 +62,11 @@ async function loadDirection(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function onDirectionChange(): void {
+  page.value = 1
+  void loadDirection()
 }
 
 /** 业务时区（Asia/Shanghai）当前月份，形如 2026-10。 */
@@ -109,6 +118,8 @@ function onTabChange(): void {
 
 onMounted(async () => {
   await directions.ensureLoaded().catch(() => undefined)
+  // 方向榜默认查看本人方向；管理员没有 directionId，落到第一个方向。
+  selectedDirectionId.value = auth.user?.directionId ?? directions.items[0]?.id ?? ''
   await Promise.all([loadOverall(), loadMyRankings()])
 })
 </script>
@@ -133,9 +144,27 @@ onMounted(async () => {
 
       <el-tabs v-model="activeTab" @tab-change="onTabChange">
         <el-tab-pane label="总榜" name="overall" />
-        <el-tab-pane v-if="!isAdmin" label="方向榜" name="direction" />
+        <el-tab-pane label="方向榜" name="direction" />
         <el-tab-pane label="月度榜" name="monthly" />
       </el-tabs>
+
+      <el-form v-if="activeTab === 'direction'" inline class="rankings__direction-filter">
+        <el-form-item label="方向">
+          <el-select
+            v-model="selectedDirectionId"
+            data-test="direction-select"
+            style="width: 200px"
+            @change="onDirectionChange"
+          >
+            <el-option
+              v-for="option in directionOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
 
       <el-table v-loading="loading" :data="activeTab === 'overall' ? (overall?.items ?? []) : activeTab === 'direction' ? (direction?.items ?? []) : (monthly?.items ?? [])" row-key="memberId">
         <el-table-column prop="rank" label="排名" width="80" />
@@ -170,6 +199,10 @@ onMounted(async () => {
 <style scoped>
 .rankings__me {
   margin-bottom: 16px;
+}
+
+.rankings__direction-filter {
+  margin-bottom: 8px;
 }
 
 .page__pagination {
