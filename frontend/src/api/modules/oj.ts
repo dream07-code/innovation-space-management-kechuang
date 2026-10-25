@@ -178,8 +178,27 @@ export async function createAssessmentSubmission(
   })
 }
 
-export async function listAssessmentSubmissions(): Promise<PageData<AssessmentSubmission>> {
-  return get<PageData<AssessmentSubmission>>(SUBMISSIONS)
+export interface AssessmentSubmissionListQuery {
+  assessmentId?: string
+  problemId?: string
+  memberId?: string
+  status?: AssessmentSubmission['status']
+}
+
+/** 学生调用时服务端强制只返回本人提交。 */
+export async function listAssessmentSubmissions(
+  query: AssessmentSubmissionListQuery = {},
+): Promise<PageData<AssessmentSubmission>> {
+  return get<PageData<AssessmentSubmission>>(SUBMISSIONS, { params: query })
+}
+
+/** 读取提交代码；学生读本人代码不写审计，读他人代码会留 SUBMISSION_CODE_VIEWED 审计。 */
+export async function getAssessmentSubmissionCode(
+  submissionId: string,
+): Promise<{ submissionId: string; language: string; code: string }> {
+  return get<{ submissionId: string; language: string; code: string }>(
+    `${SUBMISSIONS}/${submissionId}/code`,
+  )
 }
 
 export async function getAssessmentSubmission(

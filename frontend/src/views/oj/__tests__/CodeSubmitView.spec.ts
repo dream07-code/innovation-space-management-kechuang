@@ -1,13 +1,15 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ElementPlus from 'element-plus'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import CodeSubmitView from '@/views/oj/CodeSubmitView.vue'
 
 const mocks = vi.hoisted(() => ({
   getAssessmentProblem: vi.fn<(id: string) => Promise<unknown>>(),
   getAssessment: vi.fn<(id: string) => Promise<unknown>>(),
+  getAssessmentSubmissionCode: vi.fn<(id: string) => Promise<unknown>>(),
+  listAssessmentSubmissions: vi.fn<(query?: unknown) => Promise<unknown>>(),
   getAssessmentSubmission: vi.fn<(id: string) => Promise<unknown>>(),
   getPracticeTestCases: vi.fn<(id: string) => Promise<unknown>>(),
   runPractice: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
@@ -45,6 +47,8 @@ vi.mock('@/components/CodeEditor.vue', async () => {
 vi.mock('@/api/modules/oj', () => ({
   getAssessmentProblem: mocks.getAssessmentProblem,
   getAssessment: mocks.getAssessment,
+  getAssessmentSubmissionCode: mocks.getAssessmentSubmissionCode,
+  listAssessmentSubmissions: mocks.listAssessmentSubmissions,
   getAssessmentSubmission: mocks.getAssessmentSubmission,
   getPracticeTestCases: mocks.getPracticeTestCases,
   runPractice: mocks.runPractice,
@@ -52,6 +56,12 @@ vi.mock('@/api/modules/oj', () => ({
   createAssessmentSubmission: mocks.createAssessmentSubmission,
 }))
 let routeParams: Record<string, string> = { problemId: '9101' }
+
+beforeEach(() => {
+  routeParams = { problemId: '9101' }
+  mocks.listAssessmentSubmissions.mockReset().mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
+  mocks.getAssessmentSubmissionCode.mockReset()
+})
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: routeParams }),
   useRouter: () => ({ back: () => undefined, push: vi.fn<(route: unknown) => void>() }),
@@ -252,6 +262,95 @@ describe('CodeSubmitView 正式考核轮询', () => {
 })
 
 describe('CodeSubmitView 起始代码', () => {
+  it('考核做题页回填本人最近一次提交的代码并提示', async () => {
+    routeParams = { assessmentId: '8001', problemId: '9101' }
+    mocks.getAssessment.mockResolvedValue({
+      id: '8001',
+      title: '积分考核',
+      allowedLanguages: ['python', 'cpp'],
+    })
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '两数之和',
+      summary: 's',
+      description: 'd',
+      inputFormat: '无',
+      outputFormat: '和',
+      examples: [],
+      difficulty: 'EASY',
+      tags: [],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['python', 'cpp'],
+      judgeMode: 'FUNCTION',
+      functionName: 'add',
+      parameterTypes: ['int', 'int'],
+      returnType: 'int',
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-26T09:00:00+08:00',
+      updatedAt: '2026-10-26T09:00:00+08:00',
+    })
+    mocks.listAssessmentSubmissions.mockResolvedValue({
+      items: [{ id: '7001', language: 'python', status: 'JUDGED' }],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    mocks.getAssessmentSubmissionCode.mockResolvedValue({
+      submissionId: '7001',
+      language: 'python',
+      code: 'print(42)',
+    })
+
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(mocks.listAssessmentSubmissions).toHaveBeenCalledWith({
+      assessmentId: '8001',
+      problemId: '9101',
+    })
+    expect(mocks.getAssessmentSubmissionCode).toHaveBeenCalledWith('7001')
+    expect(wrapper.get('[data-test="code-editor"]').element.value).toBe('print(42)')
+    expect(wrapper.get('[data-test="restored-notice"]').exists()).toBe(true)
+  })
+
+  it('没有历史提交时保持起始框架且不显示提示', async () => {
+    routeParams = { assessmentId: '8001', problemId: '9101' }
+    mocks.getAssessment.mockResolvedValue({
+      id: '8001',
+      title: '积分考核',
+      allowedLanguages: ['python', 'cpp'],
+    })
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '两数之和',
+      summary: 's',
+      description: 'd',
+      inputFormat: '无',
+      outputFormat: '和',
+      examples: [],
+      difficulty: 'EASY',
+      tags: [],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['python'],
+      judgeMode: 'STDIO',
+      functionName: null,
+      parameterTypes: null,
+      returnType: null,
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-26T09:00:00+08:00',
+      updatedAt: '2026-10-26T09:00:00+08:00',
+    })
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="code-editor"]').element.value).not.toBe('')
+    expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(false)
+  })
+
   it('按语言载入可编译框架，并在切换语言时保留已写代码', async () => {
     routeParams = { problemId: '9101' }
     mocks.getAssessmentProblem.mockResolvedValue({

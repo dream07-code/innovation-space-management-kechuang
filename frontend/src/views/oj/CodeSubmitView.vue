@@ -17,7 +17,9 @@ import {
   getAssessment,
   getAssessmentProblem,
   getAssessmentSubmission,
+  getAssessmentSubmissionCode,
   getPracticeTestCases,
+  listAssessmentSubmissions,
   runPractice,
   runTrial as runTrialProblem,
 } from '@/api/modules/oj'
@@ -52,6 +54,8 @@ const language = ref<AssessmentLanguage>('python')
 const code = ref('')
 /** 每个语言各自保留编辑中的代码，切换语言不丢失已写内容。 */
 const codeByLanguage = ref<Partial<Record<AssessmentLanguage, string>>>({})
+/** 考核做题页：是否成功回填了本人最近一次提交的代码。 */
+const restoredPrevious = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const runningPractice = ref(false)
@@ -123,6 +127,29 @@ async function load(): Promise<void> {
     language.value = allowedLanguages.value[0] ?? 'python'
     code.value = starterFor(language.value)
     codeByLanguage.value[language.value] = code.value
+    // 考核做题页：回填本人对该题最近一次提交的代码（语言跟随那次提交），
+    // 让学生返回检查客观题后再进来能继续写。无提交或代码缺失时保持起始框架。
+    if (assessmentId.value) {
+      try {
+        const page = await listAssessmentSubmissions({
+          assessmentId: assessmentId.value,
+          problemId: problemId.value,
+        })
+        const latest = page.items[0]
+        const lastLanguage = latest?.language as AssessmentLanguage | undefined
+        if (latest && lastLanguage && allowedLanguages.value.includes(lastLanguage)) {
+          const saved = await getAssessmentSubmissionCode(latest.id)
+          if (saved.code.trim()) {
+            language.value = lastLanguage
+            code.value = saved.code
+            codeByLanguage.value[lastLanguage] = saved.code
+            restoredPrevious.value = true
+          }
+        }
+      } catch {
+        // 回填失败不影响做题：保持起始框架。
+      }
+    }
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -299,6 +326,15 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
 
 <template>
   <el-card v-loading="loading" shadow="never">
+      <el-alert
+        v-if="restoredPrevious"
+        type="success"
+        :closable="false"
+        show-icon
+        data-test="restored-notice"
+        title="已载入你上次提交的代码，可以继续编辑后重新提交。"
+        class="restored-notice"
+      />
     <template #header>
       <div class="page__header">
         <div>
@@ -793,5 +829,9 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
   .workspace--narrow.workspace--result .workspace__editor {
     display: block;
   }
+}
+
+.restored-notice {
+  margin-bottom: 12px;
 }
 </style>
