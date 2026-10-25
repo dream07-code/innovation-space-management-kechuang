@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // Vite 6+ 默认只允许本机/内网 Host（防 DNS rebinding）。把 dev server
+      // 通过隧道暴露到公网演示时需要放行外部域名；生产走 nginx 同源，不受影响。
+      allowedHosts: true,
       proxy: {
         // 业务接口
         '/api': { target: backendTarget, changeOrigin: true },
