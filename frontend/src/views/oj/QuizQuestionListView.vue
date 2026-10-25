@@ -22,7 +22,7 @@ const router = useRouter()
 const data = ref<PageData<QuizQuestion> | null>(null)
 const loading = ref(false)
 const type = ref<QuizQuestionType | ''>('')
-const status = ref('')
+const status = ref<QuizQuestion['status'] | ''>('')
 const keyword = ref('')
 const importVisible = ref(false)
 

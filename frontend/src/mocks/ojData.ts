@@ -73,6 +73,10 @@ const INITIAL_ASSESSMENTS: Assessment[] = [
     endAt: '2026-10-31T23:59:59+08:00',
     allowedLanguages: ['java', 'python', 'cpp', 'javascript'],
     problemIds: ['9101', '9102'],
+    items: [
+      { position: 1, type: 'PROGRAM', refId: '9101', score: 100 },
+      { position: 2, type: 'PROGRAM', refId: '9102', score: 100 },
+    ],
     version: 2,
     createdAt: '2026-10-09T09:00:00+08:00',
     updatedAt: '2026-10-10T09:00:00+08:00',
@@ -88,6 +92,7 @@ const INITIAL_ASSESSMENTS: Assessment[] = [
     endAt: '2026-10-25T23:59:59+08:00',
     allowedLanguages: ['java', 'javascript'],
     problemIds: ['9103'],
+    items: [{ position: 1, type: 'PROGRAM', refId: '9103', score: 100 }],
     version: 1,
     createdAt: '2026-10-11T09:00:00+08:00',
     updatedAt: '2026-10-11T09:00:00+08:00',
@@ -103,6 +108,7 @@ const INITIAL_ASSESSMENTS: Assessment[] = [
     endAt: '2026-09-10T23:59:59+08:00',
     allowedLanguages: ['python'],
     problemIds: ['9102'],
+    items: [{ position: 1, type: 'PROGRAM', refId: '9102', score: 100 }],
     version: 3,
     createdAt: '2026-08-28T09:00:00+08:00',
     updatedAt: '2026-09-10T23:59:59+08:00',
@@ -454,6 +460,9 @@ export function createAssessment(payload: CreateAssessmentRequest): Assessment {
     id: String(9000 + OJ_ASSESSMENTS.length + 1),
     ...payload,
     directionName: direction?.name ?? '',
+    problemIds: payload.items
+      .filter((item) => item.type === 'PROGRAM')
+      .map((item) => item.refId),
     status: 'DRAFT',
     version: 1,
     createdAt: now,

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import QuizQuestionEditView from '@/views/oj/QuizQuestionEditView.vue'
 
 const mocks = vi.hoisted(() => ({
-  routeParams: {} as Record<string, string>,
+  routeParams: {} as Record<string, string | undefined>,
   createQuizQuestion: vi.fn<(payload: unknown, key: string) => Promise<unknown>>(),
   updateQuizQuestion: vi.fn<(id: string, payload: unknown) => Promise<unknown>>(),
   getQuizQuestion: vi.fn<(id: string) => Promise<unknown>>(),

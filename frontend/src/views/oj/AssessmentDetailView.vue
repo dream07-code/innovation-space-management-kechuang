@@ -26,7 +26,7 @@ import {
 } from '@/components/ojMeta'
 import { QUIZ_TYPE_META } from '@/components/quizMeta'
 import { useAuthStore } from '@/stores/auth'
-import type { Assessment, AssessmentProblem, QuizQuestion } from '@/api/types'
+import type { Assessment, AssessmentProblem, QuizQuestion, QuizQuestionType } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -241,7 +241,7 @@ onMounted(load)
               :type="row.type === 'PROGRAM' ? 'primary' : 'warning'"
               effect="plain"
             >
-              {{ row.type === 'PROGRAM' ? '程序设计' : QUIZ_TYPE_META[row.quizType ?? 'FILL_BLANK'].label }}
+              {{ row.type === 'PROGRAM' ? '程序设计' : QUIZ_TYPE_META[(row.quizType ?? 'FILL_BLANK') as QuizQuestionType].label }}
             </el-tag>
           </template>
         </el-table-column>

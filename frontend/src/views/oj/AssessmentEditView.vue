@@ -110,7 +110,7 @@ function addItem(type: ItemType): void {
   const question = quizzes.value.find((q) => q.id === refId)
   const label =
     type === 'PROGRAM'
-      ? programLabel(problem ?? { title: refId, difficulty: '' })
+      ? programLabel(problem ?? { title: refId, difficulty: 'EASY' })
       : quizLabel(question ?? { type: 'FILL_BLANK', stem: refId })
   items.value.push({ type, refId, score: DEFAULT_SCORE[type], label })
   if (type === 'PROGRAM') selectedProgram.value = ''
@@ -121,7 +121,7 @@ function move(index: number, delta: -1 | 1): void {
   const target = index + delta
   if (target < 0 || target >= items.value.length) return
   const list = items.value
-  ;[list[index], list[target]] = [list[target], list[index]]
+  ;[list[index], list[target]] = [list[target]!, list[index]!]
 }
 
 function remove(index: number): void {
@@ -162,7 +162,7 @@ async function load(): Promise<void> {
           score: item.score,
           label:
             item.type === 'PROGRAM'
-              ? programLabel(problem ?? { title: item.refId, difficulty: '' })
+              ? programLabel(problem ?? { title: item.refId, difficulty: 'EASY' })
               : quizLabel(question ?? { type: 'FILL_BLANK', stem: item.refId }),
         }
       })
@@ -193,7 +193,12 @@ async function save(): Promise<void> {
       startAt: form.startAt,
       endAt: form.endAt,
       allowedLanguages: form.allowedLanguages,
-      items: items.value.map(({ type, refId, score }) => ({ type, refId, score })),
+      items: items.value.map(({ type, refId, score }, index) => ({
+        position: index + 1,
+        type,
+        refId,
+        score,
+      })),
     }
     if (isNew.value) {
       const created = await createAssessment(base, newIdempotencyKey())

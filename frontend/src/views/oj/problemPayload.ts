@@ -87,6 +87,7 @@ export function buildCreateProblemPayload(
 ): CreateAssessmentProblemRequest {
   return {
     ...basePayload(form),
+    judgeMode: 'FUNCTION' as const,
     assessmentTestCases: form.assessmentTestCases.map((row) => ({
       input: row.input,
       expectedOutput: row.expectedOutput,

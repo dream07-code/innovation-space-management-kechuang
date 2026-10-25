@@ -42,7 +42,7 @@ describe('客观题库 API', () => {
   it('以幂等键创建客观题', async () => {
     const api = await import('@/api/modules/quiz')
     const payload = {
-      type: 'SINGLE_CHOICE',
+      type: 'SINGLE_CHOICE' as const,
       stem: '下列哪种遍历是层序遍历？',
       options: ['前序', '中序', '广度优先', '深度优先'],
       answer: 'C',

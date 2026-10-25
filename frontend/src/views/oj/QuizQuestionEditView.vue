@@ -13,7 +13,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { createQuizQuestion, getQuizQuestion, updateQuizQuestion } from '@/api/modules/quiz'
 import { describeError, toApiError } from '@/api/errors'
 import { optionLetter } from '@/components/quizMeta'
-import type { QuizQuestion, QuizQuestionType } from '@/api/types'
+import type { CreateQuizQuestionRequest, QuizQuestion, QuizQuestionType } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -67,7 +67,7 @@ function removeOption(index: number): void {
   if (options.value.length > 2) options.value.splice(index, 1)
 }
 
-function buildPayload(): Record<string, unknown> | null {
+function buildPayload(): Omit<CreateQuizQuestionRequest, 'type'> | null {
   const trimmedOptions = options.value.map((o) => o.trim())
   const nonBlank = trimmedOptions.filter((o) => o.length > 0)
   let answer: string | string[] | boolean | null = null
@@ -129,9 +129,9 @@ async function save(): Promise<void> {
   saving.value = true
   try {
     if (isNew.value) {
-      await createQuizQuestion({ type: type.value, ...(base as never) }, newIdempotencyKey())
+      await createQuizQuestion({ type: type.value, ...base }, newIdempotencyKey())
     } else {
-      await updateQuizQuestion(questionId.value as string, base as never)
+      await updateQuizQuestion(questionId.value as string, base)
     }
     ElMessage.success(isNew.value ? '已创建客观题' : '已保存客观题')
     void router.push({ name: 'oj-quiz-bank' })

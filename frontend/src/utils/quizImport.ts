@@ -52,7 +52,9 @@ export async function readQuizImportFile(file: File): Promise<QuizImportRow[]> {
   return parseQuizImportRows(matrix)
 }
 
-export function parseQuizImportRows(matrix: unknown[][]): QuizImportRow[] {
+export function parseQuizImportRows(
+  matrix: ReadonlyArray<readonly unknown[]>,
+): QuizImportRow[] {
   if (matrix.length === 0) return []
   // 首行含「题型」视为表头跳过，兼容无表头直贴数据。
   const first = (matrix[0] ?? []).map((c) => String(c ?? '').trim())

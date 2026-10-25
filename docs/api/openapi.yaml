@@ -4923,6 +4923,7 @@ components:
           - RATE_LIMITED
           - INTERNAL_ERROR
           - RULES_NOT_CONFIGURED
+          - PROBLEM_IN_USE
           - SERVICE_UNAVAILABLE
         message:
           type: string
