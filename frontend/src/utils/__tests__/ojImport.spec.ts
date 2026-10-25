@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { parseOjImportJson } from '@/utils/ojImport'
@@ -14,7 +17,12 @@ const validProblem = (title: string) => ({
   timeLimitMs: 1000,
   memoryLimitKb: 65536,
   allowedLanguages: ['java'],
-  assessmentTestCases: [{ input: '1', expectedOutput: '1' }],
+  judgeMode: 'FUNCTION',
+  functionName: 'add',
+  parameterTypes: ['int', 'int'],
+  returnType: 'int',
+  assessmentTestCases: [{ input: '[1, 2]', expectedOutput: '3' }],
+  practiceTestCases: [{ input: '[10, -3]', expectedOutput: '7' }],
 })
 
 describe('OJ 题库 JSON 导入预览', () => {
@@ -26,7 +34,7 @@ describe('OJ 题库 JSON 导入预览', () => {
     expect(result.errors).toEqual([])
     expect(result.payload?.problems).toHaveLength(2)
     expect(result.payload?.problems[0]?.assessmentTestCases).toEqual([
-      { input: '1', expectedOutput: '1' },
+      { input: '[1, 2]', expectedOutput: '3' },
     ])
   })
 
@@ -59,5 +67,53 @@ describe('OJ 题库 JSON 导入预览', () => {
     const result = parseOjImportJson('{"problems": [')
     expect(result.payload).toBeNull()
     expect(result.errors).toEqual([{ index: 0, code: 'INVALID_JSON' }])
+  })
+})
+
+describe('函数传参（FUNCTION）签名校验', () => {
+  const cases: Array<[string, unknown]> = [
+    ['judgeMode 不接受 STDIO', { judgeMode: 'STDIO' }],
+    ['缺少 functionName', { functionName: undefined }],
+    ['functionName 不合法', { functionName: '9fn' }],
+    ['parameterTypes 超过 4 个', { parameterTypes: ['int', 'int', 'int', 'int', 'int'] }],
+    ['parameterTypes 含未知类型', { parameterTypes: ['double'] }],
+    ['returnType 非法', { returnType: 'void' }],
+    ['测试点 input 不是 JSON 数组', { assessmentTestCases: [{ input: '1 2', expectedOutput: '3' }] }],
+    ['参数个数不匹配', { assessmentTestCases: [{ input: '[1]', expectedOutput: '3' }] }],
+    ['参数类型不匹配', { assessmentTestCases: [{ input: '["1", 2]', expectedOutput: '3' }] }],
+    ['int 参数越界', { assessmentTestCases: [{ input: '[2147483648, 1]', expectedOutput: '3' }] }],
+    ['练习测试点同样按签名校验', { practiceTestCases: [{ input: '1 2', expectedOutput: '3' }] }],
+  ]
+
+  it.each(cases)('%s 时返回 INVALID_PROBLEM', (_name, override) => {
+    const problem = { ...validProblem('签名题'), ...override }
+    const result = parseOjImportJson(JSON.stringify({ problems: [problem] }))
+    expect(result.errors).toEqual([{ index: 0, code: 'INVALID_PROBLEM' }])
+  })
+
+  it('接受数组与布尔等复合签名', () => {
+    const problem = {
+      ...validProblem('复合签名题'),
+      functionName: 'sortedUnique',
+      parameterTypes: ['int[]'],
+      returnType: 'int[]',
+      assessmentTestCases: [
+        { input: '[[4, 1, 4, 2]]', expectedOutput: '[1,2,4]' },
+        { input: '[[]]', expectedOutput: '[]' },
+      ],
+      practiceTestCases: undefined,
+    }
+    const result = parseOjImportJson(JSON.stringify({ problems: [problem] }))
+    expect(result.errors).toEqual([])
+  })
+})
+
+describe('随仓库分发的导入模板', () => {
+  it('tools/oj-bank/oj-import-template.json 通过本地校验', () => {
+    const specPath = expect.getState().testPath ?? process.cwd()
+    const templatePath = resolve(specPath, '../../../../../tools/oj-bank/oj-import-template.json')
+    const result = parseOjImportJson(readFileSync(templatePath, 'utf-8'))
+    expect(result.errors).toEqual([])
+    expect(result.payload?.problems.length).toBeGreaterThan(0)
   })
 })

@@ -1,0 +1,82 @@
+{
+  "problems": [
+    {
+      "title": "回文串判定（模板示例）",
+      "summary": "实现函数 isPalindrome，判断给定字符串是否为回文串。",
+      "description": "给定一个字符串 s，判断它是否为回文串：正读与反读相同。\n\n学员只需实现函数体，判题时系统会按签名把测试点参数传入函数并比对返回值。\n\n模板使用说明：本文件是批量导入模板，把两道示例题替换成真实题目即可；每个字段的具体规则见 tools/oj-bank/README.md 的「导入模板字段规则」一节。",
+      "inputFormat": "函数签名：isPalindrome(s: string) → bool。参数 s 为待判断的字符串，长度不超过 1000，仅含小写英文字母。",
+      "outputFormat": "返回 bool：是回文串返回 true，否则返回 false。",
+      "examples": [
+        {
+          "input": "\"level\"",
+          "output": "true",
+          "explanation": "isPalindrome(\"level\") 返回 true。"
+        },
+        {
+          "input": "\"hello\"",
+          "output": "false",
+          "explanation": "正读 hello、反读 olleh，不相等，返回 false。"
+        }
+      ],
+      "difficulty": "EASY",
+      "tags": ["模板示例", "字符串", "双指针"],
+      "timeLimitMs": 1000,
+      "memoryLimitKb": 262144,
+      "allowedLanguages": ["java", "python", "cpp"],
+      "judgeMode": "FUNCTION",
+      "functionName": "isPalindrome",
+      "parameterTypes": ["string"],
+      "returnType": "bool",
+      "assessmentTestCases": [
+        { "input": "[\"level\"]", "expectedOutput": "true" },
+        { "input": "[\"hello\"]", "expectedOutput": "false" },
+        { "input": "[\"\"]", "expectedOutput": "true" },
+        { "input": "[\"abba\"]", "expectedOutput": "true" },
+        { "input": "[\"abcabc\"]", "expectedOutput": "false" }
+      ],
+      "practiceTestCases": [
+        { "input": "[\"level\"]", "expectedOutput": "true" },
+        { "input": "[\"hello\"]", "expectedOutput": "false" }
+      ]
+    },
+    {
+      "title": "数组去重排序（模板示例）",
+      "summary": "实现函数 sortedUnique，把整数数组去重并按升序返回。",
+      "description": "给定一个整数数组 nums，去除重复元素后按升序排序并返回结果数组。\n\n数据范围：0 ≤ nums.length ≤ 1000，-10^9 ≤ nums[i] ≤ 10^9。\n\n本示例演示数组参数与数组返回值的写法：测试点 input 是 JSON 参数数组，expectedOutput 是返回值的紧凑 JSON 文本。",
+      "inputFormat": "函数签名：sortedUnique(nums: int[]) → int[]。参数 nums 为整数数组。",
+      "outputFormat": "返回 int[]：去重并升序排序后的数组。",
+      "examples": [
+        {
+          "input": "[3, 1, 3, 2]",
+          "output": "[1, 2, 3]",
+          "explanation": "去重后元素为 {3, 1, 2}，升序排列得到 [1, 2, 3]。"
+        },
+        {
+          "input": "[]",
+          "output": "[]",
+          "explanation": "空数组去重排序后仍为空数组。"
+        }
+      ],
+      "difficulty": "MEDIUM",
+      "tags": ["模板示例", "数组", "排序", "哈希表"],
+      "timeLimitMs": 1000,
+      "memoryLimitKb": 262144,
+      "allowedLanguages": ["java", "python", "cpp"],
+      "judgeMode": "FUNCTION",
+      "functionName": "sortedUnique",
+      "parameterTypes": ["int[]"],
+      "returnType": "int[]",
+      "assessmentTestCases": [
+        { "input": "[[4, 1, 4, 2]]", "expectedOutput": "[1,2,4]" },
+        { "input": "[[]]", "expectedOutput": "[]" },
+        { "input": "[[5, -3, 5, -3, 0]]", "expectedOutput": "[-3,0,5]" },
+        { "input": "[[7, 7, 7, 7]]", "expectedOutput": "[7]" },
+        { "input": "[[1000000000, -1000000000, 0]]", "expectedOutput": "[-1000000000,0,1000000000]" }
+      ],
+      "practiceTestCases": [
+        { "input": "[[4, 1, 4, 2]]", "expectedOutput": "[1,2,4]" },
+        { "input": "[[]]", "expectedOutput": "[]" }
+      ]
+    }
+  ]
+}

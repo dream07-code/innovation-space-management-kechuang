@@ -3,13 +3,20 @@
 为学院科创空间管理系统的 OJ 模块准备的题库与转换工具。产出文件可以直接通过
 `POST /api/v1/assessment-problems/import` 批量导入，无需逐题手工录入。
 
+> **重要（2026-10 起的契约变化）**：导入接口新建题目统一为**函数传参（FUNCTION）模式**，
+> 每题必须给出函数签名，测试点 `input` 填写与参数列表匹配的 JSON 参数数组。
+> 下表的 `out/oj-problems-30.json` 及 `generate_bank.py` 生成链路仍是旧的
+> 标准输入输出（STDIO）格式，**当前无法通过导入接口**，待转换（欠账）。
+> 新题请以 `oj-import-template.json` 为模板手工编写。
+
 ## 交付物
 
 | 文件 | 说明 |
 | --- | --- |
-| `out/oj-problems-30.json` | **主交付物**。30 道题、222 个正式测试点、60 个练习测试点，174.8 KB |
-| `problems_easy.py` / `problems_medium.py` / `problems_hard.py` | 题目定义：题面、参考解、测试输入 |
-| `generate_bank.py` | 编译题目定义，生成导入 JSON，并做契约自检 |
+| `oj-import-template.json` | **导入模板**。两道示例题覆盖 `string → bool`、`int[] → int[]` 两种典型签名，可整体通过前端与后端校验 |
+| `out/oj-problems-30.json` | 旧版 STDIO 格式题库（30 道题、222 个正式测试点、60 个练习测试点，174.8 KB）。存量格式，待转换为函数传参模式后再导入 |
+| `problems_easy.py` / `problems_medium.py` / `problems_hard.py` | 题目定义：题面、参考解、测试输入（STDIO 口径） |
+| `generate_bank.py` | 编译题目定义，生成导入 JSON，并做契约自检（STDIO 口径） |
 | `validate_bank.py` | 独立校验器，规则与后端 `AssessmentProblemServiceImpl` 一致 |
 | `check_weak_solutions.py` | 弱解检测：用常见错误算法验证测试数据的区分度 |
 | `convert_kattis.py` | 把 Kattis / ICPC 风格开源题包转成本系统导入 JSON |
@@ -59,13 +66,46 @@
 - 练习测试点 `practiceTestCases`：取最小的两个输入，供学生自测；
 - 时间/内存限制与允许语言（`cpp`、`java`、`python`）。
 
+## 导入模板字段规则
+
+根节点只有一个键 `problems`（数组，1..100 题，单文件 ≤5MB，整批原子写入，标题不区分大小写去重）。
+每题字段（多一个键、少一个必填键都会整批被拒）：
+
+| 字段 | 必填 | 规则 |
+| --- | --- | --- |
+| `title` | 是 | ≤120 字符；同一批内不能重名（忽略大小写与首尾空格） |
+| `summary` | 是 | 一句话摘要，≤300 字符 |
+| `description` | 是 | 题面，≤20000 字符 |
+| `inputFormat` | 是 | 描述函数参数，≤5000 字符 |
+| `outputFormat` | 是 | 描述返回值，≤5000 字符 |
+| `examples` | 是 | 数组 ≤20 项，每项 `{input, output, explanation?}`，纯展示文本 |
+| `difficulty` | 是 | `EASY` / `MEDIUM` / `HARD` |
+| `tags` | 是 | ≤20 个，每个 ≤40 字符 |
+| `timeLimitMs` | 是 | 100..30000 |
+| `memoryLimitKb` | 是 | 1024..1048576 |
+| `allowedLanguages` | 是 | 1..6 个，取值 `java` / `python` / `cpp` / `javascript` / `go` / `rust` |
+| `judgeMode` | 否 | 只能是 `FUNCTION`（缺省即 FUNCTION；新建不允许 STDIO） |
+| `functionName` | 是 | 匹配 `^[A-Za-z_][A-Za-z0-9_]{0,63}$` |
+| `parameterTypes` | 是 | 0..4 个，取值 `int` / `long` / `bool` / `string` / `int[]` / `long[]` / `string[]` / `int[][]` |
+| `returnType` | 是 | 同 `parameterTypes` 的取值 |
+| `assessmentTestCases` | 是 | 1..100 个正式考核隐藏测试点 |
+| `practiceTestCases` | 否 | ≤100 个题库练习测试点，向学生公开输入与期望输出 |
+
+测试点每项只有两个键，值都是字符串：
+
+- `input`：**JSON 参数数组文本**，元素个数与 `parameterTypes` 一一对应且类型匹配。
+  例如签名 `(int, int[])` 时 `"[3, [1, 2, 3]]"`；签名 `(string)` 时 `"[\"level\"]"`。
+- `expectedOutput`：**返回值的紧凑 JSON 文本**。`int`/`long` 写 `3`；`bool` 写 `true`；
+  `string` 写带引号的 `"abc"`（不带引号也能被归一化补引号）；数组写 `[1,2,4]`；
+  矩阵写 `[[1,2],[3,4]]`。
+
 ## 导入步骤
 
 ### 方式一：前端页面
 
 1. 使用学院管理员或方向负责人账号登录；
 2. 进入「OJ 题库」（`/oj/problems`）；
-3. 点击「导入」，选择 `out/oj-problems-30.json`；
+3. 点击「导入」，选择导入文件（新题请复制 `oj-import-template.json` 修改；`out/oj-problems-30.json` 为存量 STDIO 格式，暂不可导入）；
 4. 页面会先做本地预览校验，确认题名和数量后提交。
 
 ### 方式二：命令行
@@ -190,5 +230,5 @@ python3 convert_kattis.py ./packages/* -o out/open-source-bank.json \
 
 - 单批最多 100 题、5MB；超过时请拆分文件分批导入（每批使用不同的幂等键）。
 - 题面为纯文本，`description` 中的 Markdown 标记会按原样显示。
-- 判题走 Judge0，测试点必须采用标准输入输出；交互题、SPJ 题暂不支持。
+- 判题走 Judge0，新建题目统一函数传参模式：测试点 `input` 为 JSON 参数数组、`expectedOutput` 为返回值 JSON 文本；标准输入输出（STDIO）仅存量题目保留，交互题、SPJ 题暂不支持。
 - 练习测试点会向学生展示输入与期望输出，因此只放小规模样例。

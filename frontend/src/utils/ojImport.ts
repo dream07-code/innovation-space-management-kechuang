@@ -1,8 +1,11 @@
 /**
  * OJ 题库 JSON 批量导入的本地预览与安全校验。
  *
- * 预览只保留题目数量、题名索引和稳定错误码，不把原始文件内容写入状态；
- * 后端仍会重新校验并在一个事务中原子写入。
+ * 新建题目统一为函数传参（FUNCTION）模式：每题必须给出函数签名，
+ * 测试点 input 填写与参数列表匹配的 JSON 参数数组，规则与后端
+ * FunctionHarness 对齐；后端仍会重新校验并在一个事务中原子写入。
+ *
+ * 预览只保留题目数量、题名索引和稳定错误码，不把原始文件内容写入状态。
  */
 import type {
   CreateAssessmentProblemRequest,
@@ -32,6 +35,26 @@ export interface OjImportPreview {
 type RecordValue = Record<string, unknown>
 
 const LANGUAGE_VALUES = new Set(['java', 'python', 'cpp', 'javascript', 'go', 'rust'])
+const FUNCTION_TYPE_VALUES = new Set([
+  'int',
+  'long',
+  'bool',
+  'string',
+  'int[]',
+  'long[]',
+  'string[]',
+  'int[][]',
+])
+const ARRAY_ITEM_TYPES = {
+  'int[]': 'int',
+  'long[]': 'long',
+  'string[]': 'string',
+  'int[][]': 'int[]',
+} as const
+const INT_MIN = -2147483648
+const INT_MAX = 2147483647
+const MAX_ARRAY_LENGTH = 100_000
+
 const PROBLEM_FIELDS = new Set([
   'title',
   'summary',
@@ -44,6 +67,10 @@ const PROBLEM_FIELDS = new Set([
   'timeLimitMs',
   'memoryLimitKb',
   'allowedLanguages',
+  'judgeMode',
+  'functionName',
+  'parameterTypes',
+  'returnType',
   'assessmentTestCases',
   'practiceTestCases',
 ])
@@ -75,7 +102,44 @@ function validExamples(value: unknown): boolean {
   })
 }
 
-function validTestCases(value: unknown, required: boolean): boolean {
+function argumentMatches(type: string, value: unknown): boolean {
+  switch (type) {
+    case 'int':
+      return (
+        typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= INT_MIN &&
+        value <= INT_MAX
+      )
+    case 'long':
+      return typeof value === 'number' && Number.isInteger(value)
+    case 'bool':
+      return typeof value === 'boolean'
+    case 'string':
+      return typeof value === 'string'
+    default: {
+      const itemType = ARRAY_ITEM_TYPES[type as keyof typeof ARRAY_ITEM_TYPES]
+      if (!itemType) return false
+      return Array.isArray(value) && value.length <= MAX_ARRAY_LENGTH
+        ? value.every((element) => argumentMatches(itemType, element))
+        : false
+    }
+  }
+}
+
+/** 测试点 input 必须是与参数列表个数、类型都匹配的 JSON 数组文本。 */
+function validArguments(input: string, parameterTypes: string[]): boolean {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(input)
+  } catch {
+    return false
+  }
+  if (!Array.isArray(parsed) || parsed.length !== parameterTypes.length) return false
+  return parameterTypes.every((type, index) => argumentMatches(type, parsed[index]))
+}
+
+function validTestCases(value: unknown, required: boolean, parameterTypes: string[]): boolean {
   if (value === undefined && !required) return true
   if (!Array.isArray(value) || value.length > 100 || (required && value.length === 0)) return false
   return value.every((item) => {
@@ -87,7 +151,8 @@ function validTestCases(value: unknown, required: boolean): boolean {
       typeof item.input === 'string' &&
       item.input.length <= 1_000_000 &&
       typeof item.expectedOutput === 'string' &&
-      item.expectedOutput.length <= 1_000_000
+      item.expectedOutput.length <= 1_000_000 &&
+      validArguments(item.input, parameterTypes)
     )
   })
 }
@@ -118,7 +183,27 @@ function validProblem(value: unknown): value is CreateAssessmentProblemRequest {
   ) {
     return false
   }
-  return validTestCases(value.assessmentTestCases, true) && validTestCases(value.practiceTestCases, false)
+  // 函数传参模式是新建题目唯一模式；签名与测试点参数规则与后端 FunctionHarness 一致。
+  if (value.judgeMode !== undefined && value.judgeMode !== 'FUNCTION') return false
+  if (typeof value.functionName !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(value.functionName)) {
+    return false
+  }
+  if (
+    !Array.isArray(value.parameterTypes) ||
+    value.parameterTypes.length > 4 ||
+    !value.parameterTypes.every(
+      (type) => typeof type === 'string' && FUNCTION_TYPE_VALUES.has(type),
+    )
+  ) {
+    return false
+  }
+  if (typeof value.returnType !== 'string' || !FUNCTION_TYPE_VALUES.has(value.returnType)) {
+    return false
+  }
+  return (
+    validTestCases(value.assessmentTestCases, true, value.parameterTypes) &&
+    validTestCases(value.practiceTestCases, false, value.parameterTypes)
+  )
 }
 
 function error(index: number, code: OjImportErrorCode): OjImportError {
