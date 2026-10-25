@@ -8,7 +8,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { EditPen, View } from '@element-plus/icons-vue'
+import { Download, EditPen, View } from '@element-plus/icons-vue'
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -21,6 +21,7 @@ import {
   listAssessmentResults,
 } from '@/api/modules/oj'
 import { listAnswerSheets } from '@/api/modules/quiz'
+import { exportMemberScores } from '@/utils/scoreExport' 
 import { describeError, toApiError } from '@/api/errors'
 import {
   assessmentStatusMeta,
@@ -90,6 +91,19 @@ function openCode(submissionId: string): void {
 
 /** 管理员和方向负责人可进入人工批阅，评完回到当前结果页。 */
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
+
+const exporting = ref(false)
+async function onExport(): Promise<void> {
+  if (!assessment.value) return
+  exporting.value = true
+  try {
+    await exportMemberScores(assessmentId.value, assessment.value.title)
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    exporting.value = false
+  }
+}
 
 function openReview(submissionId: string): void {
   if (!submissionId) return
@@ -244,6 +258,16 @@ async function loadBase(): Promise<void> {
         <el-radio-button value="member">按学生汇总</el-radio-button>
         <el-radio-button value="submission">按提交</el-radio-button>
       </el-radio-group>
+      <el-button
+        v-if="canReview && viewMode === 'member'"
+        class="page__export"
+        :icon="Download"
+        :loading="exporting"
+        data-test="export-scores"
+        @click="onExport"
+      >
+        导出 Excel
+      </el-button>
     </div>
 
     <el-table v-if="viewMode === 'member'" :data="memberScores?.items ?? []" row-key="memberId">
@@ -519,5 +543,9 @@ async function loadBase(): Promise<void> {
 .sheet-empty {
   color: var(--el-text-color-secondary);
   padding: 12px 0;
+}
+
+.page__export {
+  margin-left: 12px;
 }
 </style>
