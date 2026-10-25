@@ -109,6 +109,24 @@ public class PointLedgerServiceImpl implements PointLedgerService {
     }
   }
 
+  public void appendIfAbsent(
+      long member, int delta, String source, String eventKey, Instant effective) {
+    if (eventKey == null || eventKey.isBlank()) throw new IllegalArgumentException("eventKey");
+    try {
+      jdbc.update(
+          "INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(?,NULL,NULL,?,?,?,?,?,?)",
+          member,
+          delta,
+          source,
+          Timestamp.from(effective),
+          Timestamp.from(clock.instant()),
+          "v1",
+          eventKey);
+    } catch (DuplicateKeyException duplicate) {
+      // 幂等事件：唯一键是事实来源。
+    }
+  }
+
   public int reverseNonZeroEntries(long memberId, String ruleVersion, Instant recordedAt) {
     if (ruleVersion == null || ruleVersion.isBlank() || ruleVersion.length() > 64)
       throw new IllegalArgumentException("ruleVersion");
@@ -228,6 +246,7 @@ public class PointLedgerServiceImpl implements PointLedgerService {
       case "AI_ADJUSTMENT" -> "报告评分调整";
       case "MANUAL_ADJUSTMENT" -> "人工积分调整";
       case "REVERSAL" -> "积分冲正";
+      case "ASSESSMENT_REWARD" -> "考核奖励";
       default -> "积分流水";
     };
   }

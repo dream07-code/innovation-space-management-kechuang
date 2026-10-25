@@ -64,6 +64,7 @@ const form = reactive({
   startAt: '',
   endAt: '',
   allowedLanguages: ['java', 'python'] as AssessmentLanguage[],
+  pointsEnabled: false,
 })
 
 /** 混合条目列表：数组顺序即试卷 position。 */
@@ -145,6 +146,7 @@ async function load(): Promise<void> {
       form.directionId = assessment.value.directionId
       form.startAt = assessment.value.startAt
       form.endAt = assessment.value.endAt
+      form.pointsEnabled = assessment.value.pointsEnabled ?? false
       form.allowedLanguages = [...assessment.value.allowedLanguages]
       // 条目化接口优先；旧数据无 items 时按 problemIds 回填（分值 100 兼容旧口径）。
       const raw = assessment.value.items ?? assessment.value.problemIds.map((refId, index) => ({
@@ -193,6 +195,7 @@ async function save(): Promise<void> {
       startAt: form.startAt,
       endAt: form.endAt,
       allowedLanguages: form.allowedLanguages,
+      pointsEnabled: form.pointsEnabled,
       items: items.value.map(({ type, refId, score }, index) => ({
         position: index + 1,
         type,
@@ -269,6 +272,15 @@ onMounted(load)
         <el-select v-model="form.allowedLanguages" multiple style="width: 100%">
           <el-option v-for="item in languageOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
+      </el-form-item>
+
+      <el-form-item label="考核积分">
+        <div class="points-switch" data-test="points-switch">
+          <el-switch v-model="form.pointsEnabled" />
+          <span class="points-switch__hint">
+            开启后考核关闭时按最终成绩发放积分：第一名 20 分，其余按成绩占第一名的比例折算（并列第一同分，0 分不发）。
+          </span>
+        </div>
       </el-form-item>
 
       <el-form-item label="混合条目（程序题 + 客观题，顺序即试卷题号）">
@@ -405,5 +417,18 @@ onMounted(load)
 .item-total {
   margin-top: 10px;
   font-weight: 600;
+}
+
+.points-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.points-switch__hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }
 </style>

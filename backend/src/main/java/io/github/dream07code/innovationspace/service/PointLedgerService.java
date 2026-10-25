@@ -19,6 +19,8 @@ public interface PointLedgerService {
   Map<String, Object> summary(long member, String monthValue);
   Map<String, Object> ledger( SessionPrincipal principal, Long requestedMember, String monthValue, int page, int size);
   void appendIfAbsent( long member, long report, long version, int delta, String source, String eventKey, Instant effective);
+  /** 无关联报告的积分流水（如考核奖励）：report_id/report_version_id 写 NULL。 */
+  void appendIfAbsent( long member, int delta, String source, String eventKey, Instant effective);
   int reverseNonZeroEntries(long memberId, String ruleVersion, Instant recordedAt);
   int sourceNet(long memberId, String source);
   int sourceNet(long memberId, Long reportId, String source);

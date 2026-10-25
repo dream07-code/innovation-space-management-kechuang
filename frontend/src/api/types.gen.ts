@@ -2852,6 +2852,8 @@ export interface components {
             directionName: string;
             /** @enum {string} */
             status: "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
+            /** @description 是否开启考核积分奖励；开启后考核关闭时按成绩比例发放（第一名 20 分封顶）。 */
+            pointsEnabled?: boolean;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -3098,9 +3100,13 @@ export interface components {
             endAt: string;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
             items: components["schemas"]["AssessmentItem"][];
+            /** @description 缺省 false；开启后考核关闭时按成绩比例发放积分（第一名 20 分封顶）。 */
+            pointsEnabled?: boolean;
         };
         UpdateAssessmentRequest: {
             version: number;
+            /** @description 缺省保持原值；开关在关闭时决定是否结算积分。 */
+            pointsEnabled?: boolean;
             title?: string;
             description?: string;
             /** Format: date-time */

@@ -34,6 +34,7 @@ public class AssessmentServiceImpl implements AssessmentService {
   private final TransactionTemplate tx;
   private final AssessmentStatePolicy states = new AssessmentStatePolicy();
   private final io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets;
+  private final io.github.dream07code.innovationspace.service.AssessmentPointsRewardService pointsRewards;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public AssessmentServiceImpl(
@@ -41,12 +42,14 @@ public class AssessmentServiceImpl implements AssessmentService {
       IdempotencyService idem,
       Clock clock,
       PlatformTransactionManager manager,
-      io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets) {
+      io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets,
+      io.github.dream07code.innovationspace.service.AssessmentPointsRewardService pointsRewards) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
     this.answerSheets = answerSheets;
+    this.pointsRewards = pointsRewards;
   }
 
   public IdempotencyService.StoredResponse create(
@@ -64,11 +67,12 @@ public class AssessmentServiceImpl implements AssessmentService {
                 status -> {
                   Instant now = clock.instant();
                   jdbc.update(
-                      "INSERT INTO assessment(title,description,direction_id,status,start_at,end_at,allowed_languages,version,created_by,created_at,updated_at)"
-                          + " VALUES(?,?,?,'DRAFT',?,?,?,'1',?,?,?)",
+                      "INSERT INTO assessment(title,description,direction_id,status,points_enabled,start_at,end_at,allowed_languages,version,created_by,created_at,updated_at)"
+                          + " VALUES(?,?,?,'DRAFT',?,?,?,?,'1',?,?,?)",
                       requiredText(request, "title", 120),
                       requiredText(request, "description", 10000),
                       directionId,
+                      booleanField(request),
                       offset(request.get("startAt")),
                       offset(request.get("endAt")),
                       json.writeValueAsString(languages(request.get("allowedLanguages"))),
@@ -142,7 +146,8 @@ public class AssessmentServiceImpl implements AssessmentService {
             throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
           Map<String, Object> values = new LinkedHashMap<>(request);
           values.remove("version");
-          if (!Set.of("title", "description", "startAt", "endAt", "allowedLanguages", "items")
+          if (!Set.of(
+                  "title", "description", "startAt", "endAt", "allowedLanguages", "items", "pointsEnabled")
               .containsAll(values.keySet())) throw bad();
           var fields = new ArrayList<String>();
           var args = new ArrayList<Object>();
@@ -151,6 +156,7 @@ public class AssessmentServiceImpl implements AssessmentService {
           if (values.containsKey("startAt")) { fields.add("start_at=?"); args.add(offset(values.get("startAt"))); }
           if (values.containsKey("endAt")) { fields.add("end_at=?"); args.add(offset(values.get("endAt"))); }
           if (values.containsKey("allowedLanguages")) { fields.add("allowed_languages=?"); args.add(json.writeValueAsString(languages(values.get("allowedLanguages")))); }
+          if (values.containsKey("pointsEnabled")) { fields.add("points_enabled=?"); args.add(booleanField(values)); }
           if (fields.isEmpty() && !values.containsKey("items")) throw bad();
           fields.add("version=version+1");
           fields.add("updated_at=?");
@@ -198,6 +204,8 @@ public class AssessmentServiceImpl implements AssessmentService {
                   if (target == AssessmentStatus.CLOSED) {
                     // 提前关闭等同提前截止：在批草稿自动交卷判分，不留在批学生被清零。
                     answerSheets.submitAllDrafts(id);
+                    // 积分考核在关闭时按最终成绩比例一次性结算（幂等）。
+                    pointsRewards.settle(id);
                   }
                   if (target == AssessmentStatus.PUBLISHED) {
                     var publishedProblemIds =
@@ -227,6 +235,14 @@ public class AssessmentServiceImpl implements AssessmentService {
                   return new IdempotencyService.StoredResponse(
                       200, json.writeValueAsString(ApiResponse.success(response(id))));
                 }));
+  }
+
+  /** 可选布尔字段：缺省 false；传入时必须是真的布尔。 */
+  private static boolean booleanField(Map<String, Object> request) {
+    Object value = request.get("pointsEnabled");
+    if (value == null) return false;
+    if (!(value instanceof Boolean b)) throw bad();
+    return b;
   }
 
   private long validateCreate(Map<String, Object> request) {
@@ -337,6 +353,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     out.put("directionId", String.valueOf(row.get("direction_id")));
     out.put("directionName", jdbc.queryForObject("SELECT name FROM direction WHERE id=?", String.class, row.get("direction_id")));
     out.put("status", row.get("status"));
+    out.put("pointsEnabled", Boolean.TRUE.equals(row.get("points_enabled")));
     out.put("startAt", time(row.get("start_at")));
     out.put("endAt", time(row.get("end_at")));
     out.put("allowedLanguages", json.readValue(String.valueOf(row.get("allowed_languages")), List.class));

@@ -154,9 +154,29 @@ describe('AssessmentEditView 混合条目', () => {
       }),
       expect.any(String),
     )
+    // 开关缺省关闭。
+    expect(mocks.createAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ pointsEnabled: false }),
+      expect.any(String),
+    )
   })
 
-  it('编辑态按 assessment.items 回填并原样提交', async () => {
+  it('积分开关开启后创建载荷携带 pointsEnabled', async () => {
+    const wrapper = await mountView()
+    await fillBasics(wrapper)
+    await addItem(wrapper, 'program', 'p1')
+    await wrapper.get('[data-test="points-switch"] input').setValue(true)
+    await wrapper.get('[data-test="save"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.createAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ pointsEnabled: true }),
+      expect.any(String),
+    )
+    expect(wrapper.text()).toContain('第一名 20 分')
+  })
+
+  it('编辑态按 assessment.items 与积分开关回填并原样提交', async () => {
     mocks.routeParams.assessmentId = '9001'
     mocks.getAssessment.mockResolvedValue({
       id: '9001',
@@ -168,6 +188,7 @@ describe('AssessmentEditView 混合条目', () => {
       endAt: '2026-11-01T10:00:00+08:00',
       allowedLanguages: ['java'],
       problemIds: ['p1'],
+      pointsEnabled: true,
       items: [
         { position: 1, type: 'PROGRAM', refId: 'p1', score: 80 },
         { position: 2, type: 'QUIZ', refId: 'q1', score: 5 },
@@ -175,6 +196,8 @@ describe('AssessmentEditView 混合条目', () => {
     })
     const wrapper = await mountView()
     expect(wrapper.text()).toContain('合计 85 分')
+    // pointsEnabled: true 回填到开关。
+    expect(wrapper.get('[data-test="points-switch"] input').element.checked).toBe(true)
 
     await fillBasics(wrapper)
     await wrapper.get('[data-test="save"]').trigger('click')

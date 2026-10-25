@@ -5701,6 +5701,9 @@ components:
         status:
           type: string
           enum: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]
+        pointsEnabled:
+          type: boolean
+          description: 是否开启考核积分奖励；开启后考核关闭时按成绩比例发放（第一名 20 分封顶）。
         startAt:
           type: string
           format: date-time
@@ -6178,12 +6181,14 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/AssessmentItem'
+        pointsEnabled: {type: boolean, description: 缺省 false；开启后考核关闭时按成绩比例发放积分（第一名 20 分封顶）。}
       additionalProperties: false
     UpdateAssessmentRequest:
       type: object
       required: [version]
       properties:
         version: {type: integer, minimum: 1}
+        pointsEnabled: {type: boolean, description: 缺省保持原值；开关在关闭时决定是否结算积分。}
         title: {type: string, minLength: 1, maxLength: 120}
         description: {type: string, maxLength: 10000}
         startAt: {type: string, format: date-time}
