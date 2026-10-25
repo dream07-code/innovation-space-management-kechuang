@@ -73,6 +73,38 @@ public class MemberController {
     return ApiResponse.success(members.addPoints(memberId, request, actor()));
   }
 
+  @PostMapping("/{memberId}/points/reset")
+  public ResponseEntity<String> resetPoints(
+      @PathVariable long memberId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    var result =
+        members.adminAction(
+            memberId,
+            request,
+            actor(),
+            key,
+            "/api/v1/members/" + memberId + "/points/reset",
+            () -> members.resetPoints(memberId, request, actor()));
+    return stored(result);
+  }
+
+  @PostMapping("/{memberId}/delete")
+  public ResponseEntity<String> delete(
+      @PathVariable long memberId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    var result =
+        members.adminAction(
+            memberId,
+            request,
+            actor(),
+            key,
+            "/api/v1/members/" + memberId + "/delete",
+            () -> members.delete(memberId, request, actor()));
+    return stored(result);
+  }
+
   @PostMapping("/{memberId}/restore")
   public ResponseEntity<String> restore(
       @PathVariable long memberId,

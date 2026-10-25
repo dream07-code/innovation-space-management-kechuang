@@ -65,4 +65,6 @@ public interface MemberService {
   void revoke(long user, String reason);
   Map<String, Object> restore(long id, Map<String, Object> request, SessionPrincipal actor);
   Map<String, Object> addPoints(long id, Map<String, Object> request, SessionPrincipal actor);
+  Map<String, Object> delete(long id, Map<String, Object> request, SessionPrincipal actor);
+  Map<String, Object> resetPoints(long id, Map<String, Object> request, SessionPrincipal actor);
 }

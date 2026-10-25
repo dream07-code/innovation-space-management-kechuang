@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
@@ -110,7 +111,7 @@ describe('函数传参（FUNCTION）签名校验', () => {
 
 describe('随仓库分发的导入模板', () => {
   it('tools/oj-bank/oj-import-template.json 通过本地校验', () => {
-    const specPath = expect.getState().testPath ?? process.cwd()
+    const specPath = fileURLToPath(import.meta.url)
     const templatePath = resolve(specPath, '../../../../../tools/oj-bank/oj-import-template.json')
     const result = parseOjImportJson(readFileSync(templatePath, 'utf-8'))
     expect(result.errors).toEqual([])

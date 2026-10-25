@@ -483,4 +483,79 @@ public class MemberServiceImpl implements MemberService {
           return map(row(id));
         });
   }
+
+  /**
+   * 管理员把学生净积分清零：追加 REVERSAL 冲正流水，历史保留、排行与看板实时归零。
+   * 与恢复学生一致，同时把在途评分任务置 STALE，避免僵尸任务事后又把分加回来。
+   */
+  public Map<String, Object> resetPoints(long id, Map<String, Object> request, SessionPrincipal actor) {
+    fields(request, Set.of("version", "reason"));
+    String reason = required(request, "reason", 1000);
+    return tx.execute(
+        status -> {
+          var before = lockedRow(id);
+          if (!"STUDENT".equals(before.get("role"))
+              || !"ACTIVE".equals(before.get("membership_status")))
+            throw new ApiException(409, ErrorCode.INVALID_STATE);
+          Integer beforeSum =
+              jdbc.queryForObject(
+                  "SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE member_id=?",
+                  Integer.class,
+                  id);
+          Instant now = clock.instant();
+          int reversed = points.reverseNonZeroEntries(id, "ADMIN_POINTS_RESET_V1", now);
+          jdbc.update(
+              "UPDATE report_scoring_task t JOIN report r ON r.id=t.report_id"
+                  + " SET t.status='STALE',t.safe_error_code='POINTS_RESET',t.finished_at=?,t.updated_at=?"
+                  + " WHERE r.member_id=? AND t.status IN ('QUEUED','PROCESSING','RETRYING')",
+              Timestamp.from(now), Timestamp.from(now), id);
+          audit(actor, "POINTS_RESET", id, reason, "Reset student points");
+          jdbc.update(
+              "UPDATE audit_log SET detail=JSON_OBJECT('beforeSum',?,'reversedEntries',?) WHERE id=LAST_INSERT_ID()",
+              beforeSum == null ? 0 : beforeSum, reversed);
+          return map(row(id));
+        });
+  }
+
+  /**
+   * 物理删除学生及其登录账号。已有任何业务记录（报告、积分流水、考核提交、
+   * 人工批阅、答题卡）时返回 409 MEMBER_IN_USE——历史数据必须保留；审计行
+   * 的 actor 置空后保留。响应无数据（资源已不存在）。
+   */
+  public Map<String, Object> delete(long id, Map<String, Object> request, SessionPrincipal actor) {
+    fields(request, Set.of("version", "reason"));
+    String reason = required(request, "reason", 1000);
+    return tx.execute(
+        status -> {
+          var before = lockedRow(id);
+          if (!"STUDENT".equals(before.get("role")))
+            throw new ApiException(409, ErrorCode.INVALID_STATE);
+          if (referenced(id)) throw new ApiException(409, ErrorCode.MEMBER_IN_USE);
+          long user = ((Number) before.get("user_id")).longValue();
+          jdbc.update("UPDATE audit_log SET actor_user_id=NULL WHERE actor_user_id=?", user);
+          jdbc.update("DELETE FROM api_idempotency WHERE actor_user_id=?", user);
+          jdbc.update("DELETE FROM auth_session WHERE user_id=?", user);
+          jdbc.update("DELETE FROM app_user WHERE id=?", user);
+          jdbc.update("DELETE FROM member WHERE id=?", id);
+          audit(actor, "MEMBER_DELETED", id, reason, "Deleted student");
+          jdbc.update(
+              "UPDATE audit_log SET detail=JSON_OBJECT('studentNo',?,'name',?) WHERE id=LAST_INSERT_ID()",
+              before.get("student_no"), before.get("name"));
+          return null;
+        });
+  }
+
+  private boolean referenced(long id) {
+    for (String table :
+        new String[] {
+          "report", "point_ledger", "assessment_submission", "assessment_review",
+          "assessment_answer_sheet"
+        }) {
+      Integer count =
+          jdbc.queryForObject(
+              "SELECT COUNT(*) FROM " + table + " WHERE member_id=?", Integer.class, id);
+      if (count != null && count > 0) return true;
+    }
+    return false;
+  }
 }

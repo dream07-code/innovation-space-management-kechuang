@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * 成员详情：查看 + 编辑资料 + 管理员专属操作（恢复、加分、重置密码、更正学号）。
+ * 成员详情：查看 + 编辑资料 + 管理员专属操作（恢复、加分、重置积分、重置密码、更正学号、删除）。
  *
  * 契约权限：
  *   - 负责人只能看/改所辖方向的普通学生，不能改方向；
- *   - 恢复、加分、更正学号、重置密码：仅学院管理员；
+ *   - 恢复、加分、重置积分、更正学号、重置密码、删除：仅学院管理员；
+ *   - 删除是物理删除：已有业务记录的学生会被 409 MEMBER_IN_USE 拦下，历史必须保留；
  *   - 手动移出（removeMember）契约中仍是 pending，不提供入口。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -14,8 +15,10 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import {
   addMemberPoints,
   correctStudentNumber,
+  deleteMember,
   getMember,
   resetMemberPassword,
+  resetMemberPoints,
   restoreMember,
   updateMember,
 } from '@/api/modules/members'
@@ -54,8 +57,10 @@ const isLeader = computed(() => auth.isLeader)
 const canEdit = computed(() => isAdmin.value || isLeader.value)
 const canRestore = computed(() => isAdmin.value && member.value?.membershipStatus === 'REMOVED')
 const canAddPoints = computed(() => isAdmin.value && member.value?.membershipStatus === 'ACTIVE')
+const canResetPoints = computed(() => isAdmin.value && member.value?.membershipStatus === 'ACTIVE')
 const canResetPassword = computed(() => isAdmin.value && member.value?.accountStatus === 'ENABLED')
 const canCorrectNo = computed(() => isAdmin.value)
+const canDelete = computed(() => isAdmin.value && member.value?.role === 'STUDENT')
 
 async function load(): Promise<void> {
   loading.value = true
@@ -199,6 +204,57 @@ async function handleCorrectNo(): Promise<void> {
   }
 }
 
+async function handleResetPoints(): Promise<void> {
+  const { value: reason } = await ElMessageBox.prompt(
+    '净积分将清零（历史流水保留，可审计），排行同步更新。请输入重置原因（至少 5 个字符）',
+    '重置积分',
+    {
+      confirmButtonText: '确认重置',
+      cancelButtonText: '取消',
+      inputValidator: (v) => (v && v.trim().length >= 5 ? true : '原因至少 5 个字符'),
+    },
+  ).catch(() => ({ value: null as string | null }))
+  if (!reason) return
+
+  try {
+    const updated = await resetMemberPoints(
+      memberId.value,
+      { version: member.value!.version, reason },
+      newIdempotencyKey(),
+    )
+    member.value = updated
+    ElMessage.success('净积分已清零，历史流水保留')
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  }
+}
+
+async function handleDelete(): Promise<void> {
+  const { value: reason } = await ElMessageBox.prompt(
+    '将永久删除该学生及其登录账号，无法恢复；已有日报/积分/考核记录的学生无法删除。请输入删除原因（至少 5 个字符）',
+    '删除学生',
+    {
+      type: 'warning',
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      inputValidator: (v) => (v && v.trim().length >= 5 ? true : '原因至少 5 个字符'),
+    },
+  ).catch(() => ({ value: null as string | null }))
+  if (!reason) return
+
+  try {
+    await deleteMember(
+      memberId.value,
+      { version: member.value!.version, reason },
+      newIdempotencyKey(),
+    )
+    ElMessage.success('学生已删除')
+    void router.push({ name: 'admin-members' })
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  }
+}
+
 onMounted(async () => {
   await directions.ensureLoaded()
   await load()
@@ -269,8 +325,10 @@ onMounted(async () => {
           <el-button v-if="canEdit" type="primary" :loading="saving" @click="save">保存资料</el-button>
           <el-button v-if="canRestore" type="warning" @click="handleRestore">恢复学生</el-button>
           <el-button v-if="canAddPoints" type="success" @click="handleAddPoints">加分</el-button>
+          <el-button v-if="canResetPoints" type="warning" plain @click="handleResetPoints">重置积分</el-button>
           <el-button v-if="canResetPassword" @click="handleResetPassword">重置密码</el-button>
           <el-button v-if="canCorrectNo" @click="handleCorrectNo">更正学号</el-button>
+          <el-button v-if="canDelete" type="danger" plain data-test="delete-member" @click="handleDelete">删除学生</el-button>
           <el-button @click="router.back()">返回</el-button>
         </div>
       </el-form>

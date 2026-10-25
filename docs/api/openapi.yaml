@@ -1096,6 +1096,65 @@ paths:
               $ref: '#/components/schemas/AddMemberPointsRequest'
             example:
               points: 3
+  /api/v1/members/{memberId}/points/reset:
+    post:
+      tags:
+      - 成员
+      operationId: resetMemberPoints
+      summary: 重置学生净积分为零
+      description: 仅学院管理员、仅 ACTIVE 学生。追加 REVERSAL 冲正流水而非删除历史，
+        排行/看板实时归零；同时在途评分任务置 STALE，避免事后又把分加回来。幂等。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应为完整资源现状。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+
   /api/v1/members/{memberId}/restore:
     post:
       tags:
@@ -1179,6 +1238,66 @@ paths:
             example:
               version: 1
               reason: 已核对本次操作原因
+  /api/v1/members/{memberId}/delete:
+    post:
+      tags:
+      - 成员
+      operationId: deleteMember
+      summary: 物理删除学生及其账号
+      description: 仅学院管理员、仅学生角色。已有任何业务记录（报告、积分流水、考核提交、
+        人工批阅、答题卡）时 409 MEMBER_IN_USE——历史数据必须保留；审计行的操作者置空后保留。
+        成功后成员、登录账号、会话一并删除，响应无数据。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      responses:
+        '200':
+          description: 成功；响应无数据。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+      parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 十进制字符串 ID，不转换为 JavaScript Number。
+          pattern: ^[1-9][0-9]{0,18}$
+          example: '201'
+
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonVersionRequest'
+            example:
+              version: 1
+              reason: 已核对本次操作原因
+
   /api/v1/direction-leaders:
     get:
       tags:
@@ -4917,13 +5036,14 @@ components:
           - REPORT_ALREADY_EXISTS
           - REPORT_NOT_EDITABLE
           - INVALID_STATE
+          - PROBLEM_IN_USE
+          - MEMBER_IN_USE
           - IDEMPOTENCY_CONFLICT
           - MONTH_CLOSED
           - SCORING_PENDING
           - RATE_LIMITED
           - INTERNAL_ERROR
           - RULES_NOT_CONFIGURED
-          - PROBLEM_IN_USE
           - SERVICE_UNAVAILABLE
         message:
           type: string

@@ -6,7 +6,7 @@
  * 权限矩阵（契约 §5）：
  *   - 学院管理员：全方向成员；
  *   - 方向负责人：仅所辖方向的普通学生，可看列表/详情/改资料，不能改方向；
- *   - 恢复、加分、更正学号、重置密码：仅学院管理员。
+ *   - 恢复、加分、重置积分、更正学号、重置密码、删除：仅学院管理员。
  *
  * 手动移出（removeMember）在契约中仍是 pending —— 本期不提供前端入口，
  * 成员的 REMOVED 状态只可能来自后端的自动移出定时任务。
@@ -107,4 +107,28 @@ export async function addMemberPoints(
   payload: AddMemberPointsRequest,
 ): Promise<Member> {
   return postWithoutIdempotency<Member>(`${BASE}/${memberId}/points`, payload)
+}
+
+/**
+ * 管理员把学生净积分清零：追加 REVERSAL 冲正流水（历史保留），排行实时归零。
+ * 已移出学生返回 409 INVALID_STATE。
+ */
+export async function resetMemberPoints(
+  memberId: string,
+  payload: ReasonVersionRequest,
+  idempotencyKey: string,
+): Promise<Member> {
+  return post<Member>(`${BASE}/${memberId}/points/reset`, payload, { idempotencyKey })
+}
+
+/**
+ * 物理删除学生及其登录账号。已有任何业务记录（报告/积分/考核）时
+ * 返回 409 MEMBER_IN_USE，只能等自动移出保留历史。
+ */
+export async function deleteMember(
+  memberId: string,
+  payload: ReasonVersionRequest,
+  idempotencyKey: string,
+): Promise<null> {
+  return post<null>(`${BASE}/${memberId}/delete`, payload, { idempotencyKey })
 }

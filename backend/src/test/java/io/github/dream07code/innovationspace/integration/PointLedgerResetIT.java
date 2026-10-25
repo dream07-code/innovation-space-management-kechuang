@@ -38,9 +38,16 @@ class PointLedgerResetIT {
     var points = new PointLedgerServiceImpl(jdbc, Clock.systemUTC());
     assertEquals(4, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-16T00:00:00Z")));
     assertEquals(0, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-17T00:00:00Z")));
+    // 不同规则（如管理员重置）再次清零：只应补冲正尚未被冲正的新流水，不得双重扣分。
+    assertEquals(0, points.reverseNonZeroEntries(10, "ADMIN_POINTS_RESET_V1", Instant.parse("2026-10-18T00:00:00Z")));
+    jdbc.update(
+        "INSERT INTO point_ledger(member_id,report_id,report_version_id,delta,source,business_effective_at,recorded_at,rule_version,event_key) VALUES(10,20,30,5,'MANUAL_ADJUSTMENT','2026-10-18 03:00:00','2026-10-18 03:00:00','MANUAL_ADMIN_ADD_V1','late-44')");
+    assertEquals(1, points.reverseNonZeroEntries(10, "ADMIN_POINTS_RESET_V1", Instant.parse("2026-10-19T00:00:00Z")));
+    assertEquals(0, points.reverseNonZeroEntries(10, InactivityPolicy.RULE_VERSION, Instant.parse("2026-10-20T00:00:00Z")));
 
-    assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source<>'REVERSAL'", Integer.class));
-    assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source='REVERSAL'", Integer.class));
+    // 4 条原始流水 + 后补的 late-44（及各自冲正），历史全部保留。
+    assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source<>'REVERSAL'", Integer.class));
+    assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger WHERE source='REVERSAL'", Integer.class));
     assertEquals(0, points.sourceNet(10, "AI_ADJUSTMENT"));
     assertEquals(0, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE member_id=10", Integer.class));
     assertEquals(0, jdbc.queryForObject("SELECT COALESCE(SUM(delta),0) FROM point_ledger WHERE report_id=20", Integer.class));

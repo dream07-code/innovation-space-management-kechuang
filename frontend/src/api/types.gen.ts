@@ -269,6 +269,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members/{memberId}/points/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 重置学生净积分为零
+         * @description 仅学院管理员、仅 ACTIVE 学生。追加 REVERSAL 冲正流水而非删除历史， 排行/看板实时归零；同时在途评分任务置 STALE，避免事后又把分加回来。幂等。
+         */
+        post: operations["resetMemberPoints"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members/{memberId}/restore": {
         parameters: {
             query?: never;
@@ -283,6 +303,26 @@ export interface paths {
          * @description 仅学院管理员可恢复REMOVED学生。保留报告和积分原始流水/冲正历史，但净积分保持0；membershipStartedAt重置为恢复时间，开始新的14个完整自然日观察期。不恢复旧token或先前会话。
          */
         post: operations["restoreMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{memberId}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 物理删除学生及其账号
+         * @description 仅学院管理员、仅学生角色。已有任何业务记录（报告、积分流水、考核提交、 人工批阅、答题卡）时 409 MEMBER_IN_USE——历史数据必须保留；审计行的操作者置空后保留。 成功后成员、登录账号、会话一并删除，响应无数据。
+         */
+        post: operations["deleteMember"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2468,7 +2508,7 @@ export interface components {
         Role: "COLLEGE_ADMIN" | "DIRECTION_LEADER" | "STUDENT";
         ErrorResponse: {
             /** @enum {string} */
-            code: "INVALID_REQUEST" | "OLD_PASSWORD_INVALID" | "PASSWORD_POLICY_VIOLATION" | "UNAUTHORIZED" | "TOKEN_EXPIRED" | "INVALID_CREDENTIALS" | "REFRESH_TOKEN_INVALID" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "ACCOUNT_DISABLED" | "MEMBER_REMOVED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "VERSION_CONFLICT" | "ACCOUNT_ALREADY_EXISTS" | "REPORT_ALREADY_EXISTS" | "REPORT_NOT_EDITABLE" | "INVALID_STATE" | "IDEMPOTENCY_CONFLICT" | "MONTH_CLOSED" | "SCORING_PENDING" | "RATE_LIMITED" | "INTERNAL_ERROR" | "RULES_NOT_CONFIGURED" | "PROBLEM_IN_USE" | "SERVICE_UNAVAILABLE";
+            code: "INVALID_REQUEST" | "OLD_PASSWORD_INVALID" | "PASSWORD_POLICY_VIOLATION" | "UNAUTHORIZED" | "TOKEN_EXPIRED" | "INVALID_CREDENTIALS" | "REFRESH_TOKEN_INVALID" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "ACCOUNT_DISABLED" | "MEMBER_REMOVED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "VERSION_CONFLICT" | "ACCOUNT_ALREADY_EXISTS" | "REPORT_ALREADY_EXISTS" | "REPORT_NOT_EDITABLE" | "INVALID_STATE" | "PROBLEM_IN_USE" | "MEMBER_IN_USE" | "IDEMPOTENCY_CONFLICT" | "MONTH_CLOSED" | "SCORING_PENDING" | "RATE_LIMITED" | "INTERNAL_ERROR" | "RULES_NOT_CONFIGURED" | "SERVICE_UNAVAILABLE";
             /** @example Invalid request */
             message: string;
             /** @enum {object|null} */
@@ -5483,6 +5523,51 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    resetMemberPoints: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "version": 1,
+                 *       "reason": "已核对本次操作原因"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ReasonVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；响应为完整资源现状。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     restoreMember: {
         parameters: {
             query?: never;
@@ -5544,6 +5629,51 @@ export interface operations {
                      *     }
                      */
                     "application/json": components["schemas"]["MemberResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "version": 1,
+                 *       "reason": "已核对本次操作原因"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ReasonVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；响应无数据。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmptyResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];

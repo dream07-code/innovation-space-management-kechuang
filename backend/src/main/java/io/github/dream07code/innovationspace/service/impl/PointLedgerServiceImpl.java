@@ -112,10 +112,16 @@ public class PointLedgerServiceImpl implements PointLedgerService {
   public int reverseNonZeroEntries(long memberId, String ruleVersion, Instant recordedAt) {
     if (ruleVersion == null || ruleVersion.isBlank() || ruleVersion.length() > 64)
       throw new IllegalArgumentException("ruleVersion");
+    // 只冲正尚未被任何规则冲正过的流水：幂等键含 ruleVersion，若不按
+    // originalId 去重，两个不同规则（如管理员重置 + 不活跃移出）先后执行会双重扣分。
     var originals =
         jdbc.queryForList(
-            "SELECT id,report_id,report_version_id,delta,business_effective_at FROM point_ledger"
-                + " WHERE member_id=? AND delta<>0 AND source<>'REVERSAL' ORDER BY id",
+            "SELECT pl.id,pl.report_id,pl.report_version_id,pl.delta,pl.business_effective_at"
+                + " FROM point_ledger pl"
+                + " WHERE pl.member_id=? AND pl.delta<>0 AND pl.source<>'REVERSAL'"
+                + " AND NOT EXISTS (SELECT 1 FROM point_ledger rv WHERE rv.source='REVERSAL'"
+                + "   AND rv.event_key LIKE CONCAT('MEMBERSHIP_POINTS_RESET:', pl.member_id, ':', pl.id, ':%'))"
+                + " ORDER BY pl.id",
             memberId);
     int inserted = 0;
     for (var original : originals) {

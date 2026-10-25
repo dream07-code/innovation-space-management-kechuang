@@ -18,6 +18,7 @@ public enum ErrorCode {
   ACCOUNT_ALREADY_EXISTS("Account already exists"),
   INVALID_STATE("Invalid state"),
   PROBLEM_IN_USE("Problem in use"),
+  MEMBER_IN_USE("Member in use"),
   IDEMPOTENCY_CONFLICT("Idempotency conflict"),
     RATE_LIMITED("Rate limited"),
     REPORT_ALREADY_EXISTS("Report already exists"),
