@@ -6,6 +6,7 @@
  * showText 已无意义（文字在标志图内），保留参数兼容旧调用。
  */
 import brandIcon from '@/assets/brand-logo.svg'
+import brandGraphic from '@/assets/brand-graphic.svg'
 withDefaults(
   defineProps<{
     size?: number
@@ -22,10 +23,16 @@ withDefaults(
   <div class="brand-logo">
     <span class="brand-logo__badge" :style="{ height: `${size}px` }">
       <img
-        class="brand-logo__mark"
+        class="brand-logo__mark brand-logo__mark--full"
         :src="brandIcon"
         alt="科创空间标志"
         :style="{ height: `${Math.max(size - 12, 16)}px` }"
+      >
+      <!-- 窄屏侧栏宽度放不下横版：切换为纯图形（无文字），避免溢出截断。 -->
+      <img
+        class="brand-logo__mark brand-logo__mark--graphic"
+        :src="brandGraphic"
+        alt="科创空间标志"
       >
     </span>
   </div>
@@ -55,6 +62,22 @@ withDefaults(
   display: block;
   width: auto;
   object-fit: contain;
+}
+
+.brand-logo__mark--graphic {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .brand-logo__mark--full {
+    display: none;
+  }
+
+  .brand-logo__mark--graphic {
+    display: block;
+    width: auto;
+    height: calc(100% - 12px);
+  }
 }
 
 .brand-copy {
