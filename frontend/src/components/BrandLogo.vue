@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * 科创空间品牌标志。
+ * 科创空间品牌标志（横版整图：图形 + 中英文文字，位图矢量化）。
  *
- * 使用项目提供的原创品牌图，背景已做透明化处理；
- * 组件只负责尺寸、文字和无障碍语义，不修改图形本身。
+ * 白底圆角容器保证深色侧栏上黑字可读；组件只负责尺寸与无障碍语义。
+ * showText 已无意义（文字在标志图内），保留参数兼容旧调用。
  */
 import brandIcon from '@/assets/brand-logo.svg'
 withDefaults(
@@ -13,19 +13,20 @@ withDefaults(
   }>(),
   {
     size: 42,
-    showText: true,
+    showText: false,
   },
 )
 </script>
 
 <template>
   <div class="brand-logo">
-    <span class="brand-logo__badge" :style="{ width: `${size}px`, height: `${size}px` }">
-      <img class="brand-logo__mark" :src="brandIcon" alt="科创空间标志">
-    </span>
-
-    <span v-if="showText" class="brand-copy">
-      <strong>科创空间</strong>
+    <span class="brand-logo__badge" :style="{ height: `${size}px` }">
+      <img
+        class="brand-logo__mark"
+        :src="brandIcon"
+        alt="科创空间标志"
+        :style="{ height: `${Math.max(size - 12, 16)}px` }"
+      >
     </span>
   </div>
 </template>
@@ -35,17 +36,16 @@ withDefaults(
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 11px;
 }
 
 .brand-logo__badge {
-  display: grid;
+  display: inline-flex;
   flex: 0 0 auto;
-  place-items: center;
-  padding: 3px;
+  align-items: center;
+  padding: 0 10px;
   border: 1px solid rgba(41, 167, 224, 0.25);
   border-radius: 10px;
-  background: #f2f9fe;
+  background: #ffffff;
   box-shadow:
     0 8px 18px rgba(37, 99, 235, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.72);
@@ -53,8 +53,7 @@ withDefaults(
 
 .brand-logo__mark {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
   object-fit: contain;
 }
 
