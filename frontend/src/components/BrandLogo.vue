@@ -1,11 +1,10 @@
 <script setup lang="ts">
 /**
- * 科创空间品牌标志（横版整图：图形 + 中英文文字，位图矢量化）。
+ * 科创空间品牌标志（纯图形，位图矢量化；不带文字）。
  *
- * 白底圆角容器保证深色侧栏上黑字可读；组件只负责尺寸与无障碍语义。
- * showText 已无意义（文字在标志图内），保留参数兼容旧调用。
+ * 图形填满白底徽标框（框内无留白，图高 = 框高）；组件只负责尺寸与
+ * 无障碍语义。showText 保留参数兼容旧调用但不再渲染文字。
  */
-import brandIcon from '@/assets/brand-logo.svg'
 import brandGraphic from '@/assets/brand-graphic.svg'
 withDefaults(
   defineProps<{
@@ -23,16 +22,10 @@ withDefaults(
   <div class="brand-logo">
     <span class="brand-logo__badge" :style="{ height: `${size}px` }">
       <img
-        class="brand-logo__mark brand-logo__mark--full"
-        :src="brandIcon"
-        alt="科创空间标志"
-        :style="{ height: `${Math.max(size - 12, 16)}px` }"
-      >
-      <!-- 窄屏侧栏宽度放不下横版：切换为纯图形（无文字），避免溢出截断。 -->
-      <img
-        class="brand-logo__mark brand-logo__mark--graphic"
+        class="brand-logo__mark"
         :src="brandGraphic"
         alt="科创空间标志"
+        :style="{ height: `${size}px` }"
       >
     </span>
   </div>
@@ -45,11 +38,12 @@ withDefaults(
   align-items: center;
 }
 
+/* 图形撑满徽标：无内边距，框尺寸由方形图形决定。 */
 .brand-logo__badge {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  padding: 0 10px;
+  overflow: hidden;
   border: 1px solid rgba(41, 167, 224, 0.25);
   border-radius: 10px;
   background: #ffffff;
@@ -62,43 +56,5 @@ withDefaults(
   display: block;
   width: auto;
   object-fit: contain;
-}
-
-.brand-logo__mark--graphic {
-  display: none;
-}
-
-@media (max-width: 640px) {
-  .brand-logo__mark--full {
-    display: none;
-  }
-
-  .brand-logo__mark--graphic {
-    display: block;
-    width: auto;
-    height: calc(100% - 12px);
-  }
-}
-
-.brand-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.brand-copy strong {
-  overflow: hidden;
-  color: inherit;
-  font-size: 15px;
-  font-weight: 760;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (max-width: 960px) {
-  .brand-copy {
-    display: none;
-  }
 }
 </style>

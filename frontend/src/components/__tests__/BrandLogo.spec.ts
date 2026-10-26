@@ -11,7 +11,8 @@ describe('BrandLogo', () => {
 
     const image = wrapper.find('img')
     expect(image.attributes('alt')).toBe('科创空间标志')
-    // 矢量描摹的品牌图超过 4KB，vite 保持 URL 引用。
-    expect(image.attributes('src')).toContain('brand-logo.svg')
+    // 纯图形品牌图超过 4KB，vite 保持 URL 引用；不再渲染文字。
+    expect(image.attributes('src')).toContain('brand-graphic.svg')
+    expect(wrapper.text()).toBe('')
   })
 })
