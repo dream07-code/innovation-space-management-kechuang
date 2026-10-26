@@ -64,6 +64,7 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   const state = auth.sessionState
 
+
   // 1) 已阻断：只允许停在阻断页。
   if (state === 'blocked') {
     return to.name === 'blocked' ? true : { name: 'blocked' }
