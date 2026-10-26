@@ -5,7 +5,7 @@
  * 使用项目提供的原创品牌图，背景已做透明化处理；
  * 组件只负责尺寸、文字和无障碍语义，不修改图形本身。
  */
-import brandIcon from '@/assets/brand-icon.png'
+import brandIcon from '@/assets/brand-logo.svg'
 withDefaults(
   defineProps<{
     size?: number
@@ -43,9 +43,9 @@ withDefaults(
   flex: 0 0 auto;
   place-items: center;
   padding: 3px;
-  border: 1px solid rgba(230, 106, 76, 0.22);
+  border: 1px solid rgba(41, 167, 224, 0.25);
   border-radius: 10px;
-  background: #fff1ec;
+  background: #f2f9fe;
   box-shadow:
     0 8px 18px rgba(37, 99, 235, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.72);

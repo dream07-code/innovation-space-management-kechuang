@@ -13,7 +13,8 @@ describe('BrandLogo', () => {
 
     const image = wrapper.find('img')
     expect(image.attributes('alt')).toBe('科创空间标志')
-    expect(image.attributes('src')).toContain('brand-icon.png')
+    // vite 对小于 4KB 的 svg 资产内联为 data URL，渲染等价且无需额外请求。
+    expect(image.attributes('src')).toContain('data:image/svg+xml')
     expect(wrapper.find('svg').exists()).toBe(false)
   })
 })
