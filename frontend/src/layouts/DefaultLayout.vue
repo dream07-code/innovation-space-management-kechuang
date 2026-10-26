@@ -248,12 +248,14 @@ onMounted(() => {
   border-right: 1px solid var(--app-border);
 }
 
+/* 高度随横版 logo 内容自适应：旧的 min-height 82 是为「徽标+竖排文字」
+   两行版式预留的，单行横版会多出一截留白。横向 padding 保持 20px
+   以维持窄屏 66px 侧栏里 34px 徽标的对齐。 */
 .app-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 82px;
-  padding: 18px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--app-border);
 }
 
