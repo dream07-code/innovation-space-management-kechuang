@@ -311,8 +311,8 @@ describe('CodeSubmitView 起始代码', () => {
       problemId: '9101',
     })
     expect(mocks.getAssessmentSubmissionCode).toHaveBeenCalledWith('7001')
-    expect(wrapper.get('[data-test="code-editor"]').element.value).toBe('print(42)')
-    expect(wrapper.get('[data-test="restored-notice"]').exists()).toBe(true)
+    expect((wrapper.get('[data-test="code-editor"]').element as HTMLTextAreaElement).value).toBe('print(42)')
+    expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(true)
   })
 
   it('没有历史提交时保持起始框架且不显示提示', async () => {
@@ -347,7 +347,7 @@ describe('CodeSubmitView 起始代码', () => {
     const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
-    expect(wrapper.get('[data-test="code-editor"]').element.value).not.toBe('')
+    expect((wrapper.get('[data-test="code-editor"]').element as HTMLTextAreaElement).value).not.toBe('')
     expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(false)
   })
 

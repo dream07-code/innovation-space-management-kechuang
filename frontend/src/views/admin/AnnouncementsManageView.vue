@@ -40,11 +40,10 @@ const isAdmin = computed(() => auth.isAdmin)
 const directionOptions = computed(() =>
   isAdmin.value
     ? directions.items.map((item) => ({ value: item.id, label: item.name }))
-    : auth.user?.managedDirectionIds?.length
-      ? auth.user.managedDirectionIds
-          .map((id) => directions.items.find((item) => item.id === id))
-          .filter((item): item is { id: string; name: string } => Boolean(item))
-      : [],
+    : (auth.user?.managedDirectionIds ?? [])
+        .map((id) => directions.items.find((item) => item.id === id))
+        .filter((item) => item !== undefined)
+        .map((item) => ({ value: item.id, label: item.name })),
 )
 
 function scopeLabel(row: AnnouncementItem): string {
@@ -107,7 +106,7 @@ async function withdraw(row: AnnouncementItem): Promise<void> {
 onMounted(async () => {
   await directions.ensureLoaded().catch(() => undefined)
   if (!isAdmin.value && directionOptions.value.length > 0) {
-    form.directionId = directionOptions.value[0]!.id
+    form.directionId = directionOptions.value[0]!.value
   }
   await load()
 })
@@ -155,7 +154,7 @@ onMounted(async () => {
             :value="option.value"
           />
         </el-select>
-        <el-tag v-else type="info" effect="plain">{{ directionOptions[0]?.name ?? '所辖方向' }}</el-tag>
+        <el-tag v-else type="info" effect="plain">{{ directionOptions[0]?.label ?? '所辖方向' }}</el-tag>
       </el-form-item>
       <el-button
         type="primary"

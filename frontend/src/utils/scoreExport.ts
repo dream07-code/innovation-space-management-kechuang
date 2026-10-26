@@ -40,7 +40,7 @@ export function buildScoreRows(
 ): Record<string, string | number>[] {
   const ranks = assignRanks(scores)
   return scores.map((score, index) => ({
-    排名: ranks[index],
+    排名: ranks[index] ?? 0,
     姓名: score.memberName ?? '',
     学号: score.memberStudentNo ?? '',
     完成条目: `${score.completedCount} / ${score.itemCount}`,
@@ -67,6 +67,6 @@ export async function exportMemberScores(assessmentId: string, title: string): P
   const sheet = XLSX.utils.json_to_sheet(rows)
   const book = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(book, sheet, '成绩')
-  const stamp = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10).replaceAll('-', '')
+  const stamp = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10).replace(/-/g, '')
   XLSX.writeFile(book, `${title}-成绩-${stamp}.xlsx`)
 }

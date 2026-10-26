@@ -197,7 +197,7 @@ describe('AssessmentEditView 混合条目', () => {
     const wrapper = await mountView()
     expect(wrapper.text()).toContain('合计 85 分')
     // pointsEnabled: true 回填到开关。
-    expect(wrapper.get('[data-test="points-switch"] input').element.checked).toBe(true)
+    expect((wrapper.get('[data-test="points-switch"] input').element as HTMLInputElement).checked).toBe(true)
 
     await fillBasics(wrapper)
     await wrapper.get('[data-test="save"]').trigger('click')

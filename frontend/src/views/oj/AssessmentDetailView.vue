@@ -144,7 +144,7 @@ onMounted(load)
           >
             {{ assessmentStatusMeta(assessment.status).label }}
           </el-tag>
-          <el-tag v-if="assessment.pointsEnabled" type="warning" effect="plain">积分考核</el-tag>
+          <el-tag v-if="assessment?.pointsEnabled" type="warning" effect="plain">积分考核</el-tag>
         </div>
         <div v-if="assessment" class="header-actions">
           <el-button
