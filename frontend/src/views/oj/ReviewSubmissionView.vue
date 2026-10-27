@@ -17,6 +17,7 @@ import {
   listAssessmentReviews,
 } from '@/api/modules/oj'
 import CodeEditor from '@/components/CodeEditor.vue'
+import { reviewReturnAction } from '@/layouts/backNavigation'
 import { describeError, toApiError } from '@/api/errors'
 import {
   memberNameLabel,
@@ -110,10 +111,23 @@ async function save(): Promise<void> {
       newIdempotencyKey(),
     )
     ElMessage.success('人工评分已确认，已覆盖自动分')
+    // 评完要回到的地方通常就是进入评分页前的那条历史。优先 back() 弹出评分页
+    // 而不是 replace，避免历史栈出现两条连续相同的结果页记录（会让返回键被
+    // 误判为无历史而兜底跳角色首页）。仅当没有匹配历史（深链接直达）才 replace。
+    const back = typeof window.history.state?.back === 'string' ? window.history.state.back : null
     if (redirect.value.startsWith('/oj/')) {
-      void router.replace(redirect.value)
+      if (reviewReturnAction(redirect.value, back) === 'history') {
+        void router.back()
+      } else {
+        void router.replace(redirect.value)
+      }
     } else {
-      void router.replace({ name: 'oj-submission-detail', params: { submissionId: submission.value.id } })
+      const detailPath = `/oj/submissions/${submission.value.id}`
+      if (reviewReturnAction(detailPath, back) === 'history') {
+        void router.back()
+      } else {
+        void router.replace({ name: 'oj-submission-detail', params: { submissionId: submission.value.id } })
+      }
     }
   } catch (error) {
     const apiError = toApiError(error)
