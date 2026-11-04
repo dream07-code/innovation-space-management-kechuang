@@ -6,15 +6,14 @@ import io.github.dream07code.innovationspace.assessment.service.QuizAnswerSheetS
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import io.github.dream07code.innovationspace.service.AnswerSheetService;
-import java.util.List;
+import io.github.dream07code.innovationspace.service.AssessmentService;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** 调度器只做委托：sweep 一次调用 submitExpiredDrafts，异常不外抛（保住轮询）。 */
+/** 调度器只做委托：sweep 补交到期答题卡并关闭到期考核，异常不外抛（保住轮询）。 */
 class QuizAnswerSheetSchedulerTest {
-  private static final SessionPrincipal NO_ACTOR = null;
 
-  private static final class FakeService implements AnswerSheetService {
+  private static final class FakeSheets implements AnswerSheetService {
     int calls;
     int result;
     boolean blowUp;
@@ -60,24 +59,72 @@ class QuizAnswerSheetSchedulerTest {
     }
   }
 
+  private static final class FakeAssessments implements AssessmentService {
+    int closed;
+
+    @Override
+    public IdempotencyService.StoredResponse create(
+        Map<String, Object> request, SessionPrincipal actor, String key) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Object> get(long id, SessionPrincipal actor) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Object> list(
+        SessionPrincipal actor, int page, int size, String status, String directionValue) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Object> update(
+        long id, Map<String, Object> request, SessionPrincipal actor) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public IdempotencyService.StoredResponse command(
+        long id, Map<String, Object> request, SessionPrincipal actor, String key, String action) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int closeExpiredAssessments() {
+      closed++;
+      return 1;
+    }
+
+    @Override
+    public IdempotencyService.StoredResponse publishResults(
+        long id, Map<String, Object> request, SessionPrincipal actor, String key) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
   @Test
-  void sweepDelegatesToSubmitExpiredDraftsOnce() {
-    var service = new FakeService();
-    service.result = 3;
-    var scheduler = new QuizAnswerSheetScheduler(service);
+  void sweepSubmitsExpiredDraftsAndClosesExpiredAssessments() {
+    var sheets = new FakeSheets();
+    sheets.result = 3;
+    var assessments = new FakeAssessments();
+    var scheduler = new QuizAnswerSheetScheduler(sheets, assessments);
 
     scheduler.sweep();
 
-    assertEquals(1, service.calls);
+    assertEquals(1, sheets.calls);
+    assertEquals(1, assessments.closed);
   }
 
   @Test
   void sweepSwallowsServiceFailureToKeepPolling() {
-    var service = new FakeService();
-    service.blowUp = true;
-    var scheduler = new QuizAnswerSheetScheduler(service);
+    var sheets = new FakeSheets();
+    sheets.blowUp = true;
+    var assessments = new FakeAssessments();
+    var scheduler = new QuizAnswerSheetScheduler(sheets, assessments);
 
     assertDoesNotThrow(scheduler::sweep);
-    assertEquals(1, service.calls);
+    assertEquals(1, sheets.calls);
   }
 }

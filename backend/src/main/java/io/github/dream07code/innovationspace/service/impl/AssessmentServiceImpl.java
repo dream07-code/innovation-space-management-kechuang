@@ -35,6 +35,7 @@ public class AssessmentServiceImpl implements AssessmentService {
   private final AssessmentStatePolicy states = new AssessmentStatePolicy();
   private final io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets;
   private final io.github.dream07code.innovationspace.service.AssessmentPointsRewardService pointsRewards;
+  private final io.github.dream07code.innovationspace.service.QuizReviewService reviews;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public AssessmentServiceImpl(
@@ -43,13 +44,15 @@ public class AssessmentServiceImpl implements AssessmentService {
       Clock clock,
       PlatformTransactionManager manager,
       io.github.dream07code.innovationspace.service.AnswerSheetService answerSheets,
-      io.github.dream07code.innovationspace.service.AssessmentPointsRewardService pointsRewards) {
+      io.github.dream07code.innovationspace.service.AssessmentPointsRewardService pointsRewards,
+      io.github.dream07code.innovationspace.service.QuizReviewService reviews) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
     this.answerSheets = answerSheets;
     this.pointsRewards = pointsRewards;
+    this.reviews = reviews;
   }
 
   public IdempotencyService.StoredResponse create(
@@ -204,8 +207,7 @@ public class AssessmentServiceImpl implements AssessmentService {
                   if (target == AssessmentStatus.CLOSED) {
                     // 提前关闭等同提前截止：在批草稿自动交卷判分，不留在批学生被清零。
                     answerSheets.submitAllDrafts(id);
-                    // 积分考核在关闭时按最终成绩比例一次性结算（幂等）。
-                    pointsRewards.settle(id);
+                    // 积分改到“发布成绩”时结算，避免按自动分先发一次。
                   }
                   if (target == AssessmentStatus.PUBLISHED) {
                     var publishedProblemIds =
@@ -234,6 +236,59 @@ public class AssessmentServiceImpl implements AssessmentService {
                   audit(actor, "ASSESSMENT_" + target.name(), id, "Changed assessment state");
                   return new IdempotencyService.StoredResponse(
                       200, json.writeValueAsString(ApiResponse.success(response(id))));
+                }));
+  }
+
+  @Override
+  public int closeExpiredAssessments() {
+    Timestamp now = Timestamp.from(clock.instant());
+    return jdbc.update(
+        "UPDATE assessment SET status='CLOSED',version=version+1,updated_at=?"
+            + " WHERE status='PUBLISHED' AND end_at<?",
+        now,
+        now);
+  }
+
+  @Override
+  public IdempotencyService.StoredResponse publishResults(
+      long id, Map<String, Object> request, SessionPrincipal actor, String key) {
+    if (request == null || request.size() != 1 || !request.containsKey("version")) throw bad();
+    long version = version(request.get("version"));
+    return idem.execute(
+        actor,
+        "POST",
+        "/api/v1/assessments/" + id + "/publish-results",
+        key,
+        json.writeValueAsString(request),
+        () ->
+            tx.execute(
+                status -> {
+                  var before = locked(id);
+                  requireManageDirection(actor, ((Number) before.get("direction_id")).longValue());
+                  if (version != ((Number) before.get("version")).longValue())
+                    throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
+                  boolean published = before.get("results_published_at") != null;
+                  int pending = reviews.pendingCount(id);
+                  if (!QuizReviewPolicy.canPublish(
+                      (String) before.get("status"), published, pending))
+                    throw new ApiException(409, ErrorCode.INVALID_STATE);
+                  Timestamp now = Timestamp.from(clock.instant());
+                  jdbc.update(
+                      "UPDATE assessment SET results_published_at=?,results_published_by=?,"
+                          + " version=version+1,updated_at=? WHERE id=?",
+                      now,
+                      actor.userId(),
+                      now,
+                      id);
+                  boolean settled = Boolean.TRUE.equals(before.get("points_enabled"));
+                  if (settled) pointsRewards.settle(id);
+                  audit(actor, "ASSESSMENT_RESULTS_PUBLISHED", id, "Published assessment results");
+                  var out = new LinkedHashMap<String, Object>();
+                  out.put("publishedAt", time(now));
+                  out.put("publisher", String.valueOf(actor.userId()));
+                  out.put("settled", settled);
+                  return new IdempotencyService.StoredResponse(
+                      200, json.writeValueAsString(ApiResponse.success(out)));
                 }));
   }
 
@@ -322,7 +377,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     if ("COLLEGE_ADMIN".equals(actor.role())) return;
     if ("DIRECTION_LEADER".equals(actor.role()) && actor.managedDirectionIds().contains(directionId)) return;
     if ("STUDENT".equals(actor.role())
-        && "PUBLISHED".equals(row.get("status"))
+        && Set.of("PUBLISHED", "CLOSED", "ARCHIVED").contains(row.get("status"))
         && directionId == memberDirection(actor.memberId())) return;
     throw new ApiException(404, ErrorCode.NOT_FOUND);
   }
@@ -354,6 +409,8 @@ public class AssessmentServiceImpl implements AssessmentService {
     out.put("directionName", jdbc.queryForObject("SELECT name FROM direction WHERE id=?", String.class, row.get("direction_id")));
     out.put("status", row.get("status"));
     out.put("pointsEnabled", Boolean.TRUE.equals(row.get("points_enabled")));
+    out.put("resultsPublished", row.get("results_published_at") != null);
+    out.put("resultsPublishedAt", time(row.get("results_published_at")));
     out.put("startAt", time(row.get("start_at")));
     out.put("endAt", time(row.get("end_at")));
     out.put("allowedLanguages", json.readValue(String.valueOf(row.get("allowed_languages")), List.class));
@@ -454,6 +511,7 @@ public class AssessmentServiceImpl implements AssessmentService {
   }
 
   private static String time(Object value) {
+    if (value == null) return null;
     Instant instant =
         value instanceof Timestamp timestamp
             ? timestamp.toInstant()

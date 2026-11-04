@@ -141,7 +141,8 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
                   return new IdempotencyService.StoredResponse(
                       200,
                       json.writeValueAsString(
-                          ApiResponse.success(mySheetDetail(assessmentId, memberId, true))));
+                          ApiResponse.success(
+                              mySheetDetail(assessmentId, memberId, revealed(assessmentId)))));
                 }));
   }
 
@@ -149,10 +150,7 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
   public Map<String, Object> mySheet(long assessmentId, SessionPrincipal actor) {
     requireReadable(assessmentId, actor, true);
     long memberId = requireMember(actor);
-    var assessment = row(assessmentId);
-    boolean revealed =
-        "CLOSED".equals(assessment.get("status")) || "ARCHIVED".equals(assessment.get("status"));
-    return mySheetDetail(assessmentId, memberId, revealed);
+    return mySheetDetail(assessmentId, memberId, revealed(assessmentId));
   }
 
   @Override
@@ -191,7 +189,7 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
     for (var row : rows) {
       var out = summary(row);
       if (memberId != null) {
-        out.put("items", detailItems(((Number) row.get("id")).longValue()));
+        out.put("items", detailItems(((Number) row.get("id")).longValue(), true));
       }
       items.add(out);
     }
@@ -285,13 +283,14 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
       if (answer == null) continue; // 未作答不落明细行，按 0 分口径
       total += g.awarded();
       jdbc.update(
-          "INSERT INTO assessment_answer_sheet_item(sheet_id,position,question_id,answer,correct,awarded)"
-              + " VALUES(?,?,?,?,?,?)",
+          "INSERT INTO assessment_answer_sheet_item(sheet_id,position,question_id,answer,correct,"
+              + "auto_awarded,awarded) VALUES(?,?,?,?,?,?,?)",
           sheetId,
           g.position(),
           g.questionId(),
           json.writeValueAsString(answer),
           g.correct(),
+          g.awarded(),
           g.awarded());
     }
     jdbc.update(
@@ -346,7 +345,9 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
           if (!(value instanceof Boolean)) throw bad();
         }
         case "FILL_BLANK" -> {
-          if (!(value instanceof String text) || text.isBlank() || text.length() > 500) throw bad();
+          // 代码作答：保留换行与缩进，上限与前端 maxlength 一致。
+          if (!(value instanceof String text) || text.isBlank() || text.length() > 20000)
+            throw bad();
         }
         default -> throw bad();
       }
@@ -427,8 +428,12 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
   }
 
   private boolean revealed(long assessmentId) {
-    var status = jdbc.queryForObject("SELECT status FROM assessment WHERE id=?", String.class, assessmentId);
-    return "CLOSED".equals(status) || "ARCHIVED".equals(status);
+    Boolean published =
+        jdbc.queryForObject(
+            "SELECT results_published_at IS NOT NULL FROM assessment WHERE id=?",
+            Boolean.class,
+            assessmentId);
+    return Boolean.TRUE.equals(published);
   }
 
   // -- 数据 ------------------------------------------------------------
@@ -495,6 +500,7 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
   private Map<String, Object> mySheetDetail(long assessmentId, long memberId, boolean revealed) {
     var sheet = sheetRow(assessmentId, memberId);
     var out = new LinkedHashMap<String, Object>();
+    out.put("resultsPublished", revealed);
     if (sheet == null) {
       out.put("status", "DRAFT");
       out.put("answeredCount", 0);
@@ -507,14 +513,15 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
     out.put("answeredCount", answersOf(sheet).size());
     out.put("totalScore", revealed ? sheet.get("total_score") : null);
     out.put("submittedAt", revealed ? time(sheet.get("submitted_at")) : null);
-    out.put("items", revealed ? detailItems(((Number) sheet.get("id")).longValue()) : null);
+    out.put("items", revealed ? detailItems(((Number) sheet.get("id")).longValue(), false) : null);
     return out;
   }
 
-  private List<Map<String, Object>> detailItems(long sheetId) {
+  private List<Map<String, Object>> detailItems(long sheetId, boolean staff) {
     var rows =
         jdbc.queryForList(
-            "SELECT d.position,d.answer,d.correct,d.awarded,q.answer AS correct_answer,q.analysis"
+            "SELECT d.position,d.answer,d.correct,d.awarded,d.auto_awarded,d.manual_score,"
+                + " d.review_comment,d.reviewed_at,q.answer AS correct_answer,q.analysis"
                 + " FROM assessment_answer_sheet_item d JOIN quiz_question q ON q.id=d.question_id"
                 + " WHERE d.sheet_id=? ORDER BY d.position",
             sheetId);
@@ -527,6 +534,13 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
       item.put("awarded", ((Number) row.get("awarded")).intValue());
       item.put("correctAnswer", decode(String.valueOf(row.get("correct_answer"))));
       item.put("analysis", row.get("analysis"));
+      item.put("reviewComment", row.get("review_comment"));
+      if (staff) {
+        item.put("autoAwarded", ((Number) row.get("auto_awarded")).intValue());
+        item.put("manualScore", row.get("manual_score"));
+        item.put("reviewed", row.get("manual_score") != null);
+        item.put("reviewedAt", time(row.get("reviewed_at")));
+      }
       items.add(item);
     }
     return items;

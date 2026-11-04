@@ -199,16 +199,12 @@ class QuizAnswerSheetHttpIT {
     var data = HttpTestSupport.json(submitted).path("data");
     assertEquals(3, data.path("answeredCount").asInt());
     assertEquals("SUBMITTED", data.path("status").asText());
-    // 明细：只落已作答的 3 行；对错与得分逐题断言。
-    assertEquals(3, data.path("items").size());
-    assertEquals(5, data.path("items").path(0).path("awarded").asInt());
-    assertTrue(data.path("items").path(0).path("correct").asBoolean());
-    assertEquals(0, data.path("items").path(1).path("awarded").asInt());
-    assertFalse(data.path("items").path(1).path("correct").asBoolean());
-    assertEquals(5, data.path("items").path(2).path("awarded").asInt());
-    assertEquals(10, data.path("totalScore").asInt());
+    // 成绩未发布前，学生拿不到分数与明细。
+    assertFalse(data.path("resultsPublished").asBoolean());
+    assertTrue(data.path("totalScore").isNull());
+    assertTrue(data.path("items").isNull());
 
-    // 工作人员下钻：立即含正确答案与解析。
+    // 工作人员下钻：立即含逐题对错、正确答案与解析。
     var sheets =
         send(leaderToken, "GET",
             "/api/v1/assessments/" + assessmentId + "/answer-sheets?memberId=10", "", null);
@@ -216,12 +212,19 @@ class QuizAnswerSheetHttpIT {
     var row = HttpTestSupport.json(sheets).path("data").path("items").path(0);
     assertEquals("SUBMITTED", row.path("status").asText());
     assertEquals(10, row.path("totalScore").asInt());
+    assertEquals(3, row.path("items").size());
+    assertEquals(5, row.path("items").path(0).path("awarded").asInt());
+    assertTrue(row.path("items").path(0).path("correct").asBoolean());
+    // 自动分留痕：交卷判分时同步写入 autoAwarded，供人工覆盖与撤销回退。
+    assertEquals(5, row.path("items").path(0).path("autoAwarded").asInt());
+    assertEquals(5, row.path("items").path(2).path("autoAwarded").asInt());
+    assertEquals(0, row.path("items").path(1).path("awarded").asInt());
     assertEquals("解析单选", row.path("items").path(0).path("analysis").asText());
     assertEquals("B", row.path("items").path(0).path("correctAnswer").asText());
   }
 
   @Test
-  void studentSeesNoCorrectnessBeforeClosedAndFullDetailAfter() throws Exception {
+  void studentSeesNoCorrectnessBeforePublicationAndFullDetailAfter() throws Exception {
     send(studentToken, "PUT", "/api/v1/assessments/" + assessmentId + "/answer-sheet",
         "{\"answers\":{\"1\":\"B\"}}", null);
     send(studentToken, "POST", "/api/v1/assessments/" + assessmentId + "/answer-sheet/submit", "{}",
@@ -234,8 +237,15 @@ class QuizAnswerSheetHttpIT {
     assertFalse(mine.body().contains("analysis"));
     assertEquals("SUBMITTED", HttpTestSupport.json(mine).path("data").path("status").asText());
 
-    // 考核关闭后本人明细完整下发（含解析与正确答案）。
+    // 关闭但未发布：仍然看不到分数。
     jdbc.update("UPDATE assessment SET status='CLOSED' WHERE id=" + assessmentId);
+    var closedUnpublished =
+        send(studentToken, "GET", "/api/v1/assessments/" + assessmentId + "/my-answer-sheet", "", null);
+    assertTrue(closedUnpublished.body().contains("\"totalScore\":null"));
+    assertFalse(closedUnpublished.body().contains("correctAnswer"));
+
+    // 发布成绩后本人明细完整下发（含解析与正确答案）。
+    jdbc.update("UPDATE assessment SET results_published_at=UTC_TIMESTAMP(6) WHERE id=" + assessmentId);
     var closed = send(studentToken, "GET", "/api/v1/assessments/" + assessmentId + "/my-answer-sheet", "", null);
     assertTrue(closed.body().contains("correctAnswer"));
     assertTrue(closed.body().contains("解析单选"));

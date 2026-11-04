@@ -13,9 +13,14 @@ import type {
   AnswerSheetSummary,
   AssessmentPaper,
   CreateQuizQuestionRequest,
+  GradeQuizScoresRequest,
+  GradeQuizScoresResponse,
   PageData,
   QuizQuestion,
   QuizQuestionType,
+  QuizReviewFilter,
+  QuizReviewPage,
+  QuizReviewSummary,
 } from '../types'
 
 const QUIZ_QUESTIONS = `${API_PREFIX}/quiz-questions`
@@ -115,4 +120,57 @@ export async function listAnswerSheets(
   return get<PageData<AnswerSheetSummary>>(`${ASSESSMENTS}/${assessmentId}/answer-sheets`, {
     params: query,
   })
+}
+
+
+// ---------------------------------------------------------------------------
+// 填空人工阅卷（负责人/管理员；学生一律 404）
+// ---------------------------------------------------------------------------
+
+export interface QuizReviewQuery {
+  questionId: string
+  filter?: QuizReviewFilter
+  page?: number
+  size?: number
+}
+
+/** 某道填空在全部已交卷学生中的作答与评分状态。 */
+export async function listQuizReview(
+  assessmentId: string,
+  query: QuizReviewQuery,
+): Promise<QuizReviewPage> {
+  return get<QuizReviewPage>(`${ASSESSMENTS}/${assessmentId}/quiz-review`, {
+    params: query,
+  })
+}
+
+/** 阅卷进度与发布条件。 */
+export async function getQuizReviewSummary(assessmentId: string): Promise<QuizReviewSummary> {
+  return get<QuizReviewSummary>(`${ASSESSMENTS}/${assessmentId}/quiz-review/summary`)
+}
+
+/** 批量评分：只传改动过的行，整体一个事务。 */
+export async function saveQuizReviewScores(
+  assessmentId: string,
+  payload: GradeQuizScoresRequest,
+  idempotencyKey: string,
+): Promise<GradeQuizScoresResponse> {
+  return post<GradeQuizScoresResponse>(`${ASSESSMENTS}/${assessmentId}/quiz-review/scores`, payload, {
+    idempotencyKey,
+  })
+}
+
+/** 撤销人工评分，回退到自动分；必须带当前 version。 */
+export async function revokeQuizReviewScore(
+  assessmentId: string,
+  sheetId: string,
+  position: number,
+  version: number,
+  idempotencyKey: string,
+): Promise<{ sheetId: string; position: number; totalScore: number }> {
+  return post(
+    `${ASSESSMENTS}/${assessmentId}/quiz-review/scores/${sheetId}/${position}/revoke`,
+    { version },
+    { idempotencyKey },
+  )
 }

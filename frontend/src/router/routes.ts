@@ -152,6 +152,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'OJ 考核结果' },
       },
       {
+        path: 'assessments/:assessmentId/quiz-review',
+        name: 'oj-assessment-quiz-review',
+        component: () => import('@/views/oj/QuizReviewView.vue'),
+        meta: { roles: STAFF_ROLES, title: '填空阅卷' },
+      },
+      {
         path: 'assessments/:assessmentId/paper',
         name: 'oj-assessment-paper',
         component: () => import('@/views/oj/ExamPaperView.vue'),

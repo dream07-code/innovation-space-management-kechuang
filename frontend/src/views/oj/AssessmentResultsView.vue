@@ -7,7 +7,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, EditPen, View } from '@element-plus/icons-vue'
 
 import { useAuthStore } from '@/stores/auth'
@@ -19,8 +19,9 @@ import {
   listAssessmentMemberScores,
   listAssessmentProblems,
   listAssessmentResults,
+  publishAssessmentResults,
 } from '@/api/modules/oj'
-import { listAnswerSheets } from '@/api/modules/quiz'
+import { listAnswerSheets, getQuizReviewSummary } from '@/api/modules/quiz'
 import { exportMemberScores } from '@/utils/scoreExport' 
 import { describeError, toApiError } from '@/api/errors'
 import {
@@ -37,6 +38,7 @@ import type {
   AssessmentResult,
   AnswerSheetSummary,
   PageData,
+  QuizReviewSummary,
 } from '@/api/types'
 import { formatDateTime } from '@/utils/datetime'
 
@@ -91,6 +93,55 @@ function openCode(submissionId: string): void {
 
 /** 管理员和方向负责人可进入人工批阅，评完回到当前结果页。 */
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
+
+const reviewSummary = ref<QuizReviewSummary | null>(null)
+const publishing = ref(false)
+const resultsPublished = computed(() => assessment.value?.resultsPublished ?? false)
+const pendingQuiz = computed(() => reviewSummary.value?.pendingItems ?? 0)
+const canPublish = computed(() => canReview.value && (reviewSummary.value?.canPublish ?? false))
+
+async function loadReviewSummary(): Promise<void> {
+  if (!canReview.value) return
+  try {
+    reviewSummary.value = await getQuizReviewSummary(assessmentId.value)
+  } catch {
+    reviewSummary.value = null
+  }
+}
+
+function openQuizReview(): void {
+  void router.push({
+    name: 'oj-assessment-quiz-review',
+    params: { assessmentId: assessmentId.value },
+  })
+}
+
+async function onPublish(): Promise<void> {
+  if (!assessment.value) return
+  try {
+    await ElMessageBox.confirm(
+      '发布后学生即可看到分数与评语，阅卷随即锁定，积分按最终成绩结算。确认发布？',
+      '发布成绩',
+      { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  publishing.value = true
+  try {
+    await publishAssessmentResults(
+      assessmentId.value,
+      { version: Number(assessment.value.version) },
+      crypto.randomUUID(),
+    )
+    ElMessage.success('成绩已发布')
+    await Promise.all([loadBase(), loadReviewSummary(), loadMemberScores()])
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    publishing.value = false
+  }
+}
 
 const exporting = ref(false)
 async function onExport(): Promise<void> {
@@ -204,6 +255,7 @@ async function loadBase(): Promise<void> {
     ])
     assessment.value = currentAssessment
     problems.value = problemPage.items
+    if (canReview.value) void loadReviewSummary()
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -217,15 +269,44 @@ async function loadBase(): Promise<void> {
     <template #header>
       <div class="page__header">
         <span>{{ assessment?.title ?? '考核结果' }}</span>
-        <el-tag v-if="assessment" :type="assessmentStatusMeta(assessment.status).type" effect="plain">
-          {{ assessmentStatusMeta(assessment.status).label }}
-        </el-tag>
+        <div class="page__header-actions">
+          <el-tag v-if="assessment" :type="assessmentStatusMeta(assessment.status).type" effect="plain">
+            {{ assessmentStatusMeta(assessment.status).label }}
+          </el-tag>
+          <el-tag v-if="resultsPublished" type="success" effect="plain" data-test="published-tag">
+            成绩已发布
+          </el-tag>
+          <template v-if="canReview">
+            <el-button data-test="open-quiz-review" @click="openQuizReview">填空阅卷</el-button>
+            <el-button
+              v-if="!resultsPublished"
+              type="primary"
+              data-test="publish"
+              :loading="publishing"
+              :disabled="!canPublish"
+              @click="onPublish"
+            >
+              发布成绩{{ !canPublish && pendingQuiz ? `（还有 ${pendingQuiz} 条未批）` : '' }}
+            </el-button>
+          </template>
+        </div>
       </div>
     </template>
 
     <el-alert type="info" :closable="false" show-icon class="result-notice">
       自动分按通过的测试点比例计算（四舍五入到整数）；人工评分优先，可随时调整。本页不计入现有积分、流水或排行榜。
     </el-alert>
+
+    <el-alert
+      v-if="auth.isStudent && !resultsPublished"
+      type="info"
+      :closable="false"
+      show-icon
+      class="result-notice"
+      data-test="results-pending"
+      title="考核已结束，成绩待公布"
+      description="老师完成阅卷后会统一发布成绩，届时可查看总分、逐题得分与评语。"
+    />
 
     <el-alert v-if="pendingCount" type="warning" :closable="false" show-icon class="result-notice">
       <p class="pending__text">
@@ -447,13 +528,23 @@ async function loadBase(): Promise<void> {
           </el-table-column>
           <el-table-column label="结果" width="80">
             <template #default="{ row }">
-              <el-tag :type="row.correct ? 'success' : 'danger'" effect="plain">
+              <el-tag v-if="row.reviewed" type="success" effect="plain">已复核</el-tag>
+              <el-tag v-else :type="row.correct ? 'success' : 'danger'" effect="plain">
                 {{ row.correct ? '对' : '错' }}
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="自动分" width="80">
+            <template #default="{ row }">{{ row.autoAwarded ?? '—' }}</template>
+          </el-table-column>
+          <el-table-column label="人工分" width="80">
+            <template #default="{ row }">{{ row.manualScore ?? '—' }}</template>
+          </el-table-column>
           <el-table-column label="得分" width="70">
             <template #default="{ row }">{{ row.awarded }}</template>
+          </el-table-column>
+          <el-table-column label="评语" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.reviewComment ?? '—' }}</template>
           </el-table-column>
           <el-table-column label="解析" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">{{ row.analysis ?? '—' }}</template>
@@ -476,6 +567,12 @@ async function loadBase(): Promise<void> {
 
 .result-notice {
   margin-bottom: 16px;
+}
+
+.page__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .page__toolbar {

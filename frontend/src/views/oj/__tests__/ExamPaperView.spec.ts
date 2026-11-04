@@ -114,6 +114,20 @@ describe('ExamPaperView 学生试卷', () => {
     expect(wrapper.get('[data-test="fill-4"]').attributes('disabled')).toBeDefined()
   })
 
+  it('填空题按代码作答：多行文本域、保留换行、上限 20000', async () => {
+    const wrapper = await mountPaper()
+    const input = wrapper.get('textarea[data-test="fill-4"]')
+    const textarea = input.element as HTMLTextAreaElement
+    expect(textarea.maxLength).toBe(20000)
+
+    await input.setValue('class Solution {\n  int sum(int a) { return a; }\n}')
+    expect((input.element as HTMLTextAreaElement).value).toContain('\n')
+    await vi.advanceTimersByTimeAsync(2100)
+    expect(mocks.saveAnswerDraft).toHaveBeenCalledWith('9001', {
+      4: 'class Solution {\n  int sum(int a) { return a; }\n}',
+    })
+  })
+
   it('试卷不可读时提示不可用', async () => {
     mocks.getAssessmentPaper.mockReset().mockRejectedValue(new Error('404'))
     const wrapper = mount(ExamPaperView, { global: { plugins: [ElementPlus] } })

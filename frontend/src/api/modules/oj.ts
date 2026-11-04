@@ -26,6 +26,7 @@ import type {
   CreateAssessmentReviewRequest,
   CreateAssessmentSubmissionRequest,
   PageData,
+  PublishAssessmentResultsResponse,
   UpdateAssessmentProblemRequest,
   UpdateAssessmentRequest,
 } from '../types'
@@ -256,4 +257,18 @@ export async function getSubmissionCode(
   submissionId: string,
 ): Promise<AssessmentSubmissionCode> {
   return get<AssessmentSubmissionCode>(`${SUBMISSIONS}/${submissionId}/code`)
+}
+
+
+/** 发布成绩：阅卷完成后由负责人/管理员手动触发，同时结算考核积分。 */
+export async function publishAssessmentResults(
+  assessmentId: string,
+  payload: { version: number },
+  idempotencyKey: string,
+): Promise<PublishAssessmentResultsResponse> {
+  return post<PublishAssessmentResultsResponse>(
+    `${ASSESSMENTS}/${assessmentId}/publish-results`,
+    payload,
+    { idempotencyKey },
+  )
 }

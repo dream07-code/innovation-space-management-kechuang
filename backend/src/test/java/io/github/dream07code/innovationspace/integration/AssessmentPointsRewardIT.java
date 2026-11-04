@@ -24,7 +24,7 @@ import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 考核积分奖励结算：close 时按 totalScore 比例发放，第一名 20 分封顶。
+ * 考核积分奖励结算：发布成绩时按 totalScore 比例发放，第一名 20 分封顶；关闭不发放。
  * 规则详见 docs/superpowers/specs/2026-10-26-assessment-points-reward-design.md。
  */
 @SpringBootTest(
@@ -138,6 +138,17 @@ class AssessmentPointsRewardIT {
                 "{\"version\":2}", "aaaaaaaa-4444-4444-8444-444444444444")
             .statusCode());
 
+    // 关闭不结算：必须等阅卷完成后发布成绩才发积分。
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM point_ledger WHERE source='ASSESSMENT_REWARD'", Integer.class));
+    assertEquals(
+        200,
+        send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish-results",
+                "{\"version\":3}", "aaaaaaaa-4445-4445-8445-444544444445")
+            .statusCode());
+
     // 比例：120→20、96→16、60→10；方向 2 的学生（未参加）不发。
     assertEquals(
         3,
@@ -195,6 +206,11 @@ class AssessmentPointsRewardIT {
                 "{\"version\":2}", "aaaaaaaa-7777-4777-8777-777777777777")
             .statusCode());
     assertEquals(
+        200,
+        send(adminToken, "POST", "/api/v1/assessments/" + offId + "/publish-results",
+                "{\"version\":3}", "aaaaaaaa-7778-4778-8778-777877777778")
+            .statusCode());
+    assertEquals(
         0,
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM point_ledger WHERE source='ASSESSMENT_REWARD'", Integer.class));
@@ -210,6 +226,11 @@ class AssessmentPointsRewardIT {
         200,
         send(adminToken, "POST", "/api/v1/assessments/" + zeroId + "/close",
                 "{\"version\":2}", "aaaaaaaa-9999-4999-8999-999999999999")
+            .statusCode());
+    assertEquals(
+        200,
+        send(adminToken, "POST", "/api/v1/assessments/" + zeroId + "/publish-results",
+                "{\"version\":3}", "aaaaaaaa-9998-4998-8998-999899999998")
             .statusCode());
     assertEquals(
         0,
@@ -241,7 +262,12 @@ class AssessmentPointsRewardIT {
                 "{\"version\":2}", "aaaaaaaa-cccc-4ccc-8ccc-cccccccccccc")
             .statusCode());
 
-    // 并列第一各拿 20 分。
+    // 并列第一各拿 20 分（发布成绩时才结算）。
+    assertEquals(
+        200,
+        send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish-results",
+                "{\"version\":3}", "aaaaaaaa-cccc-4ccd-8ccc-cccccccccccd")
+            .statusCode());
     for (long member : new long[] {10, 11}) {
       assertEquals(
           20,
@@ -251,10 +277,10 @@ class AssessmentPointsRewardIT {
               Integer.class));
     }
 
-    // 幂等键重放 close：响应一致且不重复发分。
+    // 幂等键重放发布：响应一致且不重复发分。
     var replay =
-        send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/close",
-            "{\"version\":2}", "aaaaaaaa-cccc-4ccc-8ccc-cccccccccccc");
+        send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish-results",
+            "{\"version\":3}", "aaaaaaaa-cccc-4ccd-8ccc-cccccccccccd");
     assertEquals(200, replay.statusCode());
     assertEquals(
         2,

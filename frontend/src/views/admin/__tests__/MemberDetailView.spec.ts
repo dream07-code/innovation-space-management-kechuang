@@ -86,7 +86,7 @@ const activeStudent = {
 }
 
 const mountOptions = {
-  global: { plugins: [ElementPlus], stubs: { teleport: true } },
+  global: { plugins: [ElementPlus] },
 }
 
 describe('MemberDetailView 管理员操作', () => {
