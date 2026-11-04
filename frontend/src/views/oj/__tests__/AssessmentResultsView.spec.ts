@@ -1,11 +1,11 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { reactive } from 'vue'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessageBox } from 'element-plus'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AssessmentResultsView from '@/views/oj/AssessmentResultsView.vue'
 
-const auth = vi.hoisted(() => ({ isAdmin: true, isLeader: false }))
+const auth = vi.hoisted(() => ({ isAdmin: true, isLeader: false, isStudent: false }))
 const push = vi.hoisted(() => vi.fn<(route: unknown) => void>())
 
 const mocks = vi.hoisted(() => ({
@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   listAssessmentResults: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   listAssessmentMemberScores: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   listAnswerSheets: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
+  getQuizReviewSummary: vi.fn<(id: string) => Promise<unknown>>(),
+  publishAssessmentResults: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
 }))
 
 vi.mock('@/api/modules/oj', () => ({
@@ -21,9 +23,11 @@ vi.mock('@/api/modules/oj', () => ({
   listAssessmentProblems: mocks.listAssessmentProblem,
   listAssessmentResults: mocks.listAssessmentResults,
   listAssessmentMemberScores: mocks.listAssessmentMemberScores,
+  publishAssessmentResults: mocks.publishAssessmentResults,
 }))
 vi.mock('@/api/modules/quiz', () => ({
   listAnswerSheets: mocks.listAnswerSheets,
+  getQuizReviewSummary: mocks.getQuizReviewSummary,
 }))
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => auth,
@@ -103,7 +107,25 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
     Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     auth.isAdmin = true
     auth.isLeader = false
+    auth.isStudent = false
     push.mockReset()
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    mocks.publishAssessmentResults.mockReset()
+    mocks.publishAssessmentResults.mockResolvedValue({
+      publishedAt: '2026-11-04T12:00:00+08:00',
+      publisher: '1',
+      settled: true,
+    })
+    mocks.getQuizReviewSummary.mockReset()
+    mocks.getQuizReviewSummary.mockResolvedValue({
+      totalItems: 4,
+      gradedItems: 4,
+      pendingItems: 0,
+      submittedSheets: 2,
+      resultsPublished: false,
+      canPublish: true,
+      pointsEnabled: true,
+    })
     mocks.listAssessmentResults.mockReset()
     mocks.listAssessmentMemberScores.mockReset()
     mocks.getAssessment.mockResolvedValue({
@@ -278,5 +300,112 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
 
     const reviewButton = wrapper.findAll('button').find((item) => item.text().includes('评分'))
     expect(reviewButton).toBeUndefined()
+  })
+})
+
+
+describe('AssessmentResultsView 成绩发布', () => {
+  afterEach(() => {
+    while (mounted.length) mounted.pop()!.unmount()
+  })
+
+  beforeEach(() => {
+    while (mounted.length) mounted.pop()!.unmount()
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
+    auth.isAdmin = true
+    auth.isLeader = false
+    auth.isStudent = false
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 7,
+      resultsPublished: false,
+    })
+    mocks.listAssessmentProblem.mockResolvedValue({ items: [] })
+    mocks.listAssessmentResults.mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
+    mocks.listAssessmentMemberScores.mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
+    mocks.publishAssessmentResults.mockReset()
+    mocks.publishAssessmentResults.mockResolvedValue({
+      publishedAt: '2026-11-04T12:00:00+08:00',
+      publisher: '1',
+      settled: true,
+    })
+    mocks.getQuizReviewSummary.mockReset()
+    mocks.getQuizReviewSummary.mockResolvedValue({
+      totalItems: 4,
+      gradedItems: 4,
+      pendingItems: 0,
+      submittedSheets: 2,
+      resultsPublished: false,
+      canPublish: true,
+      pointsEnabled: true,
+    })
+  })
+
+  it('还有未批条目时发布按钮禁用并显示剩余数', async () => {
+    auth.isAdmin = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 3,
+      resultsPublished: false,
+    })
+    mocks.getQuizReviewSummary.mockResolvedValue({
+      totalItems: 4,
+      gradedItems: 1,
+      pendingItems: 3,
+      submittedSheets: 2,
+      resultsPublished: false,
+      canPublish: false,
+      pointsEnabled: true,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const button = wrapper.get('[data-test="publish"]')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.text()).toContain('还有 3 条未批')
+  })
+
+  it('阅卷完成后确认发布，调用发布接口并带当前版本', async () => {
+    auth.isAdmin = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 7,
+      resultsPublished: false,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await flushPromises()
+    expect(wrapper.get('[data-test="publish"]').attributes('disabled')).toBeUndefined()
+    await wrapper.get('[data-test="publish"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    expect(mocks.publishAssessmentResults).toHaveBeenCalledWith(
+      '9001',
+      { version: 7 },
+      expect.any(String),
+    )
+  })
+
+  it('学生未发布时看到成绩待公布', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    auth.isStudent = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 3,
+      resultsPublished: false,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('成绩待公布')
+    expect(wrapper.find('[data-test="publish"]').exists()).toBe(false)
   })
 })

@@ -119,7 +119,12 @@ export type ProblemExample = Schemas['ProblemExample']
  * V12 起考核以混合条目（程序题+客观题）挂题；契约重生成前先在此叠加
  * items 字段，旧 problemIds 兼容保留（见下方 AssessmentItem）。
  */
-export type Assessment = Schemas['Assessment'] & { items?: AssessmentItem[] }
+export type Assessment = Schemas['Assessment'] & {
+  items?: AssessmentItem[]
+  /** 成绩是否已由负责人/管理员发布；未发布时学生看不到分数与明细。 */
+  resultsPublished?: boolean
+  resultsPublishedAt?: string | null
+}
 export type AssessmentProblem = Schemas['AssessmentProblem']
 export type AssessmentSubmission = Schemas['AssessmentSubmission']
 export type OjJudgeResult = Schemas['OjJudgeResult']
@@ -277,6 +282,8 @@ export interface AnswerSheetSummary {
  */
 export interface AnswerSheetDetail {
   status: 'DRAFT' | 'SUBMITTED'
+  /** 成绩是否已发布；false 时 totalScore 与 items 均为 null。 */
+  resultsPublished?: boolean
   answeredCount: number
   totalScore: number | null
   submittedAt: string | null
@@ -288,8 +295,93 @@ export interface AnswerSheetDetail {
         awarded: number
         correctAnswer: unknown
         analysis: string | null
+        /** 阅卷评语，学生可见。 */
+        reviewComment?: string | null
+        /** 以下仅教师视图返回。 */
+        autoAwarded?: number
+        manualScore?: number | null
+        reviewed?: boolean
+        reviewedAt?: string | null
       }[]
     | null
+}
+
+// ---------------------------------------------------------------------------
+// 填空人工阅卷
+// ---------------------------------------------------------------------------
+
+export type QuizReviewFilter = 'all' | 'pending' | 'auto_zero' | 'manual'
+
+export interface QuizReviewRow {
+  sheetId: string
+  memberId: string
+  memberName: string
+  studentNo: string
+  answer: string | null
+  answered: boolean
+  autoAwarded: number
+  awarded: number
+  manualScore: number | null
+  reviewed: boolean
+  comment: string | null
+  version: number | null
+  reviewedAt: string | null
+}
+
+export interface QuizReviewPage {
+  assessment: {
+    id: string
+    title: string
+    status: string
+    directionId: string
+    resultsPublished: boolean
+  }
+  question: {
+    position: number
+    questionId: string
+    stem: string
+    score: number
+    referenceAnswers: string[] | null
+    analysis: string | null
+  }
+  progress: { graded: number; total: number }
+  items: QuizReviewRow[]
+  page: number
+  size: number
+  total: number
+}
+
+export interface QuizReviewSummary {
+  totalItems: number
+  gradedItems: number
+  pendingItems: number
+  submittedSheets: number
+  resultsPublished: boolean
+  canPublish: boolean
+  pointsEnabled: boolean
+}
+
+export interface GradeQuizItem {
+  sheetId: string
+  position: number
+  score: number
+  comment: string
+  version: number
+}
+
+export interface GradeQuizScoresRequest {
+  items: GradeQuizItem[]
+}
+
+export interface GradeQuizScoresResponse {
+  updated: number
+  sheets: Array<{ sheetId: string; totalScore: number }>
+}
+
+export interface PublishAssessmentResultsResponse {
+  publishedAt: string
+  publisher: string
+  settled: boolean
 }
 
 // ---------------------------------------------------------------------------
