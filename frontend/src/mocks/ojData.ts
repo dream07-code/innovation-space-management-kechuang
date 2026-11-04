@@ -33,6 +33,18 @@ export function ojNowIso(): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+08:00`
 }
 
+/**
+ * 相对当前时间偏移若干天的 +08:00 时间戳，供「进行中」类 Mock 数据使用。
+ *
+ * Mock 里处于开放状态的考核不能用写死的日期：一旦真实时间越过 endAt，
+ * 提交接口会按「考试已结束」返回 409，Mock 演示和契约测试就会在某个日期
+ * 之后集体变红。这里统一改成滚动窗口。
+ */
+export function ojDaysFromNowIso(days: number): string {
+  const d = new Date(Date.now() + days * 86_400_000 + 8 * 3600_000)
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+08:00`
+}
+
 /** 仅用于 Mock 的稳定 hash，不落盘、不返回原文。 */
 export async function codeHashOf(code: string): Promise<string> {
   const bytes = new TextEncoder().encode(code)
@@ -69,8 +81,9 @@ const INITIAL_ASSESSMENTS: Assessment[] = [
     directionId: '1',
     directionName: 'AI 全栈',
     status: 'PUBLISHED',
-    startAt: '2026-10-10T00:00:00+08:00',
-    endAt: '2026-10-31T23:59:59+08:00',
+    // 进行中的考核用滚动窗口，保证任何日期打开 Mock 都能真实提交。
+    startAt: ojDaysFromNowIso(-20),
+    endAt: ojDaysFromNowIso(20),
     allowedLanguages: ['java', 'python', 'cpp', 'javascript'],
     problemIds: ['9101', '9102'],
     items: [

@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { server } from '@/mocks/server'
 import { resetMockState } from '@/mocks/state'
 import { resetIdempotencyStore } from '@/mocks/handlers/idempotency'
+import { findAssessment } from '@/mocks/ojData'
 
 const BASE = 'http://localhost'
 
@@ -76,6 +77,18 @@ describe('OJ 评分优先级', () => {
     expect(row.scoreSource).toBe('HUMAN')
     expect(row).not.toHaveProperty('points')
     expect(row).not.toHaveProperty('awardedPoints')
+  })
+})
+
+describe('OJ Mock 数据新鲜度', () => {
+  it('进行中的考核使用滚动时间窗，不会随时间推移过期', async () => {
+    const assessment = findAssessment('9001')
+    const now = Date.now()
+
+    expect(assessment?.status).toBe('PUBLISHED')
+    // 一旦写死日期，跨过 endAt 后提交接口会返回 409，这类回归很难第一时间发现。
+    expect(Date.parse(assessment!.startAt)).toBeLessThan(now)
+    expect(Date.parse(assessment!.endAt)).toBeGreaterThan(now)
   })
 })
 
