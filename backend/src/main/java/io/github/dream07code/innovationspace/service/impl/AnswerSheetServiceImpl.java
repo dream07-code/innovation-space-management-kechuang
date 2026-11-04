@@ -283,13 +283,14 @@ public class AnswerSheetServiceImpl implements AnswerSheetService {
       if (answer == null) continue; // 未作答不落明细行，按 0 分口径
       total += g.awarded();
       jdbc.update(
-          "INSERT INTO assessment_answer_sheet_item(sheet_id,position,question_id,answer,correct,awarded)"
-              + " VALUES(?,?,?,?,?,?)",
+          "INSERT INTO assessment_answer_sheet_item(sheet_id,position,question_id,answer,correct,"
+              + "auto_awarded,awarded) VALUES(?,?,?,?,?,?,?)",
           sheetId,
           g.position(),
           g.questionId(),
           json.writeValueAsString(answer),
           g.correct(),
+          g.awarded(),
           g.awarded());
     }
     jdbc.update(

@@ -141,6 +141,18 @@ describe('QuizReviewView 填空阅卷', () => {
     expect(typeof key).toBe('string')
   })
 
+  it('0 分也能保存：未批与 0 分不是一回事', async () => {
+    const wrapper = await mountReview()
+    await wrapper.get('[data-test="score-88"] input').setValue('0')
+    await wrapper.get('[data-test="save"]').trigger('click')
+    await flushPromises()
+    expect(mocks.saveQuizReviewScores).toHaveBeenCalledWith(
+      '9001',
+      { items: [{ sheetId: '88', position: 3, score: 0, comment: '', version: 2 }] },
+      expect.any(String),
+    )
+  })
+
   it('还有未批条目时提示发布按钮不可用', async () => {
     const wrapper = await mountReview()
     const publish = wrapper.get('[data-test="go-results"]')

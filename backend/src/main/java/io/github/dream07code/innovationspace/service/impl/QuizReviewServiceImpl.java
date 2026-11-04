@@ -197,6 +197,8 @@ public class QuizReviewServiceImpl implements QuizReviewService {
         () ->
             tx.execute(
                 status -> {
+                  // 与发布成绩互斥：先锁考核行，避免发布提交后仍能改分。
+                  lockAssessment(assessmentId);
                   var assessment = requireManage(assessmentId, actor);
                   requireGradable(assessment);
                   var scores = fillBlankScores(assessmentId);
@@ -281,11 +283,13 @@ public class QuizReviewServiceImpl implements QuizReviewService {
         () ->
             tx.execute(
                 status -> {
+                  lockAssessment(assessmentId);
                   var assessment = requireManage(assessmentId, actor);
                   requireGradable(assessment);
+                  if (!fillBlankScores(assessmentId).containsKey(position)) throw bad();
                   requireSubmittedSheet(assessmentId, sheetId);
                   var detail = detailRow(sheetId, position);
-                  if (detail == null) throw bad();
+                  if (detail == null || detail.get("manual_score") == null) throw bad();
                   if (((Number) detail.get("version")).longValue() != version) throw conflict();
                   int updated =
                       jdbc.update(
@@ -317,8 +321,12 @@ public class QuizReviewServiceImpl implements QuizReviewService {
 
   // -- 查询辅助 --------------------------------------------------------
 
-  private Map<String, Object> requireManage(long assessmentId, SessionPrincipal actor) {
-    var rows =
+  private void lockAssessment(long assessmentId) {
+    var rows = jdbc.queryForList("SELECT id FROM assessment WHERE id=? FOR UPDATE", assessmentId);
+    if (rows.isEmpty()) throw notFound();
+  }
+
+  private Map<String, Object> requireManage(long assessmentId, SessionPrincipal actor) {    var rows =
         jdbc.queryForList(
             "SELECT id,title,direction_id,status,points_enabled,results_published_at,version"
                 + " FROM assessment WHERE id=?",

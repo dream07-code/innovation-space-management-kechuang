@@ -94,7 +94,8 @@ async function loadRows(): Promise<void> {
     })
     rows.value = data.items.map((row) => ({
       ...row,
-      draftScore: row.awarded,
+      // 未人工评分时留空，避免「0 分」与「未批」混为一谈；空值不会被当成改动。
+      draftScore: row.manualScore,
       draftComment: row.comment ?? '',
     }))
     progress.value = data.progress
@@ -108,16 +109,17 @@ async function loadRows(): Promise<void> {
 }
 
 function isDirty(row: EditableRow): boolean {
-  const scoreChanged = row.draftScore !== null && row.draftScore !== row.awarded
+  if (!row.answered || row.draftScore === null) return false
+  const scoreChanged = row.draftScore !== row.manualScore
   const commentChanged = row.draftComment !== (row.comment ?? '')
-  return row.answered && (scoreChanged || commentChanged)
+  return scoreChanged || commentChanged
 }
 
 async function save(): Promise<void> {
   const items = rows.value.filter(isDirty).map((row) => ({
     sheetId: row.sheetId,
     position: selected.value?.position ?? 0,
-    score: row.draftScore ?? 0,
+    score: Number(row.draftScore),
     comment: row.draftComment,
     version: row.version ?? 1,
   }))

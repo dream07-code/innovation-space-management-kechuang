@@ -4905,7 +4905,7 @@ paths:
       tags:
       - 客观题库
       summary: 本人答题卡
-      description: 考核 CLOSED/ARCHIVED 前剥离一切判分字段（防泄题），结束后含逐题对错与解析。
+      description: 成绩发布前剥离一切判分字段；发布后含逐题得分、参考答案与评语。
       x-implementation-status: implemented
       x-roles:
       - STUDENT
@@ -5684,6 +5684,7 @@ components:
       required: [memberId, memberName, status, answeredCount]
       properties:
         memberId: {type: string}
+        resultsPublished: {type: boolean, description: 成绩是否已发布（学生端未发布时不下发分数）}
         memberName: {type: string}
         status: {type: string, enum: [DRAFT, SUBMITTED]}
         answeredCount: {type: integer, minimum: 0}
@@ -5700,9 +5701,14 @@ components:
         position: {type: integer, minimum: 1}
         answer: {}
         correct: {type: boolean}
-        awarded: {type: integer, minimum: 0}
+        awarded: {type: integer, minimum: 0, description: 当前生效得分（人工分优先）}
         correctAnswer: {}
         analysis: {type: string, nullable: true}
+        reviewComment: {type: string, nullable: true, description: 阅卷评语，学生可见}
+        autoAwarded: {type: integer, description: 交卷自动判分，仅教师视图返回}
+        manualScore: {type: integer, nullable: true, description: 人工分，仅教师视图返回}
+        reviewed: {type: boolean, description: 是否已人工复核，仅教师视图返回}
+        reviewedAt: {type: string, format: date-time, nullable: true, description: 仅教师视图返回}
     AnswerSheetSummaryResponse:
       type: object
       required: [code, message, data]
@@ -5715,6 +5721,7 @@ components:
       required: [status, answeredCount]
       properties:
         status: {type: string, enum: [DRAFT, SUBMITTED]}
+        resultsPublished: {type: boolean, description: 成绩是否已发布；false 时 totalScore/items 均为 null}
         answeredCount: {type: integer, minimum: 0}
         totalScore: {type: integer, nullable: true}
         submittedAt: {type: string, nullable: true}

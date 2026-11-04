@@ -215,6 +215,9 @@ class QuizAnswerSheetHttpIT {
     assertEquals(3, row.path("items").size());
     assertEquals(5, row.path("items").path(0).path("awarded").asInt());
     assertTrue(row.path("items").path(0).path("correct").asBoolean());
+    // 自动分留痕：交卷判分时同步写入 autoAwarded，供人工覆盖与撤销回退。
+    assertEquals(5, row.path("items").path(0).path("autoAwarded").asInt());
+    assertEquals(5, row.path("items").path(2).path("autoAwarded").asInt());
     assertEquals(0, row.path("items").path(1).path("awarded").asInt());
     assertEquals("解析单选", row.path("items").path(0).path("analysis").asText());
     assertEquals("B", row.path("items").path(0).path("correctAnswer").asText());

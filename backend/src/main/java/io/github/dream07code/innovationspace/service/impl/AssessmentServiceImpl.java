@@ -377,7 +377,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     if ("COLLEGE_ADMIN".equals(actor.role())) return;
     if ("DIRECTION_LEADER".equals(actor.role()) && actor.managedDirectionIds().contains(directionId)) return;
     if ("STUDENT".equals(actor.role())
-        && "PUBLISHED".equals(row.get("status"))
+        && Set.of("PUBLISHED", "CLOSED", "ARCHIVED").contains(row.get("status"))
         && directionId == memberDirection(actor.memberId())) return;
     throw new ApiException(404, ErrorCode.NOT_FOUND);
   }

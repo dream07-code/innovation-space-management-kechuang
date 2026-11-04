@@ -176,6 +176,14 @@ class QuizManualGradingHttpIT {
             "SELECT awarded FROM assessment_answer_sheet_item WHERE sheet_id=? AND position=3",
             Integer.class,
             firstSheetId));
+    // 已撤销（manual_score 为空）再次撤销 -> 400，不能靠撤销把其他题型分数清零。
+    assertEquals(
+        400,
+        send(adminToken, "POST",
+                "/api/v1/assessments/" + assessmentId + "/quiz-review/scores/" + firstSheetId
+                    + "/3/revoke",
+                "{\"version\":4}", UUID.randomUUID().toString())
+            .statusCode());
   }
 
   @Test
