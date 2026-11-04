@@ -6,11 +6,13 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
-      connection-timeout: 3000
+      # 一场考核 50 人同时交卷时，每个请求至少占一个连接；池子太小会直接超时并
+      # 被 schema 守卫翻译成 503。20 个连接在 2G 机器上仍是可接受的开销。
+      connection-timeout: 5000
       validation-timeout: 1000
       initialization-fail-timeout: -1
-      minimum-idle: 0
-      maximum-pool-size: 5
+      minimum-idle: 5
+      maximum-pool-size: 20
   sql:
     init:
       mode: never
