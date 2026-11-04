@@ -64,6 +64,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       long assessmentId, SessionPrincipal actor, int page, int size) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     long directionId = requireReadable(assessmentId, actor);
+    Boolean published =
+        jdbc.queryForObject(
+            "SELECT results_published_at IS NOT NULL FROM assessment WHERE id=?",
+            Boolean.class,
+            assessmentId);
+    boolean hideScores = "STUDENT".equals(actor.role()) && !Boolean.TRUE.equals(published);
 
     // 条目口径：题数与满分直接来自混合条目表（程序题+客观题）。
     var itemAgg =
@@ -139,7 +145,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       int gradedQuiz = gradedQuizByMember.getOrDefault(((Number) row.get("member_id")).longValue(), 0);
       int answered = answeredPrograms + sheetAnswered;
       int completed = completedPrograms + gradedQuiz;
-      int totalScore = programScore + (sheetScore == null ? 0 : sheetScore);
+      Integer totalScore = hideScores ? null : programScore + (sheetScore == null ? 0 : sheetScore);
       var out = new LinkedHashMap<String, Object>();
       out.put("memberId", String.valueOf(row.get("member_id")));
       out.put("memberName", row.get("member_name"));
@@ -153,9 +159,11 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       // 客观题按「交卷统一判」设计：草稿/未作答时 sheetScore 为空，结果页据
       // sheetStatus 显示「未交卷」而不是把没有的分数误报成待人工评分。
       out.put("sheetStatus", row.get("sheet_status") == null ? "NONE" : String.valueOf(row.get("sheet_status")));
-      out.put("sheetScore", sheetScore);
+      out.put("sheetScore", hideScores ? null : sheetScore);
       // 得分率 = round(total×100/满分)；分值制下"每题平均分"已无直观意义。
-      out.put("scoreRate", maxScore > 0 ? (int) Math.round(totalScore * 100.0 / maxScore) : 0);
+      out.put(
+          "scoreRate",
+          hideScores || maxScore <= 0 ? null : (int) Math.round(totalScore * 100.0 / maxScore));
       java.time.Instant sheetAt = toInstant(row.get("sheet_submitted_at"));
       java.time.Instant programAt = toInstant(row.get("last_program_at"));
       java.time.Instant lastAt =
@@ -166,7 +174,13 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     Long total =
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM member m" + filter, Long.class, filterArgs.toArray());
-    return Map.of("items", items, "page", page, "size", size, "total", total == null ? 0L : total);
+    var result = new LinkedHashMap<String, Object>();
+    result.put("items", items);
+    result.put("page", page);
+    result.put("size", size);
+    result.put("total", total == null ? 0L : total);
+    result.put("resultsPublished", Boolean.TRUE.equals(published));
+    return result;
   }
 
   /** JDBC 对 DATETIME 可能给 Timestamp 或 LocalDateTime，统一转 Instant。 */

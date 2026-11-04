@@ -200,10 +200,13 @@ onBeforeUnmount(stopAutosave)
         <el-input
           v-else
           v-model="answers[item.position]"
+          type="textarea"
+          :autosize="{ minRows: 4, maxRows: 16 }"
+          :maxlength="20000"
           :data-test="`fill-${item.position}`"
           :disabled="locked"
-          placeholder="填写答案，忽略首尾空格、区分大小写"
-          style="max-width: 360px"
+          class="quiz-item__code"
+          placeholder="填写代码，保留缩进；交卷后由老师评分"
         />
       </div>
 
@@ -275,6 +278,15 @@ onBeforeUnmount(stopAutosave)
   margin: 8px 0;
   white-space: pre-wrap;
   line-height: 1.7;
+}
+
+/* 填空题按代码作答：等宽字体、保留换行与缩进。 */
+.quiz-item__code :deep(.el-textarea__inner) {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .program-item {

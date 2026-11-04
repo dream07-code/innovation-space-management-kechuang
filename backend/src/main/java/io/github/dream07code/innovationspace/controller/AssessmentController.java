@@ -59,6 +59,14 @@ public class AssessmentController {
     return stored(service.command(assessmentId, request, actor(), key, "close"));
   }
 
+  @PostMapping("/{assessmentId}/publish-results")
+  public ResponseEntity<String> publishResults(
+      @PathVariable long assessmentId,
+      @RequestBody Map<String, Object> request,
+      @RequestHeader("Idempotency-Key") String key) {
+    return stored(service.publishResults(assessmentId, request, actor(), key));
+  }
+
   private static io.github.dream07code.innovationspace.security.SessionPrincipal actor() {
     return MemberController.actor();
   }
