@@ -511,6 +511,7 @@ public class AssessmentServiceImpl implements AssessmentService {
   }
 
   private static String time(Object value) {
+    if (value == null) return null;
     Instant instant =
         value instanceof Timestamp timestamp
             ? timestamp.toInstant()

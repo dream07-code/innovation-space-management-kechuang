@@ -4949,6 +4949,140 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/assessments/{assessmentId}/quiz-review:
+    get:
+      tags: [OJ考核]
+      summary: 按题查看填空作答与评分状态
+      x-implementation-status: implemented
+      x-roles: [COLLEGE_ADMIN, DIRECTION_LEADER]
+      security:
+      - BearerAuth: []
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      - {name: questionId, in: query, required: true, schema: {type: string}}
+      - {name: filter, in: query, required: false, schema: {type: string, enum: [all, pending, auto_zero, manual], default: all}}
+      - {name: page, in: query, required: false, schema: {type: integer, minimum: 1, default: 1}}
+      - {name: size, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        '200':
+          description: 阅卷列表；仅 FILL_BLANK 可查，其他题型 400
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizReviewPageResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+  /api/v1/assessments/{assessmentId}/quiz-review/summary:
+    get:
+      tags: [OJ考核]
+      summary: 阅卷进度与发布条件
+      x-implementation-status: implemented
+      x-roles: [COLLEGE_ADMIN, DIRECTION_LEADER]
+      security:
+      - BearerAuth: []
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已批/待批条数与 canPublish
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizReviewSummaryResponse'
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/v1/assessments/{assessmentId}/quiz-review/scores:
+    post:
+      tags: [OJ考核]
+      summary: 批量保存填空人工评分
+      description: 单次最多 200 条，整体一个事务；任一条版本冲突返回 409，不部分提交。
+      x-implementation-status: implemented
+      x-roles: [COLLEGE_ADMIN, DIRECTION_LEADER]
+      security:
+      - BearerAuth: []
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeQuizScoresRequest'
+      responses:
+        '200':
+          description: 每条的新版本与所属答卷新总分
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeQuizScoresResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+  /api/v1/assessments/{assessmentId}/quiz-review/scores/{sheetId}/{position}/revoke:
+    post:
+      tags: [OJ考核]
+      summary: 撤销人工评分并回退自动分
+      x-implementation-status: implemented
+      x-roles: [COLLEGE_ADMIN, DIRECTION_LEADER]
+      security:
+      - BearerAuth: []
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      - {name: sheetId, in: path, required: true, schema: {type: string}}
+      - {name: position, in: path, required: true, schema: {type: integer}}
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: 回退后的得分与总分
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+  /api/v1/assessments/{assessmentId}/publish-results:
+    post:
+      tags: [OJ考核]
+      summary: 发布成绩并结算考核积分
+      description: 仅 CLOSED 且无待批填空明细时可发布；发布后学生可见分数、阅卷锁定、积分按最终成绩结算。发布单向不可撤回。
+      x-implementation-status: implemented
+      x-roles: [COLLEGE_ADMIN, DIRECTION_LEADER]
+      security:
+      - BearerAuth: []
+      parameters:
+      - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: 发布时间、发布人与是否结算积分
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResultsResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
 components:
   securitySchemes:
     BearerAuth:
@@ -5703,7 +5837,14 @@ components:
           enum: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]
         pointsEnabled:
           type: boolean
-          description: 是否开启考核积分奖励；开启后考核关闭时按成绩比例发放（第一名 20 分封顶）。
+          description: 是否开启考核积分奖励；开启后在发布成绩时按成绩比例发放（第一名 20 分封顶）。
+        resultsPublished:
+          type: boolean
+          description: 成绩是否已由负责人/管理员发布；未发布时学生看不到分数与明细。
+        resultsPublishedAt:
+          type: string
+          format: date-time
+          nullable: true
         startAt:
           type: string
           format: date-time
@@ -6181,14 +6322,14 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/AssessmentItem'
-        pointsEnabled: {type: boolean, description: 缺省 false；开启后考核关闭时按成绩比例发放积分（第一名 20 分封顶）。}
+        pointsEnabled: {type: boolean, description: 缺省 false；开启后在发布成绩时按成绩比例发放积分（第一名 20 分封顶）。}
       additionalProperties: false
     UpdateAssessmentRequest:
       type: object
       required: [version]
       properties:
         version: {type: integer, minimum: 1}
-        pointsEnabled: {type: boolean, description: 缺省保持原值；开关在关闭时决定是否结算积分。}
+        pointsEnabled: {type: boolean, description: 缺省保持原值；开关在发布成绩时决定是否结算积分。}
         title: {type: string, minLength: 1, maxLength: 120}
         description: {type: string, maxLength: 10000}
         startAt: {type: string, format: date-time}
@@ -8760,3 +8901,120 @@ components:
           enum:
           - UP
           - DOWN
+    QuizReviewRow:
+      type: object
+      properties:
+        sheetId: {type: string}
+        memberId: {type: string}
+        memberName: {type: string}
+        studentNo: {type: string}
+        answer: {type: string, nullable: true, description: 原始作答，保留换行}
+        answered: {type: boolean}
+        autoAwarded: {type: integer}
+        awarded: {type: integer, description: 当前生效得分}
+        manualScore: {type: integer, nullable: true}
+        reviewed: {type: boolean}
+        comment: {type: string, nullable: true}
+        version: {type: integer, nullable: true}
+        reviewedAt: {type: string, format: date-time, nullable: true}
+    QuizReviewPage:
+      type: object
+      properties:
+        assessment:
+          type: object
+          properties:
+            id: {type: string}
+            title: {type: string}
+            status: {type: string}
+            directionId: {type: string}
+            resultsPublished: {type: boolean}
+        question:
+          type: object
+          properties:
+            position: {type: integer}
+            questionId: {type: string}
+            stem: {type: string}
+            score: {type: integer}
+            referenceAnswers:
+              type: array
+              items: {type: string}
+              nullable: true
+            analysis: {type: string, nullable: true}
+        progress:
+          type: object
+          properties:
+            graded: {type: integer}
+            total: {type: integer}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuizReviewRow'
+        page: {type: integer}
+        size: {type: integer}
+        total: {type: integer}
+    QuizReviewPageResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data: {$ref: '#/components/schemas/QuizReviewPage'}
+    QuizReviewSummary:
+      type: object
+      properties:
+        totalItems: {type: integer}
+        gradedItems: {type: integer}
+        pendingItems: {type: integer, description: 已交卷答题卡中尚无人工分的填空明细数}
+        submittedSheets: {type: integer}
+        resultsPublished: {type: boolean}
+        canPublish: {type: boolean}
+        pointsEnabled: {type: boolean}
+    QuizReviewSummaryResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data: {$ref: '#/components/schemas/QuizReviewSummary'}
+    GradeQuizScoresRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required: [sheetId, position, score, version]
+            properties:
+              sheetId: {type: string}
+              position: {type: integer}
+              score: {type: integer, description: 0 到该题分值}
+              comment: {type: string, maxLength: 500}
+              version: {type: integer, minimum: 1}
+    GradeQuizScoresResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            updated: {type: integer}
+            sheets:
+              type: array
+              items:
+                type: object
+                properties:
+                  sheetId: {type: string}
+                  totalScore: {type: integer}
+    PublishResultsResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            publishedAt: {type: string, format: date-time}
+            publisher: {type: string}
+            settled: {type: boolean}
