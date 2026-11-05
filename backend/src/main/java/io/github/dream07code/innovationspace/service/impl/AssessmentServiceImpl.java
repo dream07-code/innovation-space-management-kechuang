@@ -28,6 +28,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class AssessmentServiceImpl implements AssessmentService {
+  /** PATCH /assessments/{id} 允许携带的字段；契约 additionalProperties=false，多一个字段就 400。 */
+  private static final Set<String> UPDATE_FIELDS =
+      Set.of("title", "description", "startAt", "endAt", "allowedLanguages", "items", "pointsEnabled");
+
   private final JdbcTemplate jdbc;
   private final IdempotencyService idem;
   private final Clock clock;
@@ -138,7 +142,8 @@ public class AssessmentServiceImpl implements AssessmentService {
   }
 
   public Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor) {
-    if (request == null || request.size() < 2 || !request.containsKey("version")) throw bad();
+    if (request == null || request.size() < 2 || !request.containsKey("version"))
+      throw bad("version plus at least one updatable field is required");
     long version = version(request.get("version"));
     return tx.execute(
         status -> {
@@ -149,9 +154,9 @@ public class AssessmentServiceImpl implements AssessmentService {
             throw new ApiException(409, ErrorCode.VERSION_CONFLICT);
           Map<String, Object> values = new LinkedHashMap<>(request);
           values.remove("version");
-          if (!Set.of(
-                  "title", "description", "startAt", "endAt", "allowedLanguages", "items", "pointsEnabled")
-              .containsAll(values.keySet())) throw bad();
+          var unsupported = new java.util.LinkedHashSet<>(values.keySet());
+          unsupported.removeAll(UPDATE_FIELDS);
+          if (!unsupported.isEmpty()) throw bad("unsupported fields " + unsupported);
           var fields = new ArrayList<String>();
           var args = new ArrayList<Object>();
           if (values.containsKey("title")) { fields.add("title=?"); args.add(requiredText(values, "title", 120)); }
@@ -160,7 +165,8 @@ public class AssessmentServiceImpl implements AssessmentService {
           if (values.containsKey("endAt")) { fields.add("end_at=?"); args.add(offset(values.get("endAt"))); }
           if (values.containsKey("allowedLanguages")) { fields.add("allowed_languages=?"); args.add(json.writeValueAsString(languages(values.get("allowedLanguages")))); }
           if (values.containsKey("pointsEnabled")) { fields.add("points_enabled=?"); args.add(booleanField(values)); }
-          if (fields.isEmpty() && !values.containsKey("items")) throw bad();
+          if (fields.isEmpty() && !values.containsKey("items"))
+            throw bad("at least one updatable field is required");
           fields.add("version=version+1");
           fields.add("updated_at=?");
           args.add(Timestamp.from(clock.instant()));
@@ -296,7 +302,7 @@ public class AssessmentServiceImpl implements AssessmentService {
   private static boolean booleanField(Map<String, Object> request) {
     Object value = request.get("pointsEnabled");
     if (value == null) return false;
-    if (!(value instanceof Boolean b)) throw bad();
+    if (!(value instanceof Boolean b)) throw bad("pointsEnabled must be a boolean");
     return b;
   }
 
@@ -317,27 +323,33 @@ public class AssessmentServiceImpl implements AssessmentService {
   private record ParsedItem(String type, long refId, int score) {}
 
   private List<ParsedItem> parseItems(Object value) {
-    if (!(value instanceof List<?> list) || list.isEmpty()) throw bad();
+    if (!(value instanceof List<?> list) || list.isEmpty())
+      throw bad("items must be a non-empty array");
     var seen = new java.util.HashSet<String>();
     var out = new ArrayList<ParsedItem>();
-    for (Object entry : list) {
-      if (!(entry instanceof Map<?, ?> item)) throw bad();
+    for (int index = 0; index < list.size(); index++) {
+      if (!(list.get(index) instanceof Map<?, ?> item))
+        throw bad("items[" + index + "] must be an object");
       String type = String.valueOf(item.get("type"));
-      if (!Set.of("PROGRAM", "QUIZ").contains(type)) throw bad();
+      if (!Set.of("PROGRAM", "QUIZ").contains(type))
+        throw bad("items[" + index + "].type must be PROGRAM or QUIZ");
       Object refIdValue = item.get("refId");
-      if (!(refIdValue instanceof String refIdText)) throw bad();
+      if (!(refIdValue instanceof String refIdText))
+        throw bad("items[" + index + "].refId must be a decimal string");
       long refId;
       try {
         refId = Long.parseLong(refIdText);
       } catch (NumberFormatException error) {
-        throw bad();
+        throw bad("items[" + index + "].refId must be a decimal string");
       }
       Object scoreValue = item.get("score");
       if (!(scoreValue instanceof Number scoreNumber)
           || scoreNumber.intValue() != scoreNumber.doubleValue()
           || scoreNumber.intValue() < 1
-          || scoreNumber.intValue() > 100) throw bad();
-      if (!seen.add(type + ":" + refId)) throw bad();
+          || scoreNumber.intValue() > 100)
+        throw bad("items[" + index + "].score must be an integer in 1..100");
+      if (!seen.add(type + ":" + refId))
+        throw bad("items[" + index + "] repeats an earlier entry; one item may only be added once");
       out.add(new ParsedItem(type, refId, scoreNumber.intValue()));
     }
     return out;
@@ -352,7 +364,13 @@ public class AssessmentServiceImpl implements AssessmentService {
               "SELECT COUNT(*) FROM " + table + " WHERE id=? AND status<>'RETIRED'",
               Integer.class,
               item.refId());
-      if (exists == null || exists == 0) throw new ApiException(400, ErrorCode.INVALID_REQUEST);
+      if (exists == null || exists == 0)
+        throw bad(
+            "items["
+                + (position - 1)
+                + "] refers to a missing or retired "
+                + item.type()
+                + " question");
       jdbc.update(
           "INSERT INTO assessment_item(assessment_id,position,item_type,problem_id,question_id,score)"
               + " VALUES(?,?,?,?,?,?)",
@@ -485,7 +503,8 @@ public class AssessmentServiceImpl implements AssessmentService {
   }
 
   private static long version(Object value) {
-    if (!(value instanceof Number number) || number.longValue() < 1) throw bad();
+    if (!(value instanceof Number number) || number.longValue() < 1)
+      throw bad("version must be a positive integer");
     return number.longValue();
   }
 
@@ -523,5 +542,10 @@ public class AssessmentServiceImpl implements AssessmentService {
 
   private static ApiException bad() {
     return new ApiException(400, ErrorCode.INVALID_REQUEST);
+  }
+
+  /** 便于排查的 400：细节只进日志（见 GlobalExceptionHandler），响应文案仍是通用文案。 */
+  private static ApiException bad(String detail) {
+    return new ApiException(400, ErrorCode.INVALID_REQUEST, detail);
   }
 }
