@@ -191,7 +191,6 @@ async function save(): Promise<void> {
     const base = {
       title: form.title.trim(),
       description: form.description.trim(),
-      directionId: form.directionId,
       startAt: form.startAt,
       endAt: form.endAt,
       allowedLanguages: form.allowedLanguages,
@@ -204,7 +203,11 @@ async function save(): Promise<void> {
       })),
     }
     if (isNew.value) {
-      const created = await createAssessment(base, newIdempotencyKey())
+      // 方向只在创建时确定；更新契约不接受 directionId（additionalProperties: false）。
+      const created = await createAssessment(
+        { ...base, directionId: form.directionId },
+        newIdempotencyKey(),
+      )
       ElMessage.success('考核草稿已创建')
       void router.replace({ name: 'oj-assessment-detail', params: { assessmentId: created.id } })
       return
@@ -242,9 +245,10 @@ onMounted(load)
         <el-input v-model="form.description" data-test="description" type="textarea" :rows="5" maxlength="4000" show-word-limit />
       </el-form-item>
       <el-form-item label="方向" prop="directionId">
-        <el-select v-model="form.directionId" style="width: 240px">
+        <el-select v-model="form.directionId" data-test="direction" style="width: 240px" :disabled="!isNew">
           <el-option v-for="direction in directions.items" :key="direction.id" :label="direction.name" :value="direction.id" />
         </el-select>
+        <span v-if="!isNew" class="form-hint">方向在创建后不可修改</span>
       </el-form-item>
       <el-row :gutter="16">
         <el-col :span="12">
@@ -430,5 +434,11 @@ onMounted(load)
   color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.form-hint {
+  margin-left: 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>

@@ -81,6 +81,27 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
+/**
+ * 混合条目校验：与真实后端 parseItems 同口径——类型合法、引用可用、分值 1–100、
+ * 同一题只能挂一次。mock 没有客观题库，QUIZ 只校验形状，PROGRAM 需命中题库。
+ */
+function validItems(value: unknown): value is Array<{ type: 'PROGRAM' | 'QUIZ'; refId: string; score: number }> {
+  if (!Array.isArray(value) || value.length === 0) return false
+  const seen = new Set<string>()
+  return value.every((entry) => {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return false
+    const item = entry as JsonObject
+    if (item.type !== 'PROGRAM' && item.type !== 'QUIZ') return false
+    if (typeof item.refId !== 'string' || !item.refId) return false
+    if (typeof item.score !== 'number' || !Number.isInteger(item.score)) return false
+    if (item.score < 1 || item.score > 100) return false
+    if (item.type === 'PROGRAM' && !findProblem(item.refId)) return false
+    if (seen.has(`${item.type}:${item.refId}`)) return false
+    seen.add(`${item.type}:${item.refId}`)
+    return true
+  })
+}
+
 function validExamples(value: unknown): boolean {
   return Array.isArray(value) && value.every((item) => {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return false
@@ -252,7 +273,10 @@ export const ojHandlers = [
     return withIdempotency(request, (bodyText) => {
       const body = parseBody(bodyText)
       if (!body) return errors.invalidRequest()
-      const bad = rejectUnknownFields(body, ['title', 'description', 'directionId', 'startAt', 'endAt', 'allowedLanguages', 'problemIds'])
+      const bad = rejectUnknownFields(body, [
+        'title', 'description', 'directionId', 'startAt', 'endAt',
+        'allowedLanguages', 'pointsEnabled', 'items', 'problemIds',
+      ])
       if (bad) return bad
       if (
         typeof body.title !== 'string' || body.title.trim().length < 1 ||
@@ -261,12 +285,13 @@ export const ojHandlers = [
         typeof body.startAt !== 'string' ||
         typeof body.endAt !== 'string' ||
         !isLanguageArray(body.allowedLanguages) ||
-        !isStringArray(body.problemIds)
+        !validItems(body.items) ||
+        ('pointsEnabled' in body && typeof body.pointsEnabled !== 'boolean') ||
+        ('problemIds' in body && !isStringArray(body.problemIds))
       ) return errors.invalidRequest()
       if (account.user.role === 'DIRECTION_LEADER' && !account.user.managedDirectionIds.includes(body.directionId)) {
         return errors.forbidden()
       }
-      if (body.problemIds.some((id) => !findProblem(id))) return errors.invalidRequest()
       if (!Number.isFinite(Date.parse(body.startAt)) || !Number.isFinite(Date.parse(body.endAt)) || Date.parse(body.startAt) >= Date.parse(body.endAt)) {
         return errors.invalidRequest()
       }
@@ -294,7 +319,10 @@ export const ojHandlers = [
     return (async () => {
       const body = parseBody(await request.text())
       if (!body) return errors.invalidRequest()
-      const bad = rejectUnknownFields(body, ['version', 'title', 'description', 'startAt', 'endAt', 'allowedLanguages', 'problemIds'])
+      const bad = rejectUnknownFields(body, [
+        'version', 'title', 'description', 'startAt', 'endAt',
+        'allowedLanguages', 'pointsEnabled', 'items', 'problemIds',
+      ])
       if (bad) return bad
       if (body.version !== assessment.version) return errors.versionConflict()
       if ('title' in body && (typeof body.title !== 'string' || !body.title.trim())) return errors.invalidRequest()
@@ -302,6 +330,8 @@ export const ojHandlers = [
       if ('startAt' in body && typeof body.startAt !== 'string') return errors.invalidRequest()
       if ('endAt' in body && typeof body.endAt !== 'string') return errors.invalidRequest()
       if ('allowedLanguages' in body && !isLanguageArray(body.allowedLanguages)) return errors.invalidRequest()
+      if ('pointsEnabled' in body && typeof body.pointsEnabled !== 'boolean') return errors.invalidRequest()
+      if ('items' in body && !validItems(body.items)) return errors.invalidRequest()
       if ('problemIds' in body && (!isStringArray(body.problemIds) || body.problemIds.some((id) => !findProblem(id)))) {
         return errors.invalidRequest()
       }

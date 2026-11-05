@@ -214,4 +214,40 @@ describe('AssessmentEditView 混合条目', () => {
       }),
     )
   })
+
+  it('更新载荷不含 directionId（契约 additionalProperties: false，带上会被判 400）', async () => {
+    mocks.routeParams.assessmentId = '9001'
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      version: 4,
+      title: '旧标题',
+      description: '旧说明',
+      directionId: 'd1',
+      startAt: '2026-11-01T08:00:00+08:00',
+      endAt: '2026-11-01T10:00:00+08:00',
+      allowedLanguages: ['java'],
+      problemIds: ['p1'],
+      pointsEnabled: false,
+      items: [{ position: 1, type: 'PROGRAM', refId: 'p1', score: 100 }],
+    })
+    const wrapper = await mountView()
+    await wrapper.get('[data-test="save"]').trigger('click')
+    await flushPromises()
+
+    const [id, payload] = mocks.updateAssessment.mock.calls[0] as [string, Record<string, unknown>]
+    expect(id).toBe('9001')
+    expect(payload).not.toHaveProperty('directionId')
+    expect(Object.keys(payload).sort()).toEqual([
+      'allowedLanguages',
+      'description',
+      'endAt',
+      'items',
+      'pointsEnabled',
+      'startAt',
+      'title',
+      'version',
+    ])
+    // 编辑态方向不可改：选择器禁用。
+    expect(wrapper.get('[data-test="direction"]').attributes('disabled')).toBe('true')
+  })
 })
