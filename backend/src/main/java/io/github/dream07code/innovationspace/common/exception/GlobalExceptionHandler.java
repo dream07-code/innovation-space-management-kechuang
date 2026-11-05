@@ -26,6 +26,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<ApiResponse<Void>> apiException(ApiException exception) {
+    // INVALID_REQUEST 是各接口共用的"内容不合法"出口，只回通用文案时无从判断是哪个字段。
+    // 这里把异常自带的细节（字段名/条目下标）打出来；响应体仍然只由 code 决定，不受影响。
+    if (exception.code() == ErrorCode.INVALID_REQUEST) {
+      LOG.warn("Request payload rejected: {}", exception.getMessage());
+    } else {
+      LOG.debug("Request rejected status={} code={}", exception.status(), exception.code());
+    }
     var builder =
         ResponseEntity.status(exception.status())
             .cacheControl(org.springframework.http.CacheControl.noStore());

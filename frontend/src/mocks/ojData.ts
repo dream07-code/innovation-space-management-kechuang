@@ -489,7 +489,15 @@ export function updateAssessment(
   assessment: Assessment,
   payload: UpdateAssessmentRequest,
 ): Assessment {
-  Object.assign(assessment, payload, { version: assessment.version + 1, updatedAt: ojNowIso() })
+  const { items, ...rest } = payload
+  Object.assign(assessment, rest, { version: assessment.version + 1, updatedAt: ojNowIso() })
+  if (items) {
+    // 与真实后端一致：items 整体替换，position 由数组顺序决定，problemIds 为派生兼容字段。
+    assessment.items = items.map((item, index) => ({ ...item, position: index + 1 }))
+    assessment.problemIds = assessment.items
+      .filter((item) => item.type === 'PROGRAM')
+      .map((item) => item.refId)
+  }
   return assessment
 }
 

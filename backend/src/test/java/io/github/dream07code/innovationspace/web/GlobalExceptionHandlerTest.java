@@ -117,4 +117,16 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getContentAsString()).doesNotContain("secret7", "IllegalStateException", "trace");
         assertThat(output.getAll()).doesNotContain("secret7");
     }
+
+    @Test
+    void invalidRequestDetailOnlyGoesToTheLog(CapturedOutput output) throws Exception {
+        var response = mockMvc.perform(get("/api/v1/test-probe/invalid-detail"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("Invalid request"))
+            .andReturn().getResponse();
+        // 排查细节（非法字段名）只写日志，响应体仍是通用文案。
+        assertThat(response.getContentAsString()).doesNotContain("directionId", "unsupported fields");
+        assertThat(output.getAll()).contains("unsupported fields [directionId]");
+    }
 }

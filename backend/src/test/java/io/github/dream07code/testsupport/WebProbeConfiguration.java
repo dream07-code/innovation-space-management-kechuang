@@ -52,6 +52,16 @@ public class WebProbeConfiguration {
             throw new IllegalStateException("upstream failure secret7");
         }
 
+        @GetMapping("/invalid-detail")
+        @Operation(summary = "测试 400 排查细节只进日志")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数不合法")
+        public ApiResponse<Void> invalidDetail() {
+            throw new io.github.dream07code.innovationspace.common.exception.ApiException(
+                    400,
+                    io.github.dream07code.innovationspace.common.api.ErrorCode.INVALID_REQUEST,
+                    "unsupported fields [directionId]");
+        }
+
         @GetMapping("/query")
         public ApiResponse<Integer> query(@RequestParam @Min(1) int count) {
             return ApiResponse.success(count);

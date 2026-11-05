@@ -268,3 +268,40 @@ describe('OJ 题目测试点隔离', () => {
     expect(studentProblem.status).toBe(404)
   })
 })
+
+describe('OJ 考核草稿编辑载荷', () => {
+  it('更新接受 items 与 pointsEnabled，并拒绝契约外的 directionId', async () => {
+    const token = await login('MOCK-ADMIN', 'Admin-Example9!')
+
+    const updated = await request('/api/v1/assessments/9002', token, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        version: 1,
+        title: '鸿蒙方向摸底考核',
+        pointsEnabled: true,
+        items: [
+          { position: 1, type: 'PROGRAM', refId: '9103', score: 60 },
+          { position: 2, type: 'PROGRAM', refId: '9101', score: 40 },
+        ],
+      }),
+    })
+    expect(updated.status).toBe(200)
+    expect(updated.body.data.version).toBe(2)
+    expect(updated.body.data.pointsEnabled).toBe(true)
+    expect(updated.body.data.items).toEqual([
+      { position: 1, type: 'PROGRAM', refId: '9103', score: 60 },
+      { position: 2, type: 'PROGRAM', refId: '9101', score: 40 },
+    ])
+    // problemIds 是派生兼容字段，随 items 重算。
+    expect(updated.body.data.problemIds).toEqual(['9103', '9101'])
+
+    // 这正是「保存草稿后再编辑保存报错」的根因：更新契约不接受 directionId。
+    const rejected = await request('/api/v1/assessments/9002', token, {
+      method: 'PATCH',
+      body: JSON.stringify({ version: 2, directionId: '1', title: '改方向' }),
+    })
+    expect(rejected.status).toBe(400)
+    expect(rejected.body.code).toBe('INVALID_REQUEST')
+    expect(findAssessment('9002')?.version).toBe(2)
+  })
+})
