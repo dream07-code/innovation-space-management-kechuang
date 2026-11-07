@@ -144,7 +144,8 @@ public class QuizReviewServiceImpl implements QuizReviewService {
             "SELECT COUNT(*) FROM assessment_answer_sheet WHERE assessment_id=? AND status='SUBMITTED'",
             Long.class,
             assessmentId);
-    int fillItems = fillBlankItems(assessmentId).size();
+    // 题目清单随进度一次下发：阅卷页不必再逐题回查题库（远程网络下 N 次串行请求会拖到分钟级）。
+    var questions = fillBlankQuestions(assessmentId);
     Long graded =
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM assessment_answer_sheet_item d"
@@ -156,7 +157,14 @@ public class QuizReviewServiceImpl implements QuizReviewService {
             assessmentId);
     boolean published = assessment.get("results_published_at") != null;
     var out = new LinkedHashMap<String, Object>();
-    out.put("totalItems", (submitted == null ? 0 : submitted.intValue()) * fillItems);
+    var meta = new LinkedHashMap<String, Object>();
+    meta.put("id", String.valueOf(assessmentId));
+    meta.put("title", assessment.get("title"));
+    meta.put("status", assessment.get("status"));
+    meta.put("resultsPublished", published);
+    out.put("assessment", meta);
+    out.put("questions", questions);
+    out.put("totalItems", (submitted == null ? 0 : submitted.intValue()) * questions.size());
     out.put("gradedItems", graded == null ? 0 : graded.intValue());
     out.put("pendingItems", pending);
     out.put("submittedSheets", submitted == null ? 0 : submitted.intValue());
@@ -427,6 +435,30 @@ public class QuizReviewServiceImpl implements QuizReviewService {
             + " WHERE i.assessment_id=? AND i.item_type='QUIZ' AND q.type='FILL_BLANK'"
             + " ORDER BY i.position",
         assessmentId);
+  }
+
+  /** 本场全部填空题（含完整题干与参考答案），供阅卷页选择题目与展示原题。 */
+  private List<Map<String, Object>> fillBlankQuestions(long assessmentId) {
+    var rows =
+        jdbc.queryForList(
+            "SELECT i.position,i.score,q.id AS question_id,q.stem,q.answer,q.analysis"
+                + " FROM assessment_item i JOIN quiz_question q ON q.id=i.question_id"
+                + " WHERE i.assessment_id=? AND i.item_type='QUIZ' AND q.type='FILL_BLANK'"
+                + " ORDER BY i.position",
+            assessmentId);
+    var out = new ArrayList<Map<String, Object>>();
+    for (var row : rows) {
+      var item = new LinkedHashMap<String, Object>();
+      item.put("position", ((Number) row.get("position")).intValue());
+      item.put("questionId", String.valueOf(row.get("question_id")));
+      item.put("stem", row.get("stem"));
+      item.put("score", ((Number) row.get("score")).intValue());
+      Object answer = row.get("answer");
+      item.put("referenceAnswers", answer == null ? List.of() : decode(String.valueOf(answer)));
+      item.put("analysis", row.get("analysis"));
+      out.add(item);
+    }
+    return out;
   }
 
   // -- 请求校验 --------------------------------------------------------

@@ -263,3 +263,6 @@ OJ 考核系统当前只发布 `planned` 契约，前端可先行开发考核、
 - 发布成绩由 `POST /api/v1/assessments/{assessmentId}/publish-results` 触发，前置条件：已关闭、无待批填空、`version` 匹配。
 - 发布后学生才可见总分、逐题得分与评语；未发布时 `my-answer-sheet`、`member-scores` 均不返回分数。
 - 考核积分从“关闭时结算”改为“发布成绩时结算”，事件键不变，幂等。
+- `quiz-review/summary` 同时下发本场全部填空题（`questions`，含完整题干与参考答案），阅卷页一次请求即可渲染题目列表，不再逐题回查题库。
+- `quiz-review` 列表页大小上限 200；单场几十人的规模可直接一次取全，超过 200 条时前端才显示分页。
+- 进度口径区分两个数字：`progress` 是**本题**已批人数/已交卷人数，`pendingItems` 是**全场**跨所有填空题的待批明细数。

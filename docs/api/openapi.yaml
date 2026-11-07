@@ -8924,6 +8924,18 @@ components:
         comment: {type: string, nullable: true}
         version: {type: integer, nullable: true}
         reviewedAt: {type: string, format: date-time, nullable: true}
+    QuizReviewQuestion:
+      type: object
+      properties:
+        position: {type: integer, description: 题目在本场考核中的序号}
+        questionId: {type: string}
+        stem: {type: string, description: 完整题干（保留换行）}
+        score: {type: integer, description: 本题满分}
+        referenceAnswers:
+          type: array
+          items: {type: string}
+          nullable: true
+        analysis: {type: string, nullable: true}
     QuizReviewPage:
       type: object
       properties:
@@ -8936,17 +8948,7 @@ components:
             directionId: {type: string}
             resultsPublished: {type: boolean}
         question:
-          type: object
-          properties:
-            position: {type: integer}
-            questionId: {type: string}
-            stem: {type: string}
-            score: {type: integer}
-            referenceAnswers:
-              type: array
-              items: {type: string}
-              nullable: true
-            analysis: {type: string, nullable: true}
+          $ref: '#/components/schemas/QuizReviewQuestion'
         progress:
           type: object
           properties:
@@ -8968,9 +8970,20 @@ components:
     QuizReviewSummary:
       type: object
       properties:
+        assessment:
+          type: object
+          properties:
+            id: {type: string}
+            title: {type: string}
+            status: {type: string}
+            resultsPublished: {type: boolean}
+        questions:
+          type: array
+          description: 本场全部填空题（含完整题干与参考答案），随进度一次下发，阅卷页无需逐题回查题库
+          items: {$ref: '#/components/schemas/QuizReviewQuestion'}
         totalItems: {type: integer}
         gradedItems: {type: integer}
-        pendingItems: {type: integer, description: 已交卷答题卡中尚无人工分的填空明细数}
+        pendingItems: {type: integer, description: 已交卷答题卡中尚无人工分的填空明细数（全场口径，跨所有填空题）}
         submittedSheets: {type: integer}
         resultsPublished: {type: boolean}
         canPublish: {type: boolean}

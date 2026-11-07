@@ -9,48 +9,47 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import { getAssessment } from '@/api/modules/oj'
-import {
-  getQuizQuestion,
-  getQuizReviewSummary,
-  listQuizReview,
-  saveQuizReviewScores,
-} from '@/api/modules/quiz'
+import { getQuizReviewSummary, listQuizReview, saveQuizReviewScores } from '@/api/modules/quiz'
 import { describeError, toApiError } from '@/api/errors'
-import type { QuizReviewFilter, QuizReviewRow, QuizReviewSummary } from '@/api/types'
-
-interface FillQuestion {
-  questionId: string
-  position: number
-  stem: string
-  score: number
-}
+import type {
+  QuizReviewFilter,
+  QuizReviewQuestion,
+  QuizReviewRow,
+  QuizReviewSummary,
+} from '@/api/types'
 
 interface EditableRow extends QuizReviewRow {
   draftScore: number | null
   draftComment: string
 }
 
+/**
+ * 一次取全：单场考核只有几十人，翻页批阅反而增加操作成本，
+ * 也不利于同题横向对比尺度。后端上限 200，超出时才退回分页。
+ */
+const PAGE_SIZE = 200
+
 const route = useRoute()
 const router = useRouter()
 const assessmentId = String(route.params.assessmentId)
 
 const title = ref('')
-const questions = ref<FillQuestion[]>([])
+const questions = ref<QuizReviewQuestion[]>([])
 const questionId = ref('')
-const filter = ref<QuizReviewFilter>('pending')
+const filter = ref<QuizReviewFilter>('all')
 const page = ref(1)
-const size = 50
 const total = ref(0)
 const rows = ref<EditableRow[]>([])
 const progress = ref({ graded: 0, total: 0 })
-const referenceAnswers = ref<string[]>([])
 const summary = ref<QuizReviewSummary | null>(null)
 const loading = ref(false)
+/** 首次元数据加载中：与「本场没有填空题」区分开，避免慢加载时误报。 */
+const initialLoading = ref(true)
 const saving = ref(false)
 const confirming = ref(false)
 
 const selected = computed(() => questions.value.find((item) => item.questionId === questionId.value))
+const referenceAnswers = computed(() => selected.value?.referenceAnswers ?? [])
 const pendingCount = computed(() => summary.value?.pendingItems ?? 0)
 const canPublish = computed(() => summary.value?.canPublish ?? false)
 
@@ -58,28 +57,15 @@ function newKey(): string {
   return crypto.randomUUID()
 }
 
-async function loadQuestions(): Promise<void> {
-  const assessment = await getAssessment(assessmentId)
-  title.value = assessment.title
-  const quizItems = (assessment.items ?? []).filter((item) => item.type === 'QUIZ')
-  const found: FillQuestion[] = []
-  for (const item of quizItems) {
-    const question = await getQuizQuestion(item.refId)
-    if (question.type === 'FILL_BLANK') {
-      found.push({
-        questionId: item.refId,
-        position: item.position,
-        stem: question.stem,
-        score: item.score,
-      })
-    }
-  }
-  questions.value = found.sort((a, b) => a.position - b.position)
-  questionId.value = found[0]?.questionId ?? ''
-}
-
 async function loadSummary(): Promise<void> {
-  summary.value = await getQuizReviewSummary(assessmentId)
+  const data = await getQuizReviewSummary(assessmentId)
+  summary.value = data
+  title.value = data.assessment?.title ?? title.value
+  questions.value = data.questions ?? []
+  // 保留当前题目；首次进入或该题已不在本场时退回第一题。
+  if (!questions.value.some((item) => item.questionId === questionId.value)) {
+    questionId.value = questions.value[0]?.questionId ?? ''
+  }
 }
 
 async function loadRows(): Promise<void> {
@@ -90,7 +76,7 @@ async function loadRows(): Promise<void> {
       questionId: questionId.value,
       filter: filter.value,
       page: page.value,
-      size,
+      size: PAGE_SIZE,
     })
     rows.value = data.items.map((row) => ({
       ...row,
@@ -99,7 +85,6 @@ async function loadRows(): Promise<void> {
       draftComment: row.comment ?? '',
     }))
     progress.value = data.progress
-    referenceAnswers.value = data.question.referenceAnswers ?? []
     total.value = data.total
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
@@ -192,23 +177,34 @@ async function confirmAutoScored(): Promise<void> {
   }
 }
 
+function onPageChange(): void {
+  void loadRows()
+}
+
 function goResults(): void {
   void router.push({ name: 'oj-assessment-results', params: { assessmentId } })
 }
 
-watch([questionId, filter], () => {
+// 首次进入由 onMounted 统一串行处理，避免 questionId 赋初值时重复取数。
+watch(questionId, () => {
+  if (initialLoading.value) return
   page.value = 1
   void loadRows()
 })
-watch(page, () => void loadRows())
+watch(filter, () => {
+  page.value = 1
+  void loadRows()
+})
 
 onMounted(async () => {
   try {
-    await loadQuestions()
-    await Promise.all([loadSummary(), loadRows()])
+    await loadSummary()
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    initialLoading.value = false
   }
+  if (questionId.value) await loadRows()
 })
 </script>
 
@@ -221,14 +217,16 @@ onMounted(async () => {
       </div>
       <div class="review-actions">
         <el-button :disabled="!canPublish" data-test="go-results" @click="goResults">
-          去发布成绩{{ canPublish ? '' : `（还有 ${pendingCount} 条未批）` }}
+          去发布成绩{{ canPublish ? '' : `（全场还有 ${pendingCount} 条未批）` }}
         </el-button>
-        <el-button type="primary" :loading="saving" data-test="save" @click="save">保存本页</el-button>
+        <el-button type="primary" :loading="saving" data-test="save" @click="save">保存评分</el-button>
       </div>
     </div>
 
+    <el-skeleton v-if="initialLoading" :rows="8" animated />
+
     <el-alert
-      v-if="!questions.length"
+      v-else-if="!questions.length"
       type="info"
       :closable="false"
       title="本场考核没有填空题，无需人工阅卷。"
@@ -245,22 +243,38 @@ onMounted(async () => {
           />
         </el-select>
         <el-radio-group v-model="filter" data-test="filter">
+          <el-radio-button value="all">全部</el-radio-button>
           <el-radio-button value="pending">未批</el-radio-button>
           <el-radio-button value="auto_zero">自动 0 分</el-radio-button>
           <el-radio-button value="manual">已调整</el-radio-button>
-          <el-radio-button value="all">全部</el-radio-button>
         </el-radio-group>
         <span class="review-progress">
-          已批 {{ progress.graded }} / {{ progress.total }}，剩余 {{ pendingCount }} 条
+          本题已批 {{ progress.graded }} / {{ progress.total }} 人
+          <template v-if="pendingCount > 0"> · 全场待批 {{ pendingCount }} 条</template>
+          <template v-else> · 全场已批完</template>
+          <template v-if="total"> · 当前列表 {{ total }} 条</template>
         </span>
         <el-button :loading="confirming" data-test="confirm-auto" @click="confirmAutoScored">
           全部确认自动分
         </el-button>
       </div>
 
-      <p v-if="referenceAnswers.length" class="review-reference">
-        评分参考：{{ referenceAnswers.join(' / ') }}
-      </p>
+      <section v-if="selected" class="review-stem-card">
+        <header class="review-stem-head">
+          <span class="review-stem-no">第 {{ selected.position }} 题</span>
+          <el-tag size="small" effect="plain">填空</el-tag>
+          <span class="review-stem-score">{{ selected.score }} 分</span>
+          <span class="review-stem-hint">题干与参考答案仅阅卷人可见</span>
+        </header>
+        <pre class="review-stem-text">{{ selected.stem }}</pre>
+        <div v-if="referenceAnswers.length" class="review-reference">
+          <span class="review-reference-label">评分参考</span>
+          <ol class="review-reference-list">
+            <li v-for="(answer, index) in referenceAnswers" :key="index">{{ answer }}</li>
+          </ol>
+        </div>
+        <p v-if="selected.analysis" class="review-analysis">解析：{{ selected.analysis }}</p>
+      </section>
 
       <el-table v-loading="loading" :data="rows" row-key="sheetId" stripe>
         <el-table-column type="expand">
@@ -313,12 +327,13 @@ onMounted(async () => {
       </el-table>
 
       <el-pagination
-        v-if="total > size"
-        v-model:current-page="page"
+        v-if="total > PAGE_SIZE"
+        :current-page="page"
         class="review-pagination"
-        :page-size="size"
+        :page-size="PAGE_SIZE"
         :total="total"
         layout="prev, pager, next"
+        @current-change="onPageChange"
       />
     </template>
   </div>
@@ -361,13 +376,64 @@ onMounted(async () => {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
-.review-reference {
-  margin: 0;
-  padding: 8px 12px;
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
+.review-stem-card {
+  padding: 12px 16px;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+}
+.review-stem-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.review-stem-no {
+  font-weight: 600;
+}
+.review-stem-score {
   color: var(--el-text-color-regular);
   font-size: 13px;
+}
+.review-stem-hint {
+  margin-left: auto;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+}
+.review-stem-text {
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  color: var(--el-text-color-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.review-reference {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--el-border-color);
+  font-size: 13px;
+}
+.review-reference-label {
+  flex: none;
+  color: var(--el-text-color-secondary);
+}
+.review-reference-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--el-text-color-regular);
+  word-break: break-word;
+}
+.review-analysis {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  white-space: pre-wrap;
 }
 .review-code {
   margin: 0;

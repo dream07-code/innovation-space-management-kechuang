@@ -6,16 +6,12 @@ import QuizReviewView from '@/views/oj/QuizReviewView.vue'
 
 const mocks = vi.hoisted(() => ({
   routerPush: vi.fn<(route: unknown) => void>(),
-  getAssessment: vi.fn<() => Promise<unknown>>(),
-  getQuizQuestion: vi.fn<(id: string) => Promise<unknown>>(),
-  listQuizReview: vi.fn<() => Promise<unknown>>(),
+  listQuizReview: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   getQuizReviewSummary: vi.fn<() => Promise<unknown>>(),
   saveQuizReviewScores: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
-vi.mock('@/api/modules/oj', () => ({ getAssessment: mocks.getAssessment }))
 vi.mock('@/api/modules/quiz', () => ({
-  getQuizQuestion: mocks.getQuizQuestion,
   listQuizReview: mocks.listQuizReview,
   getQuizReviewSummary: mocks.getQuizReviewSummary,
   saveQuizReviewScores: mocks.saveQuizReviewScores,
@@ -24,19 +20,6 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { assessmentId: '9001' }, query: {} }),
   useRouter: () => ({ push: mocks.routerPush }),
 }))
-
-const assessment = {
-  id: '9001',
-  title: 'AI 全栈月考',
-  version: 3,
-  status: 'CLOSED',
-  items: [
-    { position: 3, type: 'QUIZ', refId: 'q1', score: 10 },
-    { position: 4, type: 'QUIZ', refId: 'q2', score: 5 },
-  ],
-}
-
-const question = { id: 'q1', type: 'FILL_BLANK', stem: '写一个求和方法', status: 'PUBLISHED' }
 
 const reviewPage = {
   assessment: {
@@ -88,11 +71,31 @@ const reviewPage = {
     },
   ],
   page: 1,
-  size: 50,
+  size: 200,
   total: 2,
 }
 
+/** 填空题清单随进度一次下发，页面不再逐题回查题库。 */
 const summary = {
+  assessment: { id: '9001', title: 'AI 全栈月考', status: 'CLOSED', resultsPublished: false },
+  questions: [
+    {
+      position: 3,
+      questionId: 'q1',
+      stem: '补全下面这段代码：\npublic class Solution {\n  // 实现求和方法\n}',
+      score: 10,
+      referenceAnswers: ['implements', 'public', 'new'],
+      analysis: '考察接口实现',
+    },
+    {
+      position: 4,
+      questionId: 'q2',
+      stem: '第二题题干',
+      score: 5,
+      referenceAnswers: [],
+      analysis: null,
+    },
+  ],
   totalItems: 4,
   gradedItems: 0,
   pendingItems: 2,
@@ -103,8 +106,6 @@ const summary = {
 }
 
 async function mountReview(): Promise<ReturnType<typeof mount>> {
-  mocks.getAssessment.mockResolvedValue(assessment)
-  mocks.getQuizQuestion.mockResolvedValue(question)
   mocks.listQuizReview.mockResolvedValue(reviewPage)
   mocks.getQuizReviewSummary.mockResolvedValue(summary)
   mocks.saveQuizReviewScores.mockResolvedValue({ updated: 1, sheets: [{ sheetId: '88', totalScore: 8 }] })
@@ -158,6 +159,41 @@ describe('QuizReviewView 填空阅卷', () => {
     const publish = wrapper.get('[data-test="go-results"]')
     expect(publish.attributes('disabled')).toBeDefined()
     expect(publish.text()).toContain('还有 2 条未批')
-    expect(wrapper.text()).toContain('已批 0 / 2，剩余 2 条')
+    expect(wrapper.text()).toContain('本题已批 0 / 2 人')
+    expect(wrapper.text()).toContain('全场待批 2 条')
+  })
+
+  it('一次取全所有记录，不分页', async () => {
+    await mountReview()
+    const [, query] = mocks.listQuizReview.mock.calls[0] ?? []
+    expect(query).toMatchObject({ questionId: 'q1', filter: 'all', page: 1, size: 200 })
+  })
+
+  it('展示完整题干与评分参考，供阅卷人对照', async () => {
+    const wrapper = await mountReview()
+    const stem = wrapper.get('.review-stem-text')
+    expect(stem.text()).toContain('public class Solution')
+    expect(stem.text()).toContain('\n')
+    expect(wrapper.text()).toContain('第 3 题')
+    expect(wrapper.text()).toContain('10 分')
+    expect(wrapper.text()).toContain('implements')
+    expect(wrapper.text()).toContain('考察接口实现')
+  })
+
+  it('元数据加载中不误报「没有填空题」', async () => {
+    let resolveSummary: (value: unknown) => void = () => {}
+    mocks.getQuizReviewSummary.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSummary = resolve
+      }),
+    )
+    const wrapper = mount(QuizReviewView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('没有填空题')
+
+    resolveSummary(summary)
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('没有填空题')
+    expect(wrapper.text()).toContain('第 3 题')
   })
 })

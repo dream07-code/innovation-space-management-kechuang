@@ -328,6 +328,15 @@ export interface QuizReviewRow {
   reviewedAt: string | null
 }
 
+export interface QuizReviewQuestion {
+  position: number
+  questionId: string
+  stem: string
+  score: number
+  referenceAnswers: string[] | null
+  analysis: string | null
+}
+
 export interface QuizReviewPage {
   assessment: {
     id: string
@@ -336,14 +345,7 @@ export interface QuizReviewPage {
     directionId: string
     resultsPublished: boolean
   }
-  question: {
-    position: number
-    questionId: string
-    stem: string
-    score: number
-    referenceAnswers: string[] | null
-    analysis: string | null
-  }
+  question: QuizReviewQuestion
   progress: { graded: number; total: number }
   items: QuizReviewRow[]
   page: number
@@ -352,6 +354,9 @@ export interface QuizReviewPage {
 }
 
 export interface QuizReviewSummary {
+  assessment: { id: string; title: string; status: string; resultsPublished: boolean }
+  /** 本场全部填空题（含完整题干与参考答案），随进度一次下发。 */
+  questions: QuizReviewQuestion[]
   totalItems: number
   gradedItems: number
   pendingItems: number

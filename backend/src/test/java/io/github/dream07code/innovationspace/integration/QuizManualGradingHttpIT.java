@@ -110,6 +110,28 @@ class QuizManualGradingHttpIT {
   }
 
   @Test
+  void summaryCarriesFillBlankQuestionsWithFullStem() throws Exception {
+    // 阅卷页依赖一次请求拿到题目清单与完整题干，避免逐题回查导致长时间空白。
+    var response =
+        send(
+            adminToken,
+            "GET",
+            "/api/v1/assessments/" + assessmentId + "/quiz-review/summary",
+            "",
+            null);
+    assertEquals(200, response.statusCode());
+    var data = HttpTestSupport.json(response).path("data");
+    assertEquals("填空考核", data.path("assessment").path("title").asText());
+    assertEquals(1, data.path("questions").size());
+    var question = data.path("questions").path(0);
+    assertEquals(questionId, question.path("questionId").asText());
+    assertEquals("写一个方法", question.path("stem").asText());
+    assertEquals(10, question.path("score").asInt());
+    assertEquals(2, question.path("referenceAnswers").size());
+    assertEquals("参考解析", question.path("analysis").asText());
+  }
+
+  @Test
   void permissionsStateAndBatchValidation() throws Exception {
     assertEquals(
         404,
