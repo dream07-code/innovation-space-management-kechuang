@@ -24,6 +24,7 @@ import { REPORT_STATUS_META, SCORE_STATUS_META } from '@/components/statusMeta'
 import ReportImageUploader from '@/components/ReportImageUploader.vue'
 import type { ReportImage, ReportImageAnchor, WeeklyReport } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
+import { isWeekStart, parseLinkLines } from './weeklyReportForm'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,7 +59,33 @@ const IMAGE_ANCHORS: Array<{ value: ReportImageAnchor; label: string }> = [
 ]
 
 const rules: FormRules = {
-  weekStart: [{ required: true, message: '请选择周', trigger: 'change' }],
+  weekStart: [
+    { required: true, message: '请选择周', trigger: 'change' },
+    {
+      // 后端只认周一；组件层已经禁用其他星期，这里挡住手输的日期。
+      validator: (_rule, value: string, callback) =>
+        isWeekStart(value) ? callback() : callback(new Error('周开始必须是周一')),
+      trigger: 'change',
+    },
+  ],
+  linksText: [
+    {
+      validator: (_rule, value: string, callback) => {
+        const { invalidLines, tooMany } = parseLinkLines(value ?? '')
+        if (invalidLines.length) {
+          return callback(new Error(`第 ${invalidLines.join('、')} 行不是有效链接，需以 http:// 或 https:// 开头`))
+        }
+        if (tooMany) return callback(new Error('最多填写 10 条链接'))
+        return callback()
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
+/** 周报只能选周一：其他星期选不出来，避免提交后才收到「内容不合法」。 */
+function notMonday(date: Date): boolean {
+  return date.getDay() !== 1
 }
 
 /** 是否可编辑：草稿永远可以，已提交看 editable 标志。 */
@@ -96,17 +123,34 @@ async function load(): Promise<void> {
   }
 }
 
-function parseLinks(): string[] {
-  return form.linksText
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)
+/** 保存与提交共用的前置校验：不通过就把用户指到具体那一行，不发请求。 */
+async function validateForm(): Promise<string[] | null> {
+  // el-form 的规则给出的是行内红字；这里再做一遍硬校验，保证无论校验库行为如何都不会把
+  // 后端必拒的载荷发出去（单元测试环境里 Element Plus 的规则不执行，只有这层能测到）。
+  const { links, invalidLines, tooMany } = parseLinkLines(form.linksText)
+  if (invalidLines.length) {
+    ElMessage.warning(`第 ${invalidLines.join('、')} 行不是有效链接，需以 http:// 或 https:// 开头`)
+    return null
+  }
+  if (tooMany) {
+    ElMessage.warning('最多填写 10 条链接')
+    return null
+  }
+  if (!isWeekStart(form.weekStart)) {
+    ElMessage.warning('周开始必须是周一')
+    return null
+  }
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return null
+  return links
 }
 
 /** 生成幂等键：一次编辑会话内复用一个。 */
 const editKey = newIdempotencyKey()
 
 async function saveDraft(): Promise<void> {
+  const links = await validateForm()
+  if (!links) return
   saving.value = true
   try {
     const payload = {
@@ -114,12 +158,10 @@ async function saveDraft(): Promise<void> {
       achievements: form.achievements,
       reflections: form.reflections || null,
       nextWeekPlan: form.nextWeekPlan || null,
-      links: parseLinks(),
+      links,
       images: form.images,
     }
     if (isNew.value) {
-      const valid = await formRef.value?.validate().catch(() => false)
-      if (!valid) return
       const created = await createWeeklyReport({ weekStart: form.weekStart, ...payload }, editKey)
       report.value = created
       ElMessage.success('草稿已保存')
@@ -154,6 +196,8 @@ async function submit(): Promise<void> {
     ElMessage.warning('提交前请填写「总结」与「成果」')
     return
   }
+  const links = await validateForm()
+  if (!links) return
   try {
     await ElMessageBox.confirm(
       '提交后将入账保底积分并开始评分；评分完成前积分可能继续变动。',
@@ -172,7 +216,7 @@ async function submit(): Promise<void> {
       achievements: form.achievements,
       reflections: form.reflections || null,
       nextWeekPlan: form.nextWeekPlan || null,
-      links: parseLinks(),
+      links,
       images: form.images,
     })
     report.value = updated
@@ -220,35 +264,73 @@ onMounted(load)
     </template>
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-      <el-form-item label="周开始（必须是周一）" prop="weekStart">
+      <el-form-item label="周开始（必须是周一）" prop="weekStart" data-test="week-start">
         <el-date-picker
           v-model="form.weekStart"
-          type="week"
+          type="date"
           format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          :clearable="false"
           :disabled="!isNew"
-          placeholder="选择周"
+          :disabled-date="notMonday"
+          placeholder="选择周一"
         />
-        <div class="report__tip">每成员每周最多一份周报（含草稿）。</div>
+        <div class="report__tip">每成员每周最多一份周报（含草稿），只能选周一。</div>
       </el-form-item>
 
       <el-form-item label="总结（提交必填）" prop="summary">
-        <el-input v-model="form.summary" type="textarea" :rows="4" :disabled="!editable" data-test="summary" />
+        <el-input
+          v-model="form.summary"
+          type="textarea"
+          :rows="4"
+          :disabled="!editable"
+          maxlength="10000"
+          show-word-limit
+          data-test="summary"
+        />
       </el-form-item>
 
       <el-form-item label="成果（提交必填）" prop="achievements">
-        <el-input v-model="form.achievements" type="textarea" :rows="3" :disabled="!editable" />
+        <el-input
+          v-model="form.achievements"
+          type="textarea"
+          :rows="3"
+          :disabled="!editable"
+          maxlength="10000"
+          show-word-limit
+        />
       </el-form-item>
 
       <el-form-item label="反思">
-        <el-input v-model="form.reflections" type="textarea" :rows="2" :disabled="!editable" />
+        <el-input
+          v-model="form.reflections"
+          type="textarea"
+          :rows="2"
+          :disabled="!editable"
+          maxlength="5000"
+          show-word-limit
+        />
       </el-form-item>
 
       <el-form-item label="下周计划">
-        <el-input v-model="form.nextWeekPlan" type="textarea" :rows="2" :disabled="!editable" />
+        <el-input
+          v-model="form.nextWeekPlan"
+          type="textarea"
+          :rows="2"
+          :disabled="!editable"
+          maxlength="5000"
+          show-word-limit
+        />
       </el-form-item>
 
-      <el-form-item label="相关链接（每行一个）">
-        <el-input v-model="form.linksText" type="textarea" :rows="2" :disabled="!editable" />
+      <el-form-item label="相关链接（每行一个，需以 http:// 或 https:// 开头）" prop="linksText" data-test="links">
+        <el-input
+          v-model="form.linksText"
+          type="textarea"
+          :rows="2"
+          :disabled="!editable"
+          maxlength="6000"
+        />
       </el-form-item>
 
       <el-form-item label="笔记图片（选填）">
