@@ -19,6 +19,7 @@ import {
 } from '@/api/modules/oj'
 import CodeEditor from '@/components/CodeEditor.vue'
 import { describeError, toApiError } from '@/api/errors'
+import { formatDateTime } from '@/utils/datetime'
 import {
   memberNameLabel,
   languageLabel,
@@ -126,9 +127,9 @@ onMounted(load)
             {{ submissionStatusMeta(submission.status).label }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="提交时间">{{ submission.submittedAt }}</el-descriptions-item>
+        <el-descriptions-item label="提交时间">{{ formatDateTime(submission.submittedAt) }}</el-descriptions-item>
         <el-descriptions-item label="代码摘要">{{ submission.codeHash ?? '—' }}</el-descriptions-item>
-        <el-descriptions-item label="判定时间">{{ submission.judgedAt ?? '—' }}</el-descriptions-item>
+        <el-descriptions-item label="判定时间">{{ formatDateTime(submission.judgedAt) }}</el-descriptions-item>
       </el-descriptions>
 
       <template v-if="submittedCode">
