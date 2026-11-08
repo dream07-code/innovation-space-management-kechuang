@@ -33,6 +33,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       long assessmentId, SessionPrincipal actor, int page, int size, Long memberId) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     requireReadable(assessmentId, actor);
+    boolean hideScores = "STUDENT".equals(actor.role()) && !resultsPublished(assessmentId);
 
     var args = new ArrayList<Object>();
     var where = new StringBuilder(" WHERE s.assessment_id=?");
@@ -54,7 +55,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
             Long.class,
             append(args, size, (page - 1) * size));
     var items = new ArrayList<Map<String, Object>>();
-    for (Long id : ids) items.add(result(id));
+    for (Long id : ids) items.add(result(id, hideScores));
     Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, Long.class, args.toArray());
     return Map.of("items", items, "page", page, "size", size, "total", total);
   }
@@ -64,11 +65,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
       long assessmentId, SessionPrincipal actor, int page, int size) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     long directionId = requireReadable(assessmentId, actor);
-    Boolean published =
-        jdbc.queryForObject(
-            "SELECT results_published_at IS NOT NULL FROM assessment WHERE id=?",
-            Boolean.class,
-            assessmentId);
+    Boolean published = resultsPublished(assessmentId);
     boolean hideScores = "STUDENT".equals(actor.role()) && !Boolean.TRUE.equals(published);
 
     // 条目口径：题数与满分直接来自混合条目表（程序题+客观题）。
@@ -229,7 +226,17 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     return value instanceof Number number ? number.intValue() : 0;
   }
 
-  private Map<String, Object> result(long submissionId) {
+  /** 成绩是否已发布；未发布时学生不下发分数（与 memberScores 同一口径）。 */
+  private boolean resultsPublished(long assessmentId) {
+    Boolean published =
+        jdbc.queryForObject(
+            "SELECT results_published_at IS NOT NULL FROM assessment WHERE id=?",
+            Boolean.class,
+            assessmentId);
+    return Boolean.TRUE.equals(published);
+  }
+
+  private Map<String, Object> result(long submissionId, boolean hideScores) {
     evaluations.refreshResult(submissionId);
     var rows =
         jdbc.queryForList(
@@ -253,9 +260,9 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     out.put("totalTestCases", row.get("total_test_cases"));
     out.put("timeMs", row.get("time_ms"));
     out.put("memoryKb", row.get("memory_kb"));
-    out.put("autoScore", row.get("auto_score"));
-    out.put("humanScore", row.get("human_score"));
-    out.put("finalScore", row.get("final_score"));
+    out.put("autoScore", hideScores ? null : row.get("auto_score"));
+    out.put("humanScore", hideScores ? null : row.get("human_score"));
+    out.put("finalScore", hideScores ? null : row.get("final_score"));
     out.put("scoreSource", row.get("score_source"));
     out.put("resultStatus", row.get("result_status"));
     out.put("publishedAt", row.get("published_at") == null ? null : time(row.get("published_at")));

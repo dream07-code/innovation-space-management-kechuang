@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   listAssessmentResults: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   listAssessmentMemberScores: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
   listAnswerSheets: vi.fn<(id: string, query?: unknown) => Promise<unknown>>(),
+  getMyAnswerSheet: vi.fn<(id: string) => Promise<unknown>>(),
   getQuizReviewSummary: vi.fn<(id: string) => Promise<unknown>>(),
   publishAssessmentResults: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
 }))
@@ -27,6 +28,7 @@ vi.mock('@/api/modules/oj', () => ({
 }))
 vi.mock('@/api/modules/quiz', () => ({
   listAnswerSheets: mocks.listAnswerSheets,
+  getMyAnswerSheet: mocks.getMyAnswerSheet,
   getQuizReviewSummary: mocks.getQuizReviewSummary,
 }))
 vi.mock('@/stores/auth', () => ({
@@ -147,6 +149,7 @@ describe('AssessmentResultsView 评分来源与人工评分入口', () => {
       total: 1,
     })
     mocks.listAnswerSheets.mockReset()
+    mocks.getMyAnswerSheet.mockReset()
   })
 
   it('默认按学生汇总，显示分值口径总分、得分率与完成条目数', async () => {
@@ -407,5 +410,154 @@ describe('AssessmentResultsView 成绩发布', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('成绩待公布')
     expect(wrapper.find('[data-test="publish"]').exists()).toBe(false)
+  })
+
+  it('学生未发布时不开放按提交明细，总分显示待公布', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    auth.isStudent = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 3,
+      resultsPublished: false,
+    })
+    mocks.listAssessmentMemberScores.mockResolvedValue({
+      items: [{ ...memberScore, totalScore: null, scoreRate: null, sheetScore: null }],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    // 未发布时学生拿不到分数：不提供「按提交」入口，也不显示得分率。
+    expect(wrapper.text()).not.toContain('按提交')
+    expect(wrapper.findAll('button').some((item) => item.text().includes('明细'))).toBe(false)
+    expect(wrapper.text()).toContain('待公布')
+    expect(wrapper.text()).not.toContain('80%')
+  })
+
+  it('学生可打开自己的答题卡并看到逐题对错、评语与解析', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    auth.isStudent = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 4,
+      resultsPublished: true,
+    })
+    mocks.listAssessmentMemberScores.mockResolvedValue({
+      items: [memberScore],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    mocks.getMyAnswerSheet.mockReset()
+    mocks.getMyAnswerSheet.mockResolvedValue({
+      status: 'SUBMITTED',
+      resultsPublished: true,
+      answeredCount: 2,
+      totalScore: 5,
+      submittedAt: '2026-11-04T12:00:00+08:00',
+      items: [
+        { position: 1, answer: 'A', correct: true, awarded: 5, correctAnswer: 'A', analysis: '满二叉树性质', reviewComment: '答得好' },
+        { position: 2, answer: 'B', correct: false, awarded: 0, correctAnswer: 'A', analysis: 'DPCM 是有损编码', reviewComment: '再看一遍编码定义' },
+      ],
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    await wrapper.get('[data-test="my-sheet"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.getMyAnswerSheet).toHaveBeenCalledWith('9001')
+    const dialog = wrapper.get('[data-test="my-sheet-dialog"]')
+    expect(dialog.text()).toContain('满二叉树性质')
+    expect(dialog.text()).toContain('再看一遍编码定义')
+    expect(dialog.text()).toContain('客观题得分')
+    // 学生视图不暴露内部评分字段。
+    expect(dialog.text()).not.toContain('自动分')
+    expect(dialog.text()).not.toContain('人工分')
+  })
+
+  it('学生未发布时我的答题卡只提示待公布', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    auth.isStudent = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 3,
+      resultsPublished: false,
+    })
+    mocks.listAssessmentMemberScores.mockResolvedValue({
+      items: [{ ...memberScore, totalScore: null, scoreRate: null }],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    mocks.getMyAnswerSheet.mockReset()
+    mocks.getMyAnswerSheet.mockResolvedValue({
+      status: 'SUBMITTED',
+      resultsPublished: false,
+      answeredCount: 2,
+      totalScore: null,
+      submittedAt: null,
+      items: null,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    await wrapper.get('[data-test="my-sheet"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('成绩尚未公布')
+  })
+
+  it('学生未参加时显示未参加而不是 0 分', async () => {
+    auth.isAdmin = false
+    auth.isLeader = false
+    auth.isStudent = true
+    mocks.getAssessment.mockResolvedValue({
+      id: '9001',
+      title: '正式考核',
+      status: 'CLOSED',
+      version: 3,
+      resultsPublished: true,
+    })
+    mocks.listAssessmentMemberScores.mockResolvedValue({
+      items: [
+        {
+          memberId: '201',
+          memberName: '郑永康',
+          memberStudentNo: '202502110229',
+          itemCount: 2,
+          answeredCount: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          totalScore: 0,
+          maxScore: 105,
+          scoreRate: 0,
+          sheetStatus: 'NONE',
+          lastSubmittedAt: null,
+        },
+      ],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    const wrapper = trackMount(AssessmentResultsView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="results-absent"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('未参加')
+    // 不能把「没参加」渲染成 0 分。
+    expect(wrapper.text()).not.toContain('0 / 105')
+    expect(wrapper.text()).not.toContain('0%')
   })
 })

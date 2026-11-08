@@ -261,7 +261,10 @@ OJ 考核系统当前只发布 `planned` 契约，前端可先行开发考核、
 - 交卷时仍自动判分并写入 `autoAwarded`；人工分 `manualScore` 覆盖 `awarded`，撤销后回退自动分。
 - 阅卷仅在考核 `CLOSED/ARCHIVED` 且未发布成绩时开放；发布后阅卷锁定。
 - 发布成绩由 `POST /api/v1/assessments/{assessmentId}/publish-results` 触发，前置条件：已关闭、无待批填空、`version` 匹配。
-- 发布后学生才可见总分、逐题得分与评语；未发布时 `my-answer-sheet`、`member-scores` 均不返回分数。
+- 发布后学生才可见总分、逐题得分与评语；未发布时 `my-answer-sheet`、`member-scores` 与按提交的 `results` 均不返回分数（`autoScore/humanScore/finalScore` 为 null），学生端不开放「按提交」明细。
+- 学生考核列表只列两类：进行中（`PUBLISHED`）的、以及本人参加过的（有程序题提交或答题卡）。只列 `PUBLISHED` 会让发布后的考核消失（发布前置是 CLOSED）；把没参加的已关闭考核也列出来，学生点进去只会看到 0 分。
+- 学生从直链打开一场没参加的考核时，`member-scores` 仍按方向成员返回本人一行（0 分）；前端据「无提交且无答题卡」显示「未参加」，不渲染 0 分与得分率。
+- 学生查看自己的成绩走 `GET /assessments/{id}/results`（按学生汇总只有本人一行）与 `GET /assessments/{id}/my-answer-sheet`（客观题逐题对错、得分、评语、解析）；个人首页的 `assessments[].resultsPublished` 为 false 时 `finalScore` 同样为 null。
 - 考核积分从“关闭时结算”改为“发布成绩时结算”，事件键不变，幂等。
 - `quiz-review/summary` 同时下发本场全部填空题（`questions`，含完整题干与参考答案），阅卷页一次请求即可渲染题目列表，不再逐题回查题库。
 - `quiz-review` 列表页大小上限 200；单场几十人的规模可直接一次取全，超过 200 条时前端才显示分页。

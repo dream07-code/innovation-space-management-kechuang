@@ -8,7 +8,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Download, EditPen, View } from '@element-plus/icons-vue'
+import { Download, EditPen, Tickets, View } from '@element-plus/icons-vue'
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -21,7 +21,7 @@ import {
   listAssessmentResults,
   publishAssessmentResults,
 } from '@/api/modules/oj'
-import { listAnswerSheets, getQuizReviewSummary } from '@/api/modules/quiz'
+import { listAnswerSheets, getMyAnswerSheet, getQuizReviewSummary } from '@/api/modules/quiz'
 import { exportMemberScores } from '@/utils/scoreExport' 
 import { describeError, toApiError } from '@/api/errors'
 import {
@@ -36,6 +36,7 @@ import type {
   AssessmentMemberScore,
   AssessmentProblem,
   AssessmentResult,
+  AnswerSheetDetail,
   AnswerSheetSummary,
   PageData,
   QuizReviewSummary,
@@ -65,6 +66,10 @@ const codeSubmissionId = ref<string | null>(null)
 const sheetVisible = ref(false)
 const sheetLoading = ref(false)
 const sheetDetail = ref<AnswerSheetSummary | null>(null)
+/** 学生看自己的答题卡：发布后才含逐题对错、评语与解析。 */
+const mySheetVisible = ref(false)
+const mySheetLoading = ref(false)
+const mySheet = ref<AnswerSheetDetail | null>(null)
 
 function answerText(value: unknown): string {
   if (typeof value === 'boolean') return value ? '对' : '错'
@@ -91,12 +96,49 @@ function openCode(submissionId: string): void {
   codeDialogVisible.value = true
 }
 
+/** 学生查看本人答题卡；未发布时后端只返回交卷状态，逐题明细为 null。 */
+async function openMySheet(): Promise<void> {
+  mySheetVisible.value = true
+  mySheetLoading.value = true
+  mySheet.value = null
+  try {
+    mySheet.value = await getMyAnswerSheet(assessmentId.value)
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    mySheetLoading.value = false
+  }
+}
+
 /** 管理员和方向负责人可进入人工批阅，评完回到当前结果页。 */
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
 
 const reviewSummary = ref<QuizReviewSummary | null>(null)
 const publishing = ref(false)
 const resultsPublished = computed(() => assessment.value?.resultsPublished ?? false)
+/** 学生且成绩未发布：后端不下发分数，页面只显示待公布，按提交明细也不开放。 */
+const scoresHidden = computed(() => auth.isStudent && !resultsPublished.value)
+
+/**
+ * 学生视角「没参加这场考核」：没有任何程序题提交，也没有答题卡。
+ * 后端仍会按方向成员返回本人一行（0 分），这里要改口径显示未参加，
+ * 否则学生会把「没参加」读成「考了 0 分」。
+ */
+function isAbsent(row: AssessmentMemberScore): boolean {
+  return (
+    (row.sheetStatus ?? 'NONE') === 'NONE' &&
+    !row.answeredCount &&
+    !row.completedCount &&
+    !row.lastSubmittedAt
+  )
+}
+const absent = computed(
+  () => auth.isStudent && (memberScores.value?.items ?? []).some(isAbsent),
+)
+/** 本人答题卡：从没存过草稿也没交卷，等于没参加，弹窗里不该说「未交卷」。 */
+const mySheetAbsent = computed(
+  () => !!mySheet.value && mySheet.value.status !== 'SUBMITTED' && !mySheet.value.answeredCount,
+)
 const pendingQuiz = computed(() => reviewSummary.value?.pendingItems ?? 0)
 const canPublish = computed(() => canReview.value && (reviewSummary.value?.canPublish ?? false))
 
@@ -201,7 +243,9 @@ async function loadMemberScores(): Promise<void> {
  * 离开本页；人工评分评完也能精确回到「只看某学生」的列表。
  */
 function applyRouteQuery(force = false): void {
-  const view = route.query.view === 'submission' ? 'submission' : 'member'
+  // 未发布时学生拿不到分数，按提交明细没有可看的内容，强制停在汇总视图。
+  const view =
+    !scoresHidden.value && route.query.view === 'submission' ? 'submission' : 'member'
   const memberId = typeof route.query.member === 'string' ? route.query.member : ''
   const memberName =
     typeof route.query.memberName === 'string' ? route.query.memberName : memberId
@@ -308,6 +352,17 @@ async function loadBase(): Promise<void> {
       description="老师完成阅卷后会统一发布成绩，届时可查看总分、逐题得分与评语。"
     />
 
+    <el-alert
+      v-if="absent"
+      type="info"
+      :closable="false"
+      show-icon
+      class="result-notice"
+      data-test="results-absent"
+      title="你没有参加这场考核"
+      description="本场没有你的程序题提交或答题卡记录，所以没有成绩；如需补考请联系方向负责人。"
+    />
+
     <el-alert v-if="pendingCount" type="warning" :closable="false" show-icon class="result-notice">
       <p class="pending__text">
         有 {{ pendingCount }} 条提交没有自动分（判题内部错误，无法按测试点计分），需要人工评分。
@@ -332,6 +387,7 @@ async function loadBase(): Promise<void> {
         </el-form-item>
       </el-form>
       <el-radio-group
+        v-if="!scoresHidden"
         :model-value="viewMode"
         class="page__mode"
         @change="onModeChange"
@@ -389,13 +445,21 @@ async function loadBase(): Promise<void> {
       </el-table-column>
       <el-table-column label="总分" width="140">
         <template #default="{ row }">
-          <strong class="score-strong">{{ row.totalScore }}</strong>
-          <span class="muted"> / {{ row.maxScore }}</span>
+          <span v-if="scoresHidden" class="muted">待公布</span>
+          <span v-else-if="absent && isAbsent(row)" class="muted">未参加</span>
+          <template v-else>
+            <strong class="score-strong">{{ row.totalScore }}</strong>
+            <span class="muted"> / {{ row.maxScore }}</span>
+          </template>
         </template>
       </el-table-column>
       <el-table-column label="得分率" width="110">
         <template #default="{ row }">
-          {{ row.scoreRate !== undefined && row.scoreRate !== null ? `${row.scoreRate}%` : '—' }}
+          {{
+            scoresHidden || (absent && isAbsent(row)) || row.scoreRate === undefined || row.scoreRate === null
+              ? '—'
+              : `${row.scoreRate}%`
+          }}
         </template>
       </el-table-column>
       <el-table-column label="最近提交" width="180">
@@ -403,9 +467,15 @@ async function loadBase(): Promise<void> {
           {{ row.lastSubmittedAt ? formatDateTime(row.lastSubmittedAt) : '未提交' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" :width="canReview ? 170 : 110" fixed="right">
+      <el-table-column label="操作" width="170" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" :icon="View" @click="openMemberDetail(row)">
+          <el-button
+            v-if="!scoresHidden"
+            link
+            type="primary"
+            :icon="View"
+            @click="openMemberDetail(row)"
+          >
             明细
           </el-button>
           <el-button
@@ -416,6 +486,16 @@ async function loadBase(): Promise<void> {
             @click="openSheet(row)"
           >
             答题卡
+          </el-button>
+          <el-button
+            v-if="auth.isStudent"
+            link
+            type="primary"
+            :icon="Tickets"
+            data-test="my-sheet"
+            @click="openMySheet"
+          >
+            我的答题卡
           </el-button>
         </template>
       </el-table-column>
@@ -555,6 +635,74 @@ async function loadBase(): Promise<void> {
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="mySheetVisible" title="我的答题卡" width="720px" data-test="my-sheet-dialog">
+      <div v-loading="mySheetLoading">
+        <el-alert
+          v-if="mySheet && !mySheet.resultsPublished"
+          type="info"
+          :closable="false"
+          title="成绩待公布"
+          description="老师完成阅卷并发布成绩后，这里会显示每道题的对错、得分、评语与解析。"
+          data-test="my-sheet-pending"
+          class="sheet-notice"
+        />
+        <el-alert
+          v-else-if="mySheetAbsent"
+          type="info"
+          :closable="false"
+          title="你没有参加这场考核"
+          description="本场没有你的答题卡记录。"
+          data-test="my-sheet-absent"
+          class="sheet-notice"
+        />
+        <el-alert
+          v-else-if="mySheet && mySheet.status !== 'SUBMITTED'"
+          type="warning"
+          :closable="false"
+          title="未交卷"
+          description="客观题在交卷时自动判分；考核结束后未交卷的草稿会被系统自动代交并判分。"
+          class="sheet-notice"
+        />
+        <div v-if="mySheet?.resultsPublished && mySheet.totalScore !== null" class="my-score">
+          客观题得分 <strong>{{ mySheet.totalScore }}</strong> 分
+        </div>
+        <el-table v-if="mySheet?.items?.length" :data="mySheet.items" row-key="position">
+          <el-table-column prop="position" label="题号" width="70" />
+          <el-table-column label="我的答案" min-width="140">
+            <template #default="{ row }">{{ answerText(row.answer) }}</template>
+          </el-table-column>
+          <el-table-column label="正确答案" min-width="140">
+            <template #default="{ row }">{{ answerText(row.correctAnswer) }}</template>
+          </el-table-column>
+          <el-table-column label="结果" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.correct ? 'success' : 'danger'" effect="plain">
+                {{ row.correct ? '对' : '错' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="得分" width="70">
+            <template #default="{ row }">{{ row.awarded }}</template>
+          </el-table-column>
+          <el-table-column label="评语" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.reviewComment ?? '—' }}</template>
+          </el-table-column>
+          <el-table-column label="解析" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.analysis ?? '—' }}</template>
+          </el-table-column>
+        </el-table>
+        <div v-else-if="!mySheetLoading" class="sheet-empty">
+          {{
+            mySheet && !mySheet.resultsPublished
+              ? '成绩尚未公布，暂不显示逐题明细。'
+              : mySheetAbsent
+                ? '你没有参加这场考核，没有答题卡记录。'
+                : '本场考核没有客观题，或你未作答。'
+          }}
+        </div>
+      </div>
+    </el-dialog>
   </el-card>
 </template>
 
@@ -640,6 +788,15 @@ async function loadBase(): Promise<void> {
 .sheet-empty {
   color: var(--el-text-color-secondary);
   padding: 12px 0;
+}
+
+.my-score {
+  margin-bottom: 12px;
+  color: var(--app-ink);
+}
+
+.my-score strong {
+  font-size: 18px;
 }
 
 .page__export {

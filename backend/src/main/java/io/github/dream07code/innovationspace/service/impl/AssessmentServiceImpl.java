@@ -118,8 +118,21 @@ public class AssessmentServiceImpl implements AssessmentService {
         args.addAll(actor.managedDirectionIds());
       }
     } else {
-      where.append(" AND status='PUBLISHED' AND direction_id=?");
+      // 学生看本方向两类考核：
+      //   1) 正在进行（PUBLISHED）的，需要参加；
+      //   2) 本人参加过的历史考核（有程序题提交或答题卡），发布成绩后要能回来看分数。
+      // 只放行 PUBLISHED 会让发布后的考核从列表消失（发布前置是 CLOSED）；
+      // 而只按状态放行 CLOSED/ARCHIVED 又会把没参加的考核塞给学生，
+      // 结果页只能显示「0 分」，容易被理解成本人考了 0 分。
+      where.append(
+          " AND direction_id=? AND (status='PUBLISHED'"
+              + " OR EXISTS(SELECT 1 FROM assessment_submission s"
+              + " WHERE s.assessment_id=assessment.id AND s.member_id=?)"
+              + " OR EXISTS(SELECT 1 FROM assessment_answer_sheet sh"
+              + " WHERE sh.assessment_id=assessment.id AND sh.member_id=?))");
       args.add(memberDirection(actor.memberId()));
+      args.add(actor.memberId());
+      args.add(actor.memberId());
     }
     if (directionId != null) {
       where.append(" AND direction_id=?");

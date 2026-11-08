@@ -103,9 +103,34 @@ class AssessmentManagementHttpIT {
     var studentProblem = send(studentToken, "GET", "/api/v1/assessment-problems/" + problemId, "", null);
     assertEquals(200, studentProblem.statusCode());
     assertEquals("PUBLISHED", HttpTestSupport.json(studentProblem).path("data").path("status").asText());
+    // 进行中的考核对本方向学生可见（即使还没交过东西）。
+    assertEquals(
+        1,
+        HttpTestSupport.json(send(studentToken, "GET", "/api/v1/assessments?page=1&size=20", "", null))
+            .path("data").path("total").asInt());
     var closed = send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/close", "{\"version\":2}", "44444444-4444-4444-8444-444444444444");
     assertEquals(200, closed.statusCode());
     assertEquals("CLOSED", HttpTestSupport.json(closed).path("data").path("status").asText());
+
+    // 学生可见性：进行中的考核要能看到；关闭后只有本人参加过的才留在列表里，
+    // 否则发布成绩后要么整场消失（旧口径），要么把没参加的考核塞给学生（0 分）。
+    var studentList = send(studentToken, "GET", "/api/v1/assessments?page=1&size=20", "", null);
+    assertEquals(200, studentList.statusCode());
+    assertEquals(0, HttpTestSupport.json(studentList).path("data").path("total").asInt());
+
+    jdbc.update(
+        "INSERT INTO assessment_submission(assessment_id,problem_id,member_id,language,status,submitted_at,updated_at)"
+            + " VALUES(?,?,10,'java','RECEIVED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
+        assessmentId, Long.parseLong(problemId));
+    var afterParticipation = send(studentToken, "GET", "/api/v1/assessments?page=1&size=20", "", null);
+    assertEquals(1, HttpTestSupport.json(afterParticipation).path("data").path("total").asInt());
+    assertEquals(assessmentId, HttpTestSupport.json(afterParticipation).path("data").path("items").path(0).path("id").asText());
+    assertEquals("CLOSED", HttpTestSupport.json(afterParticipation).path("data").path("items").path(0).path("status").asText());
+
+    // 草稿考核对学生不可见，参加过也不例外。
+    jdbc.update("UPDATE assessment SET status='DRAFT' WHERE id=" + assessmentId);
+    var hiddenDraft = send(studentToken, "GET", "/api/v1/assessments?page=1&size=20", "", null);
+    assertEquals(0, HttpTestSupport.json(hiddenDraft).path("data").path("total").asInt());
   }
 
   @Test

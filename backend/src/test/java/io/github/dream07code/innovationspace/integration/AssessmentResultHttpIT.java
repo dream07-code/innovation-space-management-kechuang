@@ -99,21 +99,37 @@ class AssessmentResultHttpIT {
     assertEquals("成员10", studentData.at("/items/0/memberName").asText());
     assertEquals("MOCK10", studentData.at("/items/0/memberStudentNo").asText());
     assertEquals("ACCEPTED", studentData.at("/items/0/technicalVerdict").asText());
-    // V11 起按测试点自动计分：mock 判 ACCEPTED（全过）→ AUTO/COMPLETE，
-    // 挂题分值 100（V12 前旧口径），finalScore 即 100。
-    assertEquals("AUTO", studentData.at("/items/0/scoreSource").asText());
-    assertEquals("COMPLETE", studentData.at("/items/0/resultStatus").asText());
-    assertEquals(100, studentData.at("/items/0/finalScore").asInt());
+    // 成绩未发布：判定与测试点可见，但分数一律不下发（与 member-scores 同口径）。
+    assertTrue(studentData.at("/items/0/autoScore").isNull());
+    assertTrue(studentData.at("/items/0/humanScore").isNull());
+    assertTrue(studentData.at("/items/0/finalScore").isNull());
     assertFalse(studentResults.body().contains("accepted marker"));
     assertFalse(studentResults.body().contains("codeText"));
     assertFalse(studentResults.body().contains("codeLocator"));
 
+    // 教师端不受发布状态影响，始终可见分数。
     var leaderResults = send(leaderToken, "GET", "/api/v1/assessments/" + assessmentId + "/results?page=1&size=20", null, null);
     assertEquals(200, leaderResults.statusCode());
     assertEquals(2, HttpTestSupport.json(leaderResults).at("/data/total").asInt());
+    assertEquals(100, HttpTestSupport.json(leaderResults).at("/data/items/0/finalScore").asInt());
     var adminResults = send(adminToken, "GET", "/api/v1/assessments/" + assessmentId + "/results?page=1&size=20", null, null);
     assertEquals(200, adminResults.statusCode());
     assertEquals(2, HttpTestSupport.json(adminResults).at("/data/total").asInt());
+
+    // 关闭并发布成绩后，学生才拿到最终分。
+    assertEquals(200, send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/close", "{\"version\":2}", UUID.randomUUID().toString()).statusCode());
+    var published = send(adminToken, "POST", "/api/v1/assessments/" + assessmentId + "/publish-results",
+        "{\"version\":3}", UUID.randomUUID().toString());
+    assertEquals(200, published.statusCode());
+
+    var afterPublish = send(studentToken, "GET", "/api/v1/assessments/" + assessmentId + "/results?page=1&size=20", null, null);
+    assertEquals(200, afterPublish.statusCode());
+    // V11 起按测试点自动计分：mock 判 ACCEPTED（全过）→ AUTO/COMPLETE，
+    // 挂题分值 100（V12 前旧口径），finalScore 即 100。
+    var publishedItem = HttpTestSupport.json(afterPublish).at("/data/items/0");
+    assertEquals("AUTO", publishedItem.at("/scoreSource").asText());
+    assertEquals("COMPLETE", publishedItem.at("/resultStatus").asText());
+    assertEquals(100, publishedItem.at("/finalScore").asInt());
     assertEquals(pointsBefore, jdbc.queryForObject("SELECT COUNT(*) FROM point_ledger", Integer.class));
   }
 

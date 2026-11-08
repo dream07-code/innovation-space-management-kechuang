@@ -93,13 +93,15 @@ onMounted(load)
         <template #default="{ row }">{{ row.allowedLanguages.map(languageLabel).join('、') }}</template>
       </el-table-column>
       <el-table-column prop="problemIds.length" label="题目" width="70" />
-      <el-table-column label="操作" width="230">
+      <el-table-column label="操作" width="240">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="goDetail(row)">详情</el-button>
           <el-button v-if="canManage && row.status === 'DRAFT'" link type="primary" :icon="Edit" @click="goEdit(row)">
             编辑
           </el-button>
-          <el-button link type="primary" :icon="DataAnalysis" @click="goResults(row)">结果</el-button>
+          <el-button link type="primary" :icon="DataAnalysis" @click="goResults(row)">
+            {{ auth.isStudent ? '查看成绩' : '结果' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
