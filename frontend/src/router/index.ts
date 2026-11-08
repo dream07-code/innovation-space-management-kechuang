@@ -100,7 +100,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  const base = '科创空间'
+  const base = 'AI 编程实训助手'
   document.title = to.meta.title ? `${to.meta.title} · ${base}` : base
 })
 

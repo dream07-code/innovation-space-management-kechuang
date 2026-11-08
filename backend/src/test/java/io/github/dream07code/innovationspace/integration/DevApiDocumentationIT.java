@@ -44,7 +44,7 @@ class DevApiDocumentationIT {
         assertEquals(200, response.statusCode());
         var api = HttpTestSupport.json(response);
         assertTrue(api.path("openapi").asText().startsWith("3.0."));
-        assertEquals("学院科创空间管理系统 API", api.at("/info/title").asText());
+        assertEquals("AI 编程实训助手 API", api.at("/info/title").asText());
         assertEquals("v1", api.at("/info/version").asText());
         assertTrue(api.path("paths").has("/api/v1/test-probe/ping"));
         assertFalse(api.path("paths").has("/actuator/health"));

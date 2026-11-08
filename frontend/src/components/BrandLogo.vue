@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 科创空间品牌标志（纯图形，位图矢量化；不带文字）。
+ * AI 编程实训助手品牌标志（纯图形，位图矢量化；不带文字）。
  *
  * 图形填满白底徽标框（框内无留白，图高 = 框高）；组件只负责尺寸与
  * 无障碍语义。showText 保留参数兼容旧调用但不再渲染文字。
@@ -24,7 +24,7 @@ withDefaults(
       <img
         class="brand-logo__mark"
         :src="brandGraphic"
-        alt="科创空间标志"
+        alt="AI 编程实训助手标志"
         :style="{ height: `${size}px` }"
       >
     </span>

@@ -21,7 +21,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     });
     const documentResponse = await page.goto(`${ready.baseUrl}/doc.html`);
     assert.equal(documentResponse.status(), 200);
-    await page.getByText('学院科创空间管理系统 API', { exact: true }).first().waitFor();
+    await page.getByText('AI 编程实训助手 API', { exact: true }).first().waitFor();
     assert.match(await page.locator('body').innerText(), /innovation-space/);
     await page.getByText('仅测试探针', { exact: true }).click();
     await page.getByText('测试连通性', { exact: true }).click();

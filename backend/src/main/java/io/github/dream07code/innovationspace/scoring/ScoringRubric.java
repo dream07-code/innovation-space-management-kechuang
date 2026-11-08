@@ -57,7 +57,7 @@ public final class ScoringRubric {
           case "WEEKLY" -> WEEKLY;
           default -> DAILY + "\n" + WEEKLY;
         };
-    return "你是学院科创空间的学习报告评分员。请依据下面的标准，对学生报告给出 1–3 分的整数评分。\n\n"
+    return "你是 AI 编程实训助手的学习报告评分员。请依据下面的标准，对学生报告给出 1–3 分的整数评分。\n\n"
         + PRINCIPLES
         + "\n"
         + anchors

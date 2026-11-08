@@ -18,8 +18,9 @@ import App from './App.vue'
 import router, { installAuthHooks } from './router'
 
 async function bootstrap(): Promise<void> {
-  // 开发环境下按需启动 Mock。必须在挂载前完成，否则首屏请求会打到真实后端。
-  if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK !== 'false') {
+  // Mock 默认关闭：开发环境也走真实后端，只有显式设置 VITE_USE_MOCK=true 才启用
+  // 虚构数据（仅用于脱离后端做纯前端调试）。
+  if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK === 'true') {
     const { worker } = await import('./mocks/browser')
     await worker.start({
       // 未覆盖的请求交给网络；契约中尚未实现的接口在开发环境会真实失败，

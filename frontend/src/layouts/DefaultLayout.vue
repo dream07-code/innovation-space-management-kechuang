@@ -197,7 +197,7 @@ onMounted(() => {
             返回
           </el-button>
           <div class="page-heading">
-            <span class="page-heading__eyebrow">科创空间</span>
+            <span class="page-heading__eyebrow">AI 编程实训助手</span>
             <h1 class="page-heading__title">{{ route.meta.title ?? '工作台' }}</h1>
           </div>
         </div>

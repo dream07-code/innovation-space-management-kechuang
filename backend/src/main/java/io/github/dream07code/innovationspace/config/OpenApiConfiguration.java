@@ -15,7 +15,7 @@ import org.springframework.core.io.ClassPathResource;
 public class OpenApiConfiguration {
   @Bean
   public OpenAPI innovationSpaceOpenApi() {
-    return new OpenAPI().info(new Info().title("学院科创空间管理系统 API").version("v1"));
+    return new OpenAPI().info(new Info().title("AI 编程实训助手 API").version("v1"));
   }
 
   @Bean

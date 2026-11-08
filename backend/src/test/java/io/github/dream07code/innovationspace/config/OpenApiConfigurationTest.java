@@ -15,7 +15,7 @@ class OpenApiConfigurationTest {
             context.register(configuration);
             context.refresh();
             var api = context.getBean(OpenAPI.class);
-            assertEquals("学院科创空间管理系统 API", api.getInfo().getTitle());
+            assertEquals("AI 编程实训助手 API", api.getInfo().getTitle());
             assertEquals("v1", api.getInfo().getVersion());
             var group = context.getBean(GroupedOpenApi.class);
             assertEquals("innovation-space", group.getGroup());

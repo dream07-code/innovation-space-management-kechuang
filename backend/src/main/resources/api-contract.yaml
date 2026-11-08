@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: 学院科创空间管理系统 API 契约
+  title: AI 编程实训助手 API 契约
   version: 1.0.0-draft
   description: 前后端并行开发的设计契约。以每条路径的x-implementation-status为准；OJ考核路径可先用planned DTO和Mock开发，真实OJ私有字段不进入前端。登录身份规则已确认，其余政策看x-rule-status和README。示例均虚构，不含真实初始密码。
 x-frontend-contract:

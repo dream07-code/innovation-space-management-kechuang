@@ -11,7 +11,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { ArrowRight, Medal, UserFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Cpu, Medal } from '@element-plus/icons-vue'
 
 import BrandLogo from '@/components/BrandLogo.vue'
 import { ApiError, describeError } from '@/api/errors'
@@ -76,25 +76,25 @@ async function handleSubmit(): Promise<void> {
       </div>
 
       <div class="login-brand__content">
-        <p class="login-brand__eyebrow">学院数字化运营平台</p>
-        <h1>让每一次学习、协作与成长都有迹可循。</h1>
+        <p class="login-brand__eyebrow">面向编程教学的 AI 教育与学习平台</p>
+        <h1>把判题、评分与学情反馈，收进一条教学闭环。</h1>
         <p class="login-brand__summary">
-          统一管理人员、日报周报、积分排行、审计记录与 OJ 考核，为学生和学院团队提供清晰可靠的工作台。
+          在线写代码交题，判题机真实编译执行；客观题自动判分，主观题由大模型给出档位与依据，教师复核后发布成绩。日报周报、积分与排行记录每个人的训练过程。
         </p>
 
         <div class="login-feature-list">
           <div class="login-feature">
-            <el-icon><UserFilled /></el-icon>
-            <div><strong>人员与方向</strong><span>权限清晰，管理留痕</span></div>
+            <el-icon><Cpu /></el-icon>
+            <div><strong>真实判题</strong><span>隔离沙箱编译执行，提交即反馈</span></div>
           </div>
           <div class="login-feature">
             <el-icon><Medal /></el-icon>
-            <div><strong>成长与积分</strong><span>过程可追踪，结果可核对</span></div>
+            <div><strong>AI 评分</strong><span>给分有档位，依据可复核</span></div>
           </div>
         </div>
       </div>
 
-      <p class="login-brand__footer">面向学院内部成员 · 数据仅用于教学管理</p>
+      <p class="login-brand__footer">面向编程教学 · 学生账号由教师创建</p>
     </section>
 
     <section class="login-form-panel">
@@ -105,7 +105,7 @@ async function handleSubmit(): Promise<void> {
 
         <div class="login-header">
           <p class="login-header__eyebrow">欢迎回来</p>
-          <h2>登录管理系统</h2>
+          <h2>登录 AI 编程实训助手</h2>
           <p>学生与方向负责人使用学号登录，学院管理员使用指定账号</p>
         </div>
 

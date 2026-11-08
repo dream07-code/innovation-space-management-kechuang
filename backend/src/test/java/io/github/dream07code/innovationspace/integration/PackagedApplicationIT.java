@@ -50,7 +50,7 @@ class PackagedApplicationIT {
                 var response = HttpTestSupport.get(port, "/v3/api-docs/innovation-space");
                 assertEquals(200, response.statusCode());
                 var api = HttpTestSupport.json(response);
-                assertEquals("学院科创空间管理系统 API", api.at("/info/title").asText());
+                assertEquals("AI 编程实训助手 API", api.at("/info/title").asText());
                 assertTrue(api.path("paths").isObject());
                 assertTrue(api.path("paths").has("/api/v1/auth/login"));
             } else {
