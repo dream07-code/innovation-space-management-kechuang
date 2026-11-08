@@ -34,6 +34,7 @@ class OJApiContractIT {
         "/api/v1/assessment-submissions",
         "/api/v1/assessment-submissions/{submissionId}",
         "/api/v1/assessment-submissions/{submissionId}/code",
+        "/api/v1/assessment-submissions/{submissionId}/report",
         "/api/v1/assessment-submissions/{submissionId}/reviews",
         "/api/v1/assessments/{assessmentId}/results"
     }) {
@@ -78,10 +79,19 @@ class OJApiContractIT {
         "AssessmentSubmissionResponse",
         "AssessmentSubmissionPageResponse",
         "AssessmentReviewPageResponse",
-        "AssessmentResultPageResponse"
+        "AssessmentResultPageResponse",
+        "SubmissionReportResponse"
     }) {
       assertNotNull(api.getComponents().getSchemas().get(schema), schema);
     }
+
+    // 批改报告是只读聚合：只回错因/建议与判题快照，不回完整代码、私有测试数据或模型原始输出。
+    var report = api.getComponents().getSchemas().get("SubmissionReportResponse");
+    var reportData = ((io.swagger.v3.oas.models.media.ObjectSchema) report.getProperties().get("data"));
+    assertTrue(reportData.getProperties().containsKey("ai"));
+    assertTrue(reportData.getProperties().containsKey("recommendation"));
+    assertFalse(reportData.getProperties().containsKey("code"));
+    assertFalse(reportData.getProperties().containsKey("rawResponse"));
 
     var createProblem = api.getComponents().getSchemas().get("CreateAssessmentProblemRequest");
     assertTrue(createProblem.getRequired().contains("assessmentTestCases"));

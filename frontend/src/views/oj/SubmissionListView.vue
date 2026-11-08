@@ -7,7 +7,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { View } from '@element-plus/icons-vue'
+import { DataAnalysis, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import {
@@ -67,6 +67,10 @@ async function load(): Promise<void> {
 
 function goDetail(row: AssessmentSubmission): void {
   void router.push({ name: 'oj-submission-detail', params: { submissionId: row.id } })
+}
+
+function goReport(row: AssessmentSubmission): void {
+  void router.push({ name: 'oj-submission-report', params: { submissionId: row.id } })
 }
 
 onMounted(load)
@@ -138,9 +142,10 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="codeHash" label="代码摘要" min-width="170" show-overflow-tooltip />
-      <el-table-column label="操作" width="90">
+      <el-table-column label="操作" width="170">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="goDetail(row)">详情</el-button>
+          <el-button link type="primary" :icon="DataAnalysis" @click="goReport(row)">批改报告</el-button>
         </template>
       </el-table-column>
     </el-table>

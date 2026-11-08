@@ -7,7 +7,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { EditPen } from '@element-plus/icons-vue'
+import { DataAnalysis, EditPen } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import {
@@ -95,14 +95,23 @@ onMounted(load)
     <template #header>
       <div class="page__header">
         <span>提交详情 · {{ submission?.id ?? '' }}</span>
-        <el-button
-          v-if="canReview && submission"
-          type="primary"
-          :icon="EditPen"
-          @click="router.push({ name: 'oj-submission-review', params: { submissionId: submission.id } })"
-        >
-          人工批阅
-        </el-button>
+        <div class="page__actions">
+          <el-button
+            v-if="submission"
+            :icon="DataAnalysis"
+            @click="router.push({ name: 'oj-submission-report', params: { submissionId: submission.id } })"
+          >
+            AI 批改报告
+          </el-button>
+          <el-button
+            v-if="canReview && submission"
+            type="primary"
+            :icon="EditPen"
+            @click="router.push({ name: 'oj-submission-review', params: { submissionId: submission.id } })"
+          >
+            人工批阅
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -244,6 +253,11 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.page__actions {
+  display: flex;
+  gap: 8px;
 }
 
 .final-result {

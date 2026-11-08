@@ -27,6 +27,7 @@ import type {
   CreateAssessmentSubmissionRequest,
   PageData,
   PublishAssessmentResultsResponse,
+  SubmissionReport,
   UpdateAssessmentProblemRequest,
   UpdateAssessmentRequest,
 } from '../types'
@@ -257,6 +258,16 @@ export async function getSubmissionCode(
   submissionId: string,
 ): Promise<AssessmentSubmissionCode> {
   return get<AssessmentSubmissionCode>(`${SUBMISSIONS}/${submissionId}/code`)
+}
+
+/**
+ * AI 批改报告。
+ *
+ * 只读聚合：判题结果与失败用例来自 Judge0，题干来自题库，AI 结论复用评分模型。
+ * 判题未完成时后端返回 409；AI 未配置或调用失败时仍返回 200 且 `ai.available=false`。
+ */
+export async function getSubmissionReport(submissionId: string): Promise<SubmissionReport> {
+  return get<SubmissionReport>(`${SUBMISSIONS}/${submissionId}/report`)
 }
 
 

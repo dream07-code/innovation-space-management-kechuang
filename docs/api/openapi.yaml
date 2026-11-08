@@ -3558,6 +3558,49 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /api/v1/assessment-submissions/{submissionId}/report:
+    parameters:
+    - $ref: '#/components/parameters/SubmissionId'
+    get:
+      tags:
+      - OJ提交
+      summary: AI 批改报告（判题结果 + 错因解析 + 改进建议 + 推荐下一题）
+      description: |
+        只读聚合：判定与失败用例取自 Judge0 判题结果，题干取自题库，AI 结论复用
+        日报/周报评分的 openai-compatible 模型（不新增模型）。不写入成绩、积分或任何表。
+        判题未完成时返回 409；AI 未配置或调用失败时仍返回 200，`ai.available=false`
+        并在 `ai.error` 给出可展示的原因，绝不返回占位批改内容。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionReportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /api/v1/assessment-submissions/{submissionId}/reviews:
     parameters:
     - $ref: '#/components/parameters/SubmissionId'
@@ -6088,6 +6131,126 @@ components:
         actualOutput: {type: string, nullable: true, maxLength: 2000}
         expectedOutput: {type: string, nullable: true, maxLength: 2000}
       additionalProperties: false
+    SubmissionReportResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [submission, problem, judge, ai, recommendation, paperQuestions]
+          properties:
+            submission:
+              type: object
+              required: [id, status, language, assessmentTitle]
+              properties:
+                id:
+                  type: string
+                  description: 十进制字符串 ID。
+                  pattern: ^[1-9][0-9]{0,18}$
+                status: {type: string, enum: [JUDGED, FAILED, NEEDS_REVIEW]}
+                language: {type: string, enum: [java, python, cpp, javascript, go, rust]}
+                memberName: {type: string, nullable: true, description: 提交者姓名；不返回学号。}
+                submittedAt: {type: string}
+                judgedAt: {type: string, nullable: true}
+                assessmentTitle: {type: string, nullable: true}
+              additionalProperties: false
+            problem:
+              type: object
+              required: [id, title, difficulty]
+              properties:
+                id:
+                  type: string
+                  pattern: ^[1-9][0-9]{0,18}$
+                title: {type: string}
+                difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+                summary: {type: string}
+                description: {type: string}
+                inputFormat: {type: string}
+                outputFormat: {type: string}
+                tags:
+                  type: array
+                  items: {type: string}
+                timeLimitMs: {type: integer}
+              additionalProperties: false
+            judge:
+              type: object
+              required: [verdict, accepted, passedTestCases, totalTestCases]
+              properties:
+                verdict:
+                  type: string
+                  enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+                accepted: {type: boolean}
+                passedTestCases: {type: integer}
+                totalTestCases: {type: integer}
+                timeMs: {type: integer}
+                memoryKb: {type: integer}
+                safeError: {type: string, nullable: true}
+                failedCases:
+                  type: array
+                  description: 最多 3 条失败用例；输入、实际输出、期望输出均已截断。
+                  items:
+                    type: object
+                    properties:
+                      position: {type: integer}
+                      verdict:
+                        type: string
+                        enum: [ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, INTERNAL_ERROR]
+                      input: {type: string}
+                      actualOutput: {type: string, nullable: true}
+                      expectedOutput: {type: string}
+                    additionalProperties: false
+              additionalProperties: false
+            ai:
+              type: object
+              required: [available, rubricVersion, advice]
+              properties:
+                available: {type: boolean, description: false 表示 AI 未配置或调用失败，见 error。}
+                model: {type: string, nullable: true}
+                rubricVersion: {type: string}
+                cause: {type: string, nullable: true, description: 错因解析。}
+                advice:
+                  type: array
+                  items: {type: string}
+                cached: {type: boolean}
+                generatedAt: {type: string, nullable: true}
+                error: {type: string, nullable: true, description: 可展示的失败原因，不含凭据。}
+              additionalProperties: false
+            recommendation:
+              type: object
+              required: [rule, targetDifficulty, reason]
+              properties:
+                rule:
+                  type: string
+                  enum: [NEXT_DIFFICULTY, SAME_DIFFICULTY]
+                  description: 做对推下一难度，做错推同难度补练。
+                targetDifficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+                reason: {type: string}
+                problem:
+                  type: object
+                  nullable: true
+                  description: 题库没有匹配难度的其他题目时为 null。
+                  required: [id, title, difficulty]
+                  properties:
+                    id:
+                      type: string
+                      pattern: ^[1-9][0-9]{0,18}$
+                    title: {type: string}
+                    difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+                  additionalProperties: false
+              additionalProperties: false
+            paperQuestions:
+              type: array
+              description: 本场考核的客观题题号与题干，复用阅卷 summary 的 questions 字段（只取 position/stem，不含标准答案）；仅管理角色返回，学生恒为空数组。
+              items:
+                type: object
+                required: [position, stem]
+                properties:
+                  position: {type: integer}
+                  stem: {type: string}
+                additionalProperties: false
+          additionalProperties: false
     AssessmentSubmissionCodeResponse:
       type: object
       required: [code, message, data]

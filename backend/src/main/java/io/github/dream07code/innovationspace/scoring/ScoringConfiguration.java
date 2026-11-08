@@ -25,6 +25,13 @@ public class ScoringConfiguration {
     return new OpenAiCompatibleReportScoringProvider(properties);
   }
 
+  /** 编程作业批改复用同一套 openai-compatible 配置，不额外接模型。 */
+  @Bean
+  OpenAiCompatibleSubmissionReportAi openAiCompatibleSubmissionReportAi(
+      ScoringProperties properties) {
+    return new OpenAiCompatibleSubmissionReportAi(properties);
+  }
+
   @Bean
   ScoringProviderRegistry scoringProviderRegistry(
       ScoringProperties properties, List<ReportScoringProvider> providers) {

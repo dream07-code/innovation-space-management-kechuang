@@ -3,6 +3,7 @@ import io.github.dream07code.innovationspace.service.AssessmentSubmissionService
 
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
 import io.github.dream07code.innovationspace.service.AssessmentSubmissionService;
+import io.github.dream07code.innovationspace.service.SubmissionReportService;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import java.util.Map;
 import org.springframework.http.MediaType;
@@ -13,9 +14,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 public class AssessmentSubmissionController {
   private final AssessmentSubmissionService service;
+  private final SubmissionReportService reports;
 
-  public AssessmentSubmissionController(AssessmentSubmissionService service) {
+  public AssessmentSubmissionController(
+      AssessmentSubmissionService service, SubmissionReportService reports) {
     this.service = service;
+    this.reports = reports;
   }
 
   @PostMapping("/assessments/{assessmentId}/submissions")
@@ -47,5 +51,11 @@ public class AssessmentSubmissionController {
   @GetMapping("/assessment-submissions/{submissionId}/code")
   public ApiResponse<Map<String, Object>> code(@PathVariable long submissionId) {
     return ApiResponse.success(service.code(submissionId, MemberController.actor()));
+  }
+
+  /** AI 批改报告：判题结果 + 错因解析 + 改进建议 + 推荐下一题，只读，不写成绩。 */
+  @GetMapping("/assessment-submissions/{submissionId}/report")
+  public ApiResponse<Map<String, Object>> report(@PathVariable long submissionId) {
+    return ApiResponse.success(reports.report(submissionId, MemberController.actor()));
   }
 }

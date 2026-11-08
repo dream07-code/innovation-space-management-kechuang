@@ -218,6 +218,13 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: STAFF_ROLES, title: 'OJ 人工批阅' },
       },
       {
+        // 批改报告对所有登录角色开放；学生只能看自己的提交，可见性由后端逐对象校验。
+        path: 'submissions/:submissionId/report',
+        name: 'oj-submission-report',
+        component: () => import('@/views/oj/SubmissionReportView.vue'),
+        meta: { title: 'AI 批改报告' },
+      },
+      {
         path: 'quiz-bank',
         name: 'oj-quiz-bank',
         component: () => import('@/views/oj/QuizQuestionListView.vue'),

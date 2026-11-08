@@ -162,6 +162,8 @@ export type UpdateAssessmentProblemRequest = Schemas['UpdateAssessmentProblemReq
 export type CreateAssessmentSubmissionRequest = Schemas['CreateAssessmentSubmissionRequest']
 export type AssessmentSubmissionCode =
   Schemas['AssessmentSubmissionCodeResponse']['data']
+/** AI 批改报告：判题结果 + 错因解析 + 改进建议 + 推荐下一题。 */
+export type SubmissionReport = Schemas['SubmissionReportResponse']['data']
 export type CreateAssessmentReviewRequest = Schemas['CreateAssessmentReviewRequest']
 
 export type AssessmentLanguage = Assessment['allowedLanguages'][number]

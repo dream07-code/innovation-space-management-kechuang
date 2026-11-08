@@ -1632,6 +1632,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-submissions/{submissionId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI 批改报告（判题结果 + 错因解析 + 改进建议 + 推荐下一题）
+         * @description 只读聚合：判定与失败用例取自 Judge0 判题结果，题干取自题库，AI 结论复用
+         *     日报/周报评分的 openai-compatible 模型（不新增模型）。不写入成绩、积分或任何表。
+         *     判题未完成时返回 409；AI 未配置或调用失败时仍返回 200，`ai.available=false`
+         *     并在 `ai.error` 给出可展示的原因，绝不返回占位批改内容。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SubmissionReportResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-submissions/{submissionId}/reviews": {
         parameters: {
             query?: never;
@@ -3217,6 +3272,93 @@ export interface components {
             input?: string | null;
             actualOutput?: string | null;
             expectedOutput?: string | null;
+        };
+        SubmissionReportResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                submission: {
+                    /** @description 十进制字符串 ID。 */
+                    id: string;
+                    /** @enum {string} */
+                    status: "JUDGED" | "FAILED" | "NEEDS_REVIEW";
+                    /** @enum {string} */
+                    language: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+                    /** @description 提交者姓名；不返回学号。 */
+                    memberName?: string | null;
+                    submittedAt?: string;
+                    judgedAt?: string | null;
+                    assessmentTitle: string | null;
+                };
+                problem: {
+                    id: string;
+                    title: string;
+                    /** @enum {string} */
+                    difficulty: "EASY" | "MEDIUM" | "HARD";
+                    summary?: string;
+                    description?: string;
+                    inputFormat?: string;
+                    outputFormat?: string;
+                    tags?: string[];
+                    timeLimitMs?: number;
+                };
+                judge: {
+                    /** @enum {string} */
+                    verdict: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+                    accepted: boolean;
+                    passedTestCases: number;
+                    totalTestCases: number;
+                    timeMs?: number;
+                    memoryKb?: number;
+                    safeError?: string | null;
+                    /** @description 最多 3 条失败用例；输入、实际输出、期望输出均已截断。 */
+                    failedCases?: {
+                        position?: number;
+                        /** @enum {string} */
+                        verdict?: "ACCEPTED" | "WRONG_ANSWER" | "TIME_LIMIT_EXCEEDED" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "COMPILATION_ERROR" | "INTERNAL_ERROR";
+                        input?: string;
+                        actualOutput?: string | null;
+                        expectedOutput?: string;
+                    }[];
+                };
+                ai: {
+                    /** @description false 表示 AI 未配置或调用失败，见 error。 */
+                    available: boolean;
+                    model?: string | null;
+                    rubricVersion: string;
+                    /** @description 错因解析。 */
+                    cause?: string | null;
+                    advice: string[];
+                    cached?: boolean;
+                    generatedAt?: string | null;
+                    /** @description 可展示的失败原因，不含凭据。 */
+                    error?: string | null;
+                };
+                recommendation: {
+                    /**
+                     * @description 做对推下一难度，做错推同难度补练。
+                     * @enum {string}
+                     */
+                    rule: "NEXT_DIFFICULTY" | "SAME_DIFFICULTY";
+                    /** @enum {string} */
+                    targetDifficulty: "EASY" | "MEDIUM" | "HARD";
+                    reason: string;
+                    /** @description 题库没有匹配难度的其他题目时为 null。 */
+                    problem?: {
+                        id: string;
+                        title: string;
+                        /** @enum {string} */
+                        difficulty: "EASY" | "MEDIUM" | "HARD";
+                    } | null;
+                };
+                /** @description 本场考核的客观题题号与题干，复用阅卷 summary 的 questions 字段（只取 position/stem，不含标准答案）；仅管理角色返回，学生恒为空数组。 */
+                paperQuestions: {
+                    position: number;
+                    stem: string;
+                }[];
+            };
         };
         AssessmentSubmissionCodeResponse: {
             /** @enum {string} */
