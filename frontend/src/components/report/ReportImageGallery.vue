@@ -43,7 +43,7 @@ function previewList(): string[] {
 
 .report-gallery__thumb {
   width: 100%;
-  height: 96px;
+  height: 108px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
   cursor: zoom-in;
