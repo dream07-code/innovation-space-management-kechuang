@@ -7,7 +7,7 @@
 | 服务 | 镜像 | 说明 |
 | --- | --- | --- |
 | `server` | `judge0/judge0:1.13.1` | API，仅绑定宿主机 `127.0.0.1:2358` |
-| `workers` | `judge0/judge0:1.13.1` | 判题 worker（`COUNT=1`，适配小内存机器） |
+| `workers` | `judge0/judge0:1.13.1` | 判题 worker（单容器默认 `COUNT=1`；并行度靠副本数扩展，见「并发扩展」） |
 | `db` | `postgres:16.2` | Judge0 专用库，数据卷 `judge0-db-data` |
 | `redis` | `redis:7.2.4` | 队列 |
 
@@ -53,6 +53,30 @@ curl -H "X-Auth-Token: $TOKEN" http://127.0.0.1:2358/about
 ```
 
 首次启动会执行数据库建表与 seed，约需 1 分钟。
+
+## 并发扩展：6 路并行判题
+
+判题吞吐由 **worker 副本数**决定，不是由 `COUNT` 决定。`judge0.conf` 里的 `COUNT=1`
+只是单个容器内的默认值；实测把 `COUNT` 调大并不生效，不要依赖它。
+
+扩展副本（线上采用的做法）：
+
+```bash
+cd deploy/judge0
+docker compose up -d --scale workers=6        # 6 个 worker 并行取队列
+docker compose up -d --scale workers=1        # 收回单副本
+```
+
+执行后 `docker compose ps` 应能看到 6 个 `workers` 容器；提交队列在 Redis 里，
+应用侧不需要任何改动——后端仍然只调用 `server` 的 API。
+
+一键脚本 `./deploy/one-click-deploy.sh` 只会起单 worker；需要 6 路并行时，
+部署完成后在 `deploy/judge0` 补执行一次上面的 `--scale` 命令即可，不必重建后端。
+
+不要给 `workers` 加 `container_name` 或 `ports`：有固定容器名就无法多副本，
+映射端口也没必要（worker 只从内部队列取任务）。每个副本都是一个
+`privileged` 容器，副本数要按宿主机内存定；cgroup v2 主机上仍需
+`OJ_RLIMIT_FALLBACK=true`（见「本机注意事项」）。
 
 ## 应用侧配置
 
@@ -175,7 +199,8 @@ cgroup v1 内核（`GRUB_CMDLINE_LINUX` 追加 `systemd.unified_cgroup_hierarchy
 docker compose ps
 docker compose logs -f server
 docker compose down          # 停止（数据卷保留）
-docker compose up -d         # 启动
+docker compose up -d         # 启动（单 worker）
+docker compose up -d --scale workers=6   # 并行判题，见「并发扩展」
 ```
 
 Judge0 使用独立 compose 项目。`./deploy/one-click-deploy.sh down` 在 `ENABLE_JUDGE0=true` 时会一并停止本栈（数据卷保留）；`ENABLE_JUDGE0=false` 的部署仍需按本节命令手工管理。
