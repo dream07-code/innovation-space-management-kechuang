@@ -37,3 +37,6 @@ backups/
 .DS_Store
 Thumbs.db
 .worktrees/
+
+# 文件管理器留下的回收站目录，不进仓库
+.Trash-*
