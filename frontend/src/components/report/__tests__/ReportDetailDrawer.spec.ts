@@ -96,7 +96,7 @@ describe('报告详情抽屉', () => {
 
     const galleries = Array.from(document.querySelectorAll('[data-test="report-gallery"]'))
     expect(galleries).toHaveLength(2)
-    expect(galleries[0]?.closest('.report-detail__field')?.textContent).toContain('学习收获')
-    expect(galleries[1]?.closest('.report-detail__field')?.textContent).toContain('笔记图片')
+    expect(galleries[0]?.closest('.report-content__field')?.textContent).toContain('学习收获')
+    expect(galleries[1]?.closest('.report-content__field')?.textContent).toContain('笔记图片')
   })
 })

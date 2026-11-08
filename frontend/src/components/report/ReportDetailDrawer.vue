@@ -17,11 +17,12 @@ import {
   scoreWeeklyReport,
 } from '@/api/modules/reports'
 import { reportStatusMeta, scoreStatusMeta } from '@/components/statusMeta'
-import ReportImageGallery from '@/components/report/ReportImageGallery.vue'
+import ReportContentView from '@/components/report/ReportContentView.vue'
+import { rubricOf } from '@/components/report/reportRubric'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import { formatDateTime } from '@/utils/datetime'
-import type { DailyReport, ReportImage, WeeklyReport } from '@/api/types'
+import type { DailyReport, WeeklyReport } from '@/api/types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -51,27 +52,10 @@ const visible = computed({
 })
 
 const title = computed(() => (props.reportType === 'DAILY' ? '日报详情' : '周报详情'))
-const daily = computed(() => (props.reportType === 'DAILY' ? (report.value as DailyReport) : null))
-const weekly = computed(() =>
-  props.reportType === 'WEEKLY' ? (report.value as WeeklyReport) : null,
-)
 const isSelf = computed(() => report.value?.memberId === auth.user?.memberId)
 // 负责人可以查看本人报告，但不能给自己评分（后端同样拒绝）。
 const canScore = computed(() => report.value?.status === 'SUBMITTED' && !isSelf.value)
-// 与后端 ScoringRubric v2 的档位保持一致；规则升级时两处一起改。
-const rubric = computed(() =>
-  props.reportType === 'DAILY'
-    ? {
-        three: '写清具体做了什么（任务/知识点/方法），有可检验的收获，并对问题或下一步有反思。',
-        two: '学习内容具体，但收获笼统，或问题/反思缺失。',
-        one: '只有「学习了 X」这类笼统描述，或内容与学习无关、明显敷衍。',
-      }
-    : {
-        three: '覆盖本周主要学习，列出可检验的成果，并有复盘（困难与改进）和下周计划。',
-        two: '有本周总结和成果，但复盘或下周计划缺失、空泛。',
-        one: '只有笼统总结、重复日报内容，或没有可检验的成果。',
-      },
-)
+const rubric = computed(() => rubricOf(props.reportType))
 
 const isManual = computed(() => report.value?.scoreStatus === 'MANUAL')
 const periodLabel = computed(() => {
@@ -81,12 +65,8 @@ const periodLabel = computed(() => {
   return `${item.weekStart} ~ ${item.weekEnd}`
 })
 
-/** 按 anchor 取图片：图片跟在它对应的段落后面，和学生的编排意图一致。 */
-function imagesFor(anchor: ReportImage['anchor']): ReportImage[] {
-  return (report.value?.images ?? []).filter((item) => item.anchor === anchor)
-}
-
-function resetForm(): void {  score.value = report.value?.finalScore ?? null
+function resetForm(): void {
+  score.value = report.value?.finalScore ?? null
   reason.value = report.value?.scoreStatus === 'MANUAL' ? (report.value.scoreReason ?? '') : ''
 }
 
@@ -182,61 +162,7 @@ watch(
 
         <section class="report-detail__section">
           <h4>报告内容</h4>
-          <template v-if="daily">
-            <div class="report-detail__field">
-              <span class="report-detail__label">学习内容</span>
-              <p class="report-detail__text">{{ daily.learningContent || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('learningContent')" />
-            </div>
-            <div class="report-detail__field">
-              <span class="report-detail__label">学习收获</span>
-              <p class="report-detail__text">{{ daily.gains || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('gains')" />
-            </div>
-            <div class="report-detail__field">
-              <span class="report-detail__label">遇到的问题</span>
-              <p class="report-detail__text">{{ daily.problems || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('problems')" />
-            </div>
-            <div v-if="daily.nextPlan" class="report-detail__field">
-              <span class="report-detail__label">下一步计划</span>
-              <p class="report-detail__text">{{ daily.nextPlan }}</p>
-            </div>
-          </template>
-          <template v-else-if="weekly">
-            <div class="report-detail__field">
-              <span class="report-detail__label">本周总结</span>
-              <p class="report-detail__text">{{ weekly.summary || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('summary')" />
-            </div>
-            <div class="report-detail__field">
-              <span class="report-detail__label">主要成果</span>
-              <p class="report-detail__text">{{ weekly.achievements || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('achievements')" />
-            </div>
-            <div class="report-detail__field">
-              <span class="report-detail__label">反思</span>
-              <p class="report-detail__text">{{ weekly.reflections || '—' }}</p>
-              <ReportImageGallery :images="imagesFor('reflections')" />
-            </div>
-            <div v-if="weekly.nextWeekPlan" class="report-detail__field">
-              <span class="report-detail__label">下周计划</span>
-              <p class="report-detail__text">{{ weekly.nextWeekPlan }}</p>
-              <ReportImageGallery :images="imagesFor('nextWeekPlan')" />
-            </div>
-          </template>
-          <div v-if="imagesFor('end').length" class="report-detail__field">
-            <span class="report-detail__label">笔记图片</span>
-            <ReportImageGallery :images="imagesFor('end')" />
-          </div>
-          <div v-if="report.links.length" class="report-detail__field">
-            <span class="report-detail__label">相关链接</span>
-            <ul class="report-detail__links">
-              <li v-for="link in report.links" :key="link">
-                <a :href="link" target="_blank" rel="noopener noreferrer">{{ link }}</a>
-              </li>
-            </ul>
-          </div>
+          <ReportContentView :report="report" :kind="reportType" />
         </section>
 
         <section class="report-detail__section">
@@ -332,33 +258,6 @@ watch(
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
-}
-
-.report-detail__field + .report-detail__field {
-  margin-top: 12px;
-}
-
-.report-detail__label {
-  display: block;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.report-detail__text {
-  margin: 0;
-  padding: 8px 12px;
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-}
-
-.report-detail__links {
-  margin: 0;
-  padding-left: 18px;
-  word-break: break-all;
 }
 
 .report-detail__score-view {

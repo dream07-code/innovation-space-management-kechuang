@@ -7,6 +7,7 @@
  * 因此必须监听 reportType 变化重新拉取，否则周报页会残留日报数据。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { listDailyReports, listWeeklyReports } from '@/api/modules/reports'
@@ -21,6 +22,7 @@ const props = defineProps<{
   reportType: 'DAILY' | 'WEEKLY'
 }>()
 
+const router = useRouter()
 const directions = useDirectionsStore()
 
 type AnyReport = DailyReport | WeeklyReport
@@ -82,6 +84,14 @@ function onVisibilityChange(): void {
   if (document.visibilityState === 'visible') void load()
 }
 
+/** 进入批阅页：把当前的方向筛选带过去，批阅范围与列表看到的一致。 */
+function goReview(): void {
+  void router.push({
+    name: props.reportType === 'DAILY' ? 'admin-daily-report-review' : 'admin-weekly-report-review',
+    query: filterDirectionId.value ? { directionId: filterDirectionId.value } : {},
+  })
+}
+
 function openDetail(reportId: string): void {
   activeReportId.value = reportId
   drawerVisible.value = true
@@ -115,7 +125,12 @@ onBeforeUnmount(() => {
 
 <template>
   <el-card shadow="never">
-    <template #header>{{ title }}管理</template>
+    <template #header>
+      <div class="page__header">
+        <span>{{ title }}管理</span>
+        <el-button type="primary" data-test="review-entry" @click="goReview">批阅</el-button>
+      </div>
+    </template>
 
     <el-form inline class="page__filter">
       <el-form-item label="方向">
@@ -201,6 +216,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .page__filter {
   margin-bottom: 16px;
 }

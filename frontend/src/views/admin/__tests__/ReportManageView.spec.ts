@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ReportManageView from '@/views/admin/ReportManageView.vue'
 
+const routerPush = vi.hoisted(() => vi.fn<(to: unknown) => Promise<void>>())
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: routerPush }),
+}))
+
 const mocks = vi.hoisted(() => ({
   listDailyReports: vi.fn<(params: unknown) => Promise<unknown>>(),
   listWeeklyReports: vi.fn<(params: unknown) => Promise<unknown>>(),
@@ -169,5 +175,17 @@ describe('报告管理', () => {
     expect(text).toContain('张三')
     expect(text).toContain('MOCK20260001')
     expect(text).not.toContain('成员 ID')
+  })
+
+  it('批阅按钮带上当前方向筛选跳到对应类型的批阅页', async () => {
+    const wrapper = mount(ReportManageView, {
+      props: { reportType: 'WEEKLY' },
+      global: { plugins: [ElementPlus] },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-test="review-entry"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith({ name: 'admin-weekly-report-review', query: {} })
+    wrapper.unmount()
   })
 })

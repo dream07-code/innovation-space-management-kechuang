@@ -307,11 +307,25 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: STAFF_ROLES, title: '日报管理' },
       },
       {
+        path: 'reports/daily/review',
+        name: 'admin-daily-report-review',
+        component: () => import('@/views/admin/ReportReviewView.vue'),
+        props: { reportType: 'DAILY' },
+        meta: { roles: STAFF_ROLES, title: '日报批阅' },
+      },
+      {
         path: 'reports/weekly',
         name: 'admin-weekly-reports',
         component: () => import('@/views/admin/ReportManageView.vue'),
         props: { reportType: 'WEEKLY' },
         meta: { roles: STAFF_ROLES, title: '周报管理' },
+      },
+      {
+        path: 'reports/weekly/review',
+        name: 'admin-weekly-report-review',
+        component: () => import('@/views/admin/ReportReviewView.vue'),
+        props: { reportType: 'WEEKLY' },
+        meta: { roles: STAFF_ROLES, title: '周报批阅' },
       },
       {
         path: 'points',
