@@ -117,8 +117,42 @@ describe('报告管理', () => {
     expect(wrapper.findComponent({ name: 'ReportDetailDrawer' }).props('modelValue')).toBe(false)
   })
 
-  it('列表展示成员姓名和学号，而不是成员 ID', async () => {
-    mocks.listDailyReports.mockResolvedValue({
+  it('点刷新重新拉取列表，学生刚提交的报告不用重建页面', async () => {
+    const wrapper = mount(ReportManageView, {
+      props: { reportType: 'DAILY' },
+      global: { plugins: [ElementPlus] },
+    })
+    await flushPromises()
+    expect(mocks.listDailyReports).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-test="refresh"]').trigger('click')
+    await flushPromises()
+    expect(mocks.listDailyReports).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('切回标签页时自动刷新，页面开着也能看到新提交的报告', async () => {
+    const wrapper = mount(ReportManageView, {
+      props: { reportType: 'DAILY' },
+      global: { plugins: [ElementPlus] },
+    })
+    await flushPromises()
+    expect(mocks.listDailyReports).toHaveBeenCalledTimes(1)
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+
+    expect(mocks.listDailyReports).toHaveBeenCalledTimes(2)
+
+    // 卸载后要摘掉监听，否则离开页面还会继续请求
+    wrapper.unmount()
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(mocks.listDailyReports).toHaveBeenCalledTimes(2)
+  })
+
+  it('列表展示成员姓名和学号，而不是成员 ID', async () => {    mocks.listDailyReports.mockResolvedValue({
       items: [dailyReport()],
       page: 1,
       size: 20,

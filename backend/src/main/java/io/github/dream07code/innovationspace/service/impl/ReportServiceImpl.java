@@ -202,11 +202,14 @@ public class ReportServiceImpl implements ReportService {
       args.add(scoreStatus);
     }
     String fromSql = " FROM report r" + where;
+    // 同一周期内按最近更新排：学生补交的日报可能早就建了草稿（id 更小），
+    // 只按 id 排会把它压到当天几条之后，管理员会以为报告没提交上来。
     List<Long> ids =
         jdbc.queryForList(
             "SELECT r.id"
                 + fromSql
-                + " ORDER BY COALESCE(r.report_date,r.week_start) DESC,r.id DESC LIMIT ? OFFSET ?",
+                + " ORDER BY COALESCE(r.report_date,r.week_start) DESC,r.updated_at DESC,r.id DESC"
+                + " LIMIT ? OFFSET ?",
             Long.class,
             append(args, size, (page - 1) * size));
     List<Map<String, Object>> items = new ArrayList<>();

@@ -6,7 +6,7 @@
  * 通过 props.reportType 区分日报/周报。两个路由复用同一组件实例，
  * 因此必须监听 reportType 变化重新拉取，否则周报页会残留日报数据。
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { listDailyReports, listWeeklyReports } from '@/api/modules/reports'
@@ -72,6 +72,16 @@ function onFilterChange(): void {
   void load()
 }
 
+/**
+ * 学生刚提交的报告要能立刻被看到。
+ *
+ * 列表只在进页面时拉一次，管理员常把页面开着等报告，切回标签页时如果不刷新就会
+ * 一直看到旧数据。窗口重新可见时静默拉一次，另配一个手动刷新按钮兜底。
+ */
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') void load()
+}
+
 function openDetail(reportId: string): void {
   activeReportId.value = reportId
   drawerVisible.value = true
@@ -93,8 +103,13 @@ watch(
 )
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', onVisibilityChange)
   await directions.ensureLoaded()
   await load()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
@@ -113,6 +128,9 @@ onMounted(async () => {
           <el-option label="草稿" value="DRAFT" />
           <el-option label="已提交" value="SUBMITTED" />
         </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button :loading="loading" data-test="refresh" @click="load">刷新</el-button>
       </el-form-item>
     </el-form>
 
