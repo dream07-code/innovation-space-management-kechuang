@@ -77,4 +77,26 @@ describe('报告详情抽屉', () => {
     expect(text).toContain('保存人工评分')
     expect(text).toContain('评分标准（v2）')
   })
+
+  it('把笔记图片放在对应段落之后，end 的图片放文末', async () => {
+    mocks.getDailyReport.mockResolvedValue({
+      ...report,
+      images: [
+        { url: 'https://cdn.test/gains.jpg', name: 'gains.jpg', size: 10, anchor: 'gains' },
+        { url: 'https://cdn.test/end.jpg', name: 'end.jpg', size: 10, anchor: 'end' },
+      ],
+    })
+
+    mount(ReportDetailDrawer, {
+      props: { modelValue: true, reportType: 'DAILY', reportId: '301' },
+      attachTo: document.body,
+      global: { plugins: [ElementPlus] },
+    })
+    await flushPromises()
+
+    const galleries = Array.from(document.querySelectorAll('[data-test="report-gallery"]'))
+    expect(galleries).toHaveLength(2)
+    expect(galleries[0]?.closest('.report-detail__field')?.textContent).toContain('学习收获')
+    expect(galleries[1]?.closest('.report-detail__field')?.textContent).toContain('笔记图片')
+  })
 })

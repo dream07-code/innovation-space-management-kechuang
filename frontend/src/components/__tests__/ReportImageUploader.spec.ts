@@ -46,7 +46,7 @@ describe('ReportImageUploader', () => {
     await wrapper.get('[data-test="image-remove-0"]').trigger('click')
     const emitted = wrapper.emitted('update:modelValue')?.[0]?.[0] as ReportImage[]
     expect(emitted).toHaveLength(1)
-    expect(emitted[0].url).toContain('a2.jpg')
+    expect(emitted[0]?.url).toContain('a2.jpg')
   })
 
   it('只读时不给删除按钮，也没有上传入口', () => {

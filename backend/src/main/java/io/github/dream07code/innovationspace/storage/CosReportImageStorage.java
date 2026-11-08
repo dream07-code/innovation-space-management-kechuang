@@ -11,8 +11,11 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 腾讯云 COS 上传实现。
@@ -21,9 +24,15 @@ import javax.crypto.spec.SecretKeySpec;
  * 避免为一个上传动作拖进整条 SDK 依赖链。
  */
 public class CosReportImageStorage implements ReportImageStorage {
+  private static final Logger log = LoggerFactory.getLogger(CosReportImageStorage.class);
   private static final String ALGORITHM = "HmacSHA1";
   /** 签名有效期；本地时钟偏差留足余量。 */
   private static final long SIGN_TTL_SECONDS = 900;
+  /** 连接失败最多尝试次数与退避间隔。 */
+  private static final int MAX_ATTEMPTS = 2;
+  private static final long RETRY_BACKOFF_MS = 400;
+  /** COS 返回的错误码在响应体里，只截取这一小段用于排障。 */
+  private static final Pattern COS_ERROR_CODE = Pattern.compile("<Code>([^<]{0,60})</Code>");
 
   private final ReportImageStorageProperties props;
   private final HttpClient http;
@@ -50,27 +59,10 @@ public class CosReportImageStorage implements ReportImageStorage {
     if (!available()) throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
     String objectKey = key.startsWith("/") ? key.substring(1) : key;
     String host = props.host();
+    String path = "/" + objectKey;
 
     long now = Instant.now().getEpochSecond();
-    String keyTime = now + ";" + (now + SIGN_TTL_SECONDS);
-    String headerString = "content-type=" + urlEncode(contentType) + "&host=" + urlEncode(host);
-    String path = "/" + objectKey;
-    // 无查询参数：urlParamList 位置留空。
-    String httpString = "put\n" + path + "\n\n" + headerString + "\n";
-    String signature = signature(keyTime, httpString);
-
-    String authorization =
-        "q-sign-algorithm=sha1"
-            + "&q-ak="
-            + props.getSecretId()
-            + "&q-sign-time="
-            + keyTime
-            + "&q-key-time="
-            + keyTime
-            + "&q-header-list=content-type;host"
-            + "&q-url-param-list="
-            + "&q-signature="
-            + signature;
+    String authorization = authorization(path, contentType, now);
 
     HttpRequest request =
         HttpRequest.newBuilder(URI.create("https://" + host + path))
@@ -80,32 +72,83 @@ public class CosReportImageStorage implements ReportImageStorage {
             .PUT(HttpRequest.BodyPublishers.ofByteArray(content))
             .build();
 
-    HttpResponse<String> response;
-    try {
-      response = http.send(request, HttpResponse.BodyHandlers.ofString());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
-    } catch (Exception e) {
-      throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
-    }
+    HttpResponse<String> response = send(request, objectKey);
     if (response.statusCode() / 100 != 2) {
-      // 只报状态码，不回显响应体（可能含桶名、请求 id 等内部信息）。
+      // 响应体可能含桶名、请求 id 等内部信息，只留错误码进日志。
+      log.warn(
+          "COS 拒绝上传 key={} status={} code={}",
+          objectKey,
+          response.statusCode(),
+          errorCode(response.body()));
       throw new ApiException(502, ErrorCode.SERVICE_UNAVAILABLE);
     }
     return props.getDomain() + "/" + objectKey;
   }
 
-  /** COS V5 签名：signKey = HMAC-SHA1(keyTime, SecretKey)，再对 stringToSign 做一次 HMAC。 */
+  /** 连接层失败重试一次：公网上偶发的 connect timeout 不该让学生的上传直接失败。 */
+  private HttpResponse<String> send(HttpRequest request, String objectKey) {
+    for (int attempt = 1; ; attempt++) {
+      try {
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        log.warn("COS 上传被中断 key={}", objectKey);
+        throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+      } catch (Exception e) {
+        if (attempt >= MAX_ATTEMPTS) {
+          log.warn("COS 上传失败 key={} attempts={}: {}", objectKey, attempt, e.toString());
+          throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+        }
+        log.info("COS 上传重试 key={} attempt={}: {}", objectKey, attempt, e.toString());
+        try {
+          Thread.sleep(RETRY_BACKOFF_MS);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+        }
+      }
+    }
+  }
+
+  /** 组装 PUT Object 的 Authorization 头；epochSeconds 抽出来便于用固定时间做断言。 */
+  String authorization(String path, String contentType, long epochSeconds) {
+    String keyTime = epochSeconds + ";" + (epochSeconds + SIGN_TTL_SECONDS);
+    String headerString = "content-type=" + urlEncode(contentType) + "&host=" + urlEncode(props.host());
+    // 无查询参数：urlParamList 位置留空。
+    String httpString = "put\n" + path + "\n\n" + headerString + "\n";
+    String signature = signature(keyTime, httpString);
+    return "q-sign-algorithm=sha1"
+        + "&q-ak="
+        + props.getSecretId()
+        + "&q-sign-time="
+        + keyTime
+        + "&q-key-time="
+        + keyTime
+        + "&q-header-list=content-type;host"
+        + "&q-url-param-list="
+        + "&q-signature="
+        + signature;
+  }
+
+  /**
+   * COS V5 签名：signKey = hex(HMAC-SHA1(KeyTime, SecretKey))，再对 stringToSign 做一次 HMAC。
+   *
+   * <p>注意两级之间用的是 signKey 的 **十六进制文本** 而不是原始字节，写成原始字节会稳定返回
+   * SignatureDoesNotMatch。
+   */
   private String signature(String keyTime, String httpString) {
-    byte[] signKey = hmacSha1(keyTime.getBytes(StandardCharsets.UTF_8));
+    byte[] signKey =
+        hex(hmac(props.getSecretKey().getBytes(StandardCharsets.UTF_8), keyTime.getBytes(StandardCharsets.UTF_8)))
+            .getBytes(StandardCharsets.UTF_8);
     String stringToSign =
         "sha1\n" + keyTime + "\n" + sha1Hex(httpString.getBytes(StandardCharsets.UTF_8)) + "\n";
     return hex(hmac(signKey, stringToSign.getBytes(StandardCharsets.UTF_8)));
   }
 
-  private byte[] hmacSha1(byte[] data) {
-    return hmac(props.getSecretKey().getBytes(StandardCharsets.UTF_8), data);
+  private static String errorCode(String body) {
+    if (body == null) return "-";
+    var matcher = COS_ERROR_CODE.matcher(body);
+    return matcher.find() ? matcher.group(1) : "-";
   }
 
   private static byte[] hmac(byte[] key, byte[] data) {

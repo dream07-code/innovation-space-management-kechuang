@@ -17,10 +17,11 @@ import {
   scoreWeeklyReport,
 } from '@/api/modules/reports'
 import { reportStatusMeta, scoreStatusMeta } from '@/components/statusMeta'
+import ReportImageGallery from '@/components/report/ReportImageGallery.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDirectionsStore } from '@/stores/directions'
 import { formatDateTime } from '@/utils/datetime'
-import type { DailyReport, WeeklyReport } from '@/api/types'
+import type { DailyReport, ReportImage, WeeklyReport } from '@/api/types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -80,8 +81,12 @@ const periodLabel = computed(() => {
   return `${item.weekStart} ~ ${item.weekEnd}`
 })
 
-function resetForm(): void {
-  score.value = report.value?.finalScore ?? null
+/** 按 anchor 取图片：图片跟在它对应的段落后面，和学生的编排意图一致。 */
+function imagesFor(anchor: ReportImage['anchor']): ReportImage[] {
+  return (report.value?.images ?? []).filter((item) => item.anchor === anchor)
+}
+
+function resetForm(): void {  score.value = report.value?.finalScore ?? null
   reason.value = report.value?.scoreStatus === 'MANUAL' ? (report.value.scoreReason ?? '') : ''
 }
 
@@ -181,14 +186,17 @@ watch(
             <div class="report-detail__field">
               <span class="report-detail__label">学习内容</span>
               <p class="report-detail__text">{{ daily.learningContent || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('learningContent')" />
             </div>
             <div class="report-detail__field">
               <span class="report-detail__label">学习收获</span>
               <p class="report-detail__text">{{ daily.gains || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('gains')" />
             </div>
             <div class="report-detail__field">
               <span class="report-detail__label">遇到的问题</span>
               <p class="report-detail__text">{{ daily.problems || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('problems')" />
             </div>
             <div v-if="daily.nextPlan" class="report-detail__field">
               <span class="report-detail__label">下一步计划</span>
@@ -199,20 +207,28 @@ watch(
             <div class="report-detail__field">
               <span class="report-detail__label">本周总结</span>
               <p class="report-detail__text">{{ weekly.summary || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('summary')" />
             </div>
             <div class="report-detail__field">
               <span class="report-detail__label">主要成果</span>
               <p class="report-detail__text">{{ weekly.achievements || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('achievements')" />
             </div>
             <div class="report-detail__field">
               <span class="report-detail__label">反思</span>
               <p class="report-detail__text">{{ weekly.reflections || '—' }}</p>
+              <ReportImageGallery :images="imagesFor('reflections')" />
             </div>
             <div v-if="weekly.nextWeekPlan" class="report-detail__field">
               <span class="report-detail__label">下周计划</span>
               <p class="report-detail__text">{{ weekly.nextWeekPlan }}</p>
+              <ReportImageGallery :images="imagesFor('nextWeekPlan')" />
             </div>
           </template>
+          <div v-if="imagesFor('end').length" class="report-detail__field">
+            <span class="report-detail__label">笔记图片</span>
+            <ReportImageGallery :images="imagesFor('end')" />
+          </div>
           <div v-if="report.links.length" class="report-detail__field">
             <span class="report-detail__label">相关链接</span>
             <ul class="report-detail__links">
