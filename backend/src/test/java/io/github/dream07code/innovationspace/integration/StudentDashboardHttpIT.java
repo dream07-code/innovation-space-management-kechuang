@@ -4,6 +4,7 @@ import io.github.dream07code.innovationspace.security.SessionService;
 import io.github.dream07code.testsupport.ContractAssertions;
 import io.github.dream07code.testsupport.HttpTestSupport;
 import io.github.dream07code.testsupport.MysqlTestSupport;
+import io.github.dream07code.testsupport.OjFixtureSupport;
 import io.github.dream07code.testsupport.OwnedDataSourceConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -129,6 +130,38 @@ class StudentDashboardHttpIT {
     assertEquals(400, send(studentToken, "GET", "/api/v1/dashboard/student?range=99d", null).statusCode());
     assertEquals(200, send(studentToken, "GET", "/api/v1/dashboard/student?range=30d", null).statusCode());
     assertEquals(before, counts());
+  }
+
+  /** 一场考核有多条提交时，首页只列一行，且取本人最后一次提交的状态。 */
+  @Test
+  void assessmentCardListsEachAssessmentOnceUsingLatestSubmission() throws Exception {
+    String problemId =
+        OjFixtureSupport.seedStdioProblem(
+            jdbc, "首页去重题", "[\"java\"]",
+            java.util.List.<String[]>of(new String[] {"1", "1"}), java.util.List.of());
+    jdbc.update(
+        "INSERT INTO assessment(title,description,direction_id,status,points_enabled,start_at,end_at,allowed_languages,version,created_by,created_at,updated_at)"
+            + " VALUES('一场两题考核','x',1,'CLOSED',0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'[\"java\"]',1,30,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
+    long assessmentId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+    jdbc.update(
+        "INSERT INTO assessment_submission(assessment_id,problem_id,member_id,language,status,submitted_at,updated_at)"
+            + " VALUES(?,?,10,'java','RECEIVED',UTC_TIMESTAMP(6) - INTERVAL 1 HOUR,UTC_TIMESTAMP(6))",
+        assessmentId, Long.parseLong(problemId));
+    jdbc.update(
+        "INSERT INTO assessment_submission(assessment_id,problem_id,member_id,language,status,submitted_at,updated_at)"
+            + " VALUES(?,?,10,'java','JUDGED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
+        assessmentId, Long.parseLong(problemId));
+
+    var response = send(studentToken, "GET", "/api/v1/dashboard/student", null);
+    assertEquals(200, response.statusCode());
+    var items = HttpTestSupport.json(response).at("/data/assessments");
+    // 两条提交属于同一场考核：不能因此出现两行。
+    assertEquals(1, items.size());
+    assertEquals(String.valueOf(assessmentId), items.path(0).at("/assessmentId").asText());
+    assertEquals("JUDGED", items.path(0).at("/submissionStatus").asText());
+    // 成绩未发布时不下发分数。
+    assertFalse(items.path(0).at("/resultsPublished").asBoolean());
+    assertTrue(items.path(0).at("/finalScore").isNull());
   }
 
   private Map<String, Object> counts() {

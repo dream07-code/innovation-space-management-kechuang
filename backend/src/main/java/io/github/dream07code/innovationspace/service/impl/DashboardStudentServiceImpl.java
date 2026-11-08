@@ -120,19 +120,30 @@ public class DashboardStudentServiceImpl implements DashboardStudentService {
   private List<Map<String, Object>> assessments(long memberId) {
     var result = new ArrayList<Map<String, Object>>();
     Long directionId = jdbc.queryForObject("SELECT direction_id FROM member WHERE id=?", Long.class, memberId);
+    // 一场考核可以有多道程序题、也就有多条提交记录；直接 JOIN 会按提交条数把
+    // 同一场考核重复列出来。先按考核取「本人最后一次提交」，一次考核只留一行。
     for (var row : jdbc.queryForList(
-        "SELECT a.id,a.title,a.status,s.status submissionStatus,r.technical_verdict,r.final_score,r.score_source"
-            + " FROM assessment a LEFT JOIN assessment_submission s ON s.assessment_id=a.id AND s.member_id=?"
-            + " LEFT JOIN assessment_result r ON r.submission_id=s.id"
+        "SELECT a.id,a.title,a.status,a.results_published_at,"
+            + " l.status AS submissionStatus,r.technical_verdict,r.final_score,r.score_source"
+            + " FROM assessment a"
+            + " LEFT JOIN ("
+            + "   SELECT s.assessment_id,s.status,s.id,"
+            + "     ROW_NUMBER() OVER (PARTITION BY s.assessment_id ORDER BY s.submitted_at DESC,s.id DESC) AS rn"
+            + "   FROM assessment_submission s WHERE s.member_id=?"
+            + " ) l ON l.assessment_id=a.id AND l.rn=1"
+            + " LEFT JOIN assessment_result r ON r.submission_id=l.id"
             + " WHERE a.direction_id=? AND a.status IN ('PUBLISHED','CLOSED','ARCHIVED')"
             + " ORDER BY a.end_at DESC,a.id DESC LIMIT 10", memberId, directionId)) {
+      // 与成绩页同一口径：未发布时不下发分数，避免首页提前暴露成绩。
+      boolean published = row.get("results_published_at") != null;
       var item = new LinkedHashMap<String, Object>();
       item.put("assessmentId", id(row.get("id")));
       item.put("title", row.get("title"));
       item.put("status", row.get("status"));
+      item.put("resultsPublished", published);
       item.put("submissionStatus", row.get("submissionStatus") == null ? "NONE" : row.get("submissionStatus"));
       item.put("technicalVerdict", row.get("technical_verdict"));
-      item.put("finalScore", row.get("final_score"));
+      item.put("finalScore", published ? row.get("final_score") : null);
       item.put("scoreSource", row.get("score_source") == null ? "PENDING" : row.get("score_source"));
       result.add(item);
     }

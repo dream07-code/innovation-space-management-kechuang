@@ -73,6 +73,11 @@ function reportRoute(report: StudentReportSummary): string {
     : `/reports/weekly/${report.reportId}`
 }
 
+/** 首页考核卡片直达成绩页：发布后能看到总分与逐题明细，未发布则显示待公布。 */
+function openAssessment(item: StudentAssessmentSummary): void {
+  void router.push(`/oj/assessments/${item.assessmentId}/results`)
+}
+
 function formatDateTime(value: string | null): string {
   if (!value) return '草稿未提交'
   return new Intl.DateTimeFormat('zh-CN', {
@@ -254,7 +259,14 @@ onMounted(load)
             @action="router.push('/oj/problems')"
           />
           <ul v-else class="assessment-list">
-            <li v-for="item in data.assessments" :key="item.assessmentId">
+            <li
+              v-for="item in data.assessments"
+              :key="item.assessmentId"
+              class="assessment-item"
+              data-test="dashboard-assessment"
+              title="查看成绩与明细"
+              @click="openAssessment(item)"
+            >
               <div>
                 <strong>{{ item.title }}</strong>
                 <span>{{ submissionLabel(item.submissionStatus) }} · {{ verdictLabel(item.technicalVerdict) }}</span>
@@ -263,8 +275,11 @@ onMounted(load)
                 <el-tag :type="assessmentStatusMeta(item.status).type" effect="plain">
                   {{ assessmentStatusMeta(item.status).label }}
                 </el-tag>
-                <strong>{{ scoreLabel(item.finalScore) }}</strong>
-                <small>{{ scoreSourceMeta(item.scoreSource).label }}</small>
+                <template v-if="item.resultsPublished">
+                  <strong>{{ scoreLabel(item.finalScore) }}</strong>
+                  <small>最近提交 · {{ scoreSourceMeta(item.scoreSource).label }}</small>
+                </template>
+                <strong v-else class="assessment-pending">待公布</strong>
               </div>
             </li>
           </ul>
@@ -445,6 +460,20 @@ td {
 .assessment-list li:last-child,
 .point-list li:last-child {
   border-bottom: 0;
+}
+
+.assessment-list li.assessment-item {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.assessment-list li.assessment-item:hover {
+  background: var(--app-surface-soft);
+}
+
+.assessment-pending {
+  color: var(--app-muted);
+  font-weight: 500;
 }
 
 .assessment-list strong,

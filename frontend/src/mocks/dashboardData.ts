@@ -102,10 +102,10 @@ const STUDENT_REPORTS: StudentReportSummary[] = [
 ]
 
 const STUDENT_ASSESSMENTS: StudentAssessmentSummary[] = [
-  { assessmentId: '9001', title: '十月算法基础考核', status: 'PUBLISHED', submissionStatus: 'JUDGED', technicalVerdict: 'ACCEPTED', finalScore: 90, scoreSource: 'HUMAN' },
-  { assessmentId: '9004', title: '十月算法进阶考核', status: 'PUBLISHED', submissionStatus: 'JUDGED', technicalVerdict: 'WRONG_ANSWER', finalScore: 86, scoreSource: 'AUTO' },
-  { assessmentId: '9002', title: '鸿蒙方向摸底考核', status: 'PUBLISHED', submissionStatus: 'NONE', technicalVerdict: null, finalScore: null, scoreSource: 'PENDING' },
-  { assessmentId: '9003', title: '九月结项考核', status: 'CLOSED', submissionStatus: 'NEEDS_REVIEW', technicalVerdict: 'INTERNAL_ERROR', finalScore: null, scoreSource: 'PENDING' },
+  { assessmentId: '9001', title: '十月算法基础考核', status: 'PUBLISHED', resultsPublished: true, submissionStatus: 'JUDGED', technicalVerdict: 'ACCEPTED', finalScore: 90, scoreSource: 'HUMAN' },
+  { assessmentId: '9004', title: '十月算法进阶考核', status: 'PUBLISHED', resultsPublished: true, submissionStatus: 'JUDGED', technicalVerdict: 'WRONG_ANSWER', finalScore: 86, scoreSource: 'AUTO' },
+  { assessmentId: '9002', title: '鸿蒙方向摸底考核', status: 'PUBLISHED', resultsPublished: false, submissionStatus: 'NONE', technicalVerdict: null, finalScore: null, scoreSource: 'PENDING' },
+  { assessmentId: '9003', title: '九月结项考核', status: 'CLOSED', resultsPublished: true, submissionStatus: 'NEEDS_REVIEW', technicalVerdict: 'INTERNAL_ERROR', finalScore: null, scoreSource: 'PENDING' },
 ]
 
 const STUDENT_POINTS: PointEntrySummary[] = [

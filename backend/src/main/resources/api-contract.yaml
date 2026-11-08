@@ -8704,6 +8704,7 @@ components:
       - assessmentId
       - title
       - status
+      - resultsPublished
       - submissionStatus
       - technicalVerdict
       - finalScore
@@ -8712,6 +8713,7 @@ components:
         assessmentId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
         title: {type: string, maxLength: 120}
         status: {type: string, enum: [DRAFT, PUBLISHED, CLOSED, ARCHIVED]}
+        resultsPublished: {type: boolean, description: 成绩是否已发布；false 时 finalScore 为 null，成绩页显示待公布。}
         submissionStatus: {type: string, enum: [NONE, RECEIVED, JUDGING, JUDGED, FAILED, NEEDS_REVIEW]}
         technicalVerdict: {type: string, nullable: true, maxLength: 64}
         finalScore: {type: integer, minimum: 0, maximum: 100, nullable: true}

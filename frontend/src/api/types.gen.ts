@@ -4694,6 +4694,8 @@ export interface components {
             title: string;
             /** @enum {string} */
             status: "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
+            /** @description 成绩是否已发布；false 时 finalScore 为 null，成绩页显示待公布。 */
+            resultsPublished: boolean;
             /** @enum {string} */
             submissionStatus: "NONE" | "RECEIVED" | "JUDGING" | "JUDGED" | "FAILED" | "NEEDS_REVIEW";
             technicalVerdict: string | null;
