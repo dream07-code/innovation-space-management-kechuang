@@ -32,6 +32,13 @@ public class ScoringConfiguration {
     return new OpenAiCompatibleSubmissionReportAi(properties);
   }
 
+  /** AI 助教同样复用这套配置：批改是单轮结论，助教是多轮追问，只是提示词不同。 */
+  @Bean
+  OpenAiCompatibleSubmissionTutorAi openAiCompatibleSubmissionTutorAi(
+      ScoringProperties properties) {
+    return new OpenAiCompatibleSubmissionTutorAi(properties);
+  }
+
   @Bean
   ScoringProviderRegistry scoringProviderRegistry(
       ScoringProperties properties, List<ReportScoringProvider> providers) {

@@ -164,6 +164,11 @@ export type AssessmentSubmissionCode =
   Schemas['AssessmentSubmissionCodeResponse']['data']
 /** AI 批改报告：判题结果 + 错因解析 + 改进建议 + 推荐下一题。 */
 export type SubmissionReport = Schemas['SubmissionReportResponse']['data']
+/** AI 助教的一轮回答；available=false 时用 error 展示原因，不渲染占位回答。 */
+export type SubmissionTutorReply = Schemas['SubmissionTutorResponse']['data']
+/** 助教请求体：本次问题 + 前端持有的历史对话（服务端不保存会话）。 */
+export type SubmissionTutorRequest = Schemas['SubmissionTutorRequest']
+export type SubmissionTutorTurn = Schemas['SubmissionTutorTurn']
 export type CreateAssessmentReviewRequest = Schemas['CreateAssessmentReviewRequest']
 
 export type AssessmentLanguage = Assessment['allowedLanguages'][number]

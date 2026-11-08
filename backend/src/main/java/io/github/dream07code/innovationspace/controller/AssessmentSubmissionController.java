@@ -1,10 +1,10 @@
 package io.github.dream07code.innovationspace.controller;
-import io.github.dream07code.innovationspace.service.AssessmentSubmissionService;
 
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
+import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.service.AssessmentSubmissionService;
 import io.github.dream07code.innovationspace.service.SubmissionReportService;
-import io.github.dream07code.innovationspace.security.IdempotencyService;
+import io.github.dream07code.innovationspace.service.SubmissionTutorService;
 import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +15,15 @@ import org.springframework.web.bind.annotation.*;
 public class AssessmentSubmissionController {
   private final AssessmentSubmissionService service;
   private final SubmissionReportService reports;
+  private final SubmissionTutorService tutor;
 
   public AssessmentSubmissionController(
-      AssessmentSubmissionService service, SubmissionReportService reports) {
+      AssessmentSubmissionService service,
+      SubmissionReportService reports,
+      SubmissionTutorService tutor) {
     this.service = service;
     this.reports = reports;
+    this.tutor = tutor;
   }
 
   @PostMapping("/assessments/{assessmentId}/submissions")
@@ -57,5 +61,12 @@ public class AssessmentSubmissionController {
   @GetMapping("/assessment-submissions/{submissionId}/report")
   public ApiResponse<Map<String, Object>> report(@PathVariable long submissionId) {
     return ApiResponse.success(reports.report(submissionId, MemberController.actor()));
+  }
+
+  /** AI 助教：就这次判题结果连续追问，上下文由服务端按提交 id 组装，不落库。 */
+  @PostMapping("/assessment-submissions/{submissionId}/tutor")
+  public ApiResponse<Map<String, Object>> tutor(
+      @PathVariable long submissionId, @RequestBody Map<String, Object> request) {
+    return ApiResponse.success(tutor.chat(submissionId, request, MemberController.actor()));
   }
 }

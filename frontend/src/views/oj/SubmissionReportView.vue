@@ -10,12 +10,13 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, ChatDotRound, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { getSubmissionReport } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { difficultyMetaLabel, languageLabel, verdictMeta } from '@/components/ojMeta'
+import SubmissionTutorDrawer from '@/components/SubmissionTutorDrawer.vue'
 import { formatDateTime } from '@/utils/datetime'
 import type { SubmissionReport } from '@/api/types'
 
@@ -26,6 +27,8 @@ const submissionId = computed(() => route.params.submissionId as string)
 const report = ref<SubmissionReport | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
+/** 助教抽屉：打开后学生可围绕这次判题结果连续追问。 */
+const tutorOpen = ref(false)
 
 const judge = computed(() => report.value?.judge ?? null)
 const ai = computed(() => report.value?.ai ?? null)
@@ -57,6 +60,12 @@ function goProblem(): void {
   void router.push({ name: 'oj-problem-detail', params: { problemId: problem.id } })
 }
 
+/** 助教抽屉里的推荐练习也走同一个题目详情页。 */
+function goProblemById(problemId: string): void {
+  tutorOpen.value = false
+  void router.push({ name: 'oj-problem-detail', params: { problemId } })
+}
+
 onMounted(load)
 </script>
 
@@ -69,7 +78,17 @@ onMounted(load)
             <el-button :icon="ArrowLeft" text @click="router.back()">返回</el-button>
             <span>AI 批改报告 · 提交 {{ submissionId }}</span>
           </div>
-          <el-button :icon="Refresh" :loading="loading" @click="load">重新获取</el-button>
+          <div class="page__actions">
+            <el-button
+              type="primary"
+              :icon="ChatDotRound"
+              :disabled="!report"
+              @click="tutorOpen = true"
+            >
+              问 AI 助教
+            </el-button>
+            <el-button :icon="Refresh" :loading="loading" @click="load">重新获取</el-button>
+          </div>
         </div>
       </template>
 
@@ -201,6 +220,15 @@ onMounted(load)
 
       <el-skeleton v-else :rows="8" animated />
     </el-card>
+
+    <SubmissionTutorDrawer
+      v-if="report"
+      v-model="tutorOpen"
+      :submission-id="submissionId"
+      :problem-title="report.problem.title"
+      :recommendation="report.recommendation"
+      @open-problem="goProblemById"
+    />
   </div>
 </template>
 
@@ -209,6 +237,12 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.page__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .page__title {

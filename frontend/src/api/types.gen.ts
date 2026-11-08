@@ -1687,6 +1687,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessment-submissions/{submissionId}/tutor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submissionId: components["parameters"]["SubmissionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * AI 助教对话（就这次判题结果连续追问）
+         * @description 学生就一次已判题的提交追问，至少覆盖「这道题为什么错」。上下文固定为
+         *     「题目 + 学生代码 + 本次 Judge0 判题结果」，三者都由服务端按提交 id 从库里组装，
+         *     不接受前端传入，避免改题面或改判题结果骗过模型。历史对话由前端逐轮带回，
+         *     服务端不保存会话，因此不新增数据库结构。复用日报/周报评分的 openai-compatible
+         *     模型，不新增模型接入。判题未完成时返回 409；AI 未配置或调用失败时仍返回 200，
+         *     `available=false` 并在 `error` 给出可展示原因，绝不返回占位回答。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    submissionId: components["parameters"]["SubmissionId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SubmissionTutorRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SubmissionTutorResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-submissions/{submissionId}/reviews": {
         parameters: {
             query?: never;
@@ -3272,6 +3333,36 @@ export interface components {
             input?: string | null;
             actualOutput?: string | null;
             expectedOutput?: string | null;
+        };
+        SubmissionTutorRequest: {
+            /** @description 本次问题；超过 1000 字符按 1000 截断。 */
+            message: string;
+            /** @description 历史对话，按时间顺序；只取最后 12 条，非法角色会被丢弃。 */
+            history?: components["schemas"]["SubmissionTutorTurn"][];
+        };
+        SubmissionTutorTurn: {
+            /** @enum {string} */
+            role: "user" | "assistant";
+            content: string;
+        };
+        SubmissionTutorResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                /** @description AI 是否给出回答；false 表示未配置或调用失败，此时 reply 为 null。 */
+                available: boolean;
+                /** @description 助教回答的纯文本，可能包含分段。 */
+                reply?: string | null;
+                /** @description 实际调用的模型名，便于核对是否走了真实模型。 */
+                model?: string | null;
+                /** @example v1 */
+                promptVersion: string;
+                generatedAt: string;
+                /** @description available=false 时可直接展示给学生的原因。 */
+                error?: string | null;
+            };
         };
         SubmissionReportResponse: {
             /** @enum {string} */

@@ -28,6 +28,8 @@ import type {
   PageData,
   PublishAssessmentResultsResponse,
   SubmissionReport,
+  SubmissionTutorReply,
+  SubmissionTutorRequest,
   UpdateAssessmentProblemRequest,
   UpdateAssessmentRequest,
 } from '../types'
@@ -268,6 +270,22 @@ export async function getSubmissionCode(
  */
 export async function getSubmissionReport(submissionId: string): Promise<SubmissionReport> {
   return get<SubmissionReport>(`${SUBMISSIONS}/${submissionId}/report`)
+}
+
+/**
+ * 就一次判题结果向 AI 助教提问。
+ *
+ * 上下文（题目、代码、本次判题结果）由服务端按提交 id 组装，前端只能传问题与历史对话；
+ * 接口不写任何表、无副作用，因此不要求 Idempotency-Key。历史对话由前端保存并逐轮带回。
+ */
+export async function askSubmissionTutor(
+  submissionId: string,
+  payload: SubmissionTutorRequest,
+): Promise<SubmissionTutorReply> {
+  return postWithoutIdempotency<SubmissionTutorReply>(
+    `${SUBMISSIONS}/${submissionId}/tutor`,
+    payload,
+  )
 }
 
 
