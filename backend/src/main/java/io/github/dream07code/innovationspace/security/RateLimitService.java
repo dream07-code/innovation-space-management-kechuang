@@ -25,18 +25,31 @@ public class RateLimitService {
   }
 
   public synchronized void check(String key) {
-    long window = clock.instant().getEpochSecond() / properties.getWindowSeconds();
+    check(key, properties.getRequests(), properties.getWindowSeconds());
+  }
+
+  /**
+   * 使用独立阈值计数。
+   *
+   * <p>图片上传这类"一次操作可能连发多个请求"的场景需要比登录更宽的配额，
+   * 但又不能直接放宽全局登录限流，因此单独指定窗口与次数。
+   */
+  public synchronized void check(String key, int requests, int windowSeconds) {
+    long window = clock.instant().getEpochSecond() / windowSeconds;
     buckets.entrySet().removeIf(e -> e.getValue().window() != window);
     var previous = buckets.get(key);
     int count = previous == null ? 0 : previous.count();
-    if (count >= properties.getRequests()
-        || (previous == null && buckets.size() >= properties.getCapacity()))
+    if (count >= requests || (previous == null && buckets.size() >= properties.getCapacity()))
       throw new ApiException(429, ErrorCode.RATE_LIMITED);
     buckets.put(key, new Bucket(window, count + 1));
   }
 
+  /** 按 key 自带的窗口计算剩余秒数；无自定义窗口时退回全局配置。 */
+  public int retryAfter(int windowSeconds) {
+    return windowSeconds - (int) (clock.instant().getEpochSecond() % windowSeconds);
+  }
+
   public int retryAfter() {
-    return properties.getWindowSeconds()
-        - (int) (clock.instant().getEpochSecond() % properties.getWindowSeconds());
+    return retryAfter(properties.getWindowSeconds());
   }
 }

@@ -5083,6 +5083,40 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
 
+  /api/v1/report-images:
+    post:
+      tags:
+      - 日报
+      summary: 上传日报/周报笔记图片
+      description: 仅接受 JPEG/PNG/WebP（按文件头判定），单张不超过 10 MiB，每人每分钟最多 20 次；返回的 URL 位于本站图片存储域名下，直接写进报告 content.images。
+      operationId: uploadReportImage
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportImageUploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          description: 上传过于频繁
+        '503':
+          description: 图片存储未配置或暂不可用
 components:
   securitySchemes:
     BearerAuth:
@@ -7253,6 +7287,82 @@ components:
           - DISABLED
       additionalProperties: false
       minProperties: 3
+    ReportImage:
+      type: object
+      required:
+      - url
+      - name
+      - size
+      - anchor
+      properties:
+        url:
+          type: string
+          maxLength: 512
+          pattern: ^https?://
+          description: 必须位于本站图片存储域名下；前端直接用于 img src。
+          example: https://kckj-1330648838.cos.ap-beijing.myqcloud.com/reports/2026/11/7/a.jpg
+        name:
+          type: string
+          maxLength: 120
+          description: 原始文件名，仅用于展示。
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 字节数，单张上限 10 MiB。
+        anchor:
+          type: string
+          description: 图片跟在哪个正文段落之后；end 表示统一放在文末。
+          enum:
+          - learningContent
+          - gains
+          - problems
+          - summary
+          - achievements
+          - reflections
+          - nextWeekPlan
+          - end
+    ReportImageUpload:
+      type: object
+      required:
+      - url
+      - name
+      - size
+      - contentType
+      properties:
+        url:
+          type: string
+          maxLength: 512
+          description: 上传后的公开访问地址。
+        name:
+          type: string
+          maxLength: 120
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+        contentType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+          - image/webp
+    ReportImageUploadResponse:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: string
+          enum:
+          - OK
+        message:
+          type: string
+          example: Success
+        data:
+          $ref: '#/components/schemas/ReportImageUpload'
     DailyReport:
       type: object
       required:
@@ -7278,6 +7388,7 @@ components:
       - problems
       - nextPlan
       - links
+      - images
       properties:
         id:
           type: string
@@ -7392,6 +7503,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
     DailyReportResponse:
       type: object
       required:
@@ -7490,6 +7607,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
       additionalProperties: false
       description: 日报创建草稿；前端只需要填写 learningContent、gains、problems，其中 learningContent 必填且 trim 后不得为空。reportDate 为历史兼容字段，可省略并由服务端按 Asia/Shanghai 当天生成；nextPlan/links 不作为常用表单项。当天重复日报返回 409 REPORT_ALREADY_EXISTS。周报 weekStart 必须为周一，weekEnd 服务端计算。
     UpdateDailyReportRequest:
@@ -7531,6 +7654,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
       additionalProperties: false
       description: 只改正文，不改成员或日期。当前日报表单只发送 version、learningContent、gains、problems；learningContent 必填且 trim 后不得为空，日期不变，历史 nextPlan/links 仅保留 API 兼容。
     WeeklyReport:
@@ -7559,6 +7688,7 @@ components:
       - reflections
       - nextWeekPlan
       - links
+      - images
       properties:
         id:
           type: string
@@ -7675,6 +7805,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
     ManualScoreReportRequest:
       type: object
       required:
@@ -7786,6 +7922,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
       additionalProperties: false
       description: 日报创建草稿；前端只需要填写learningContent、gains、problems，其中learningContent必填。reportDate为兼容字段，可省略并由服务端按Asia/Shanghai今天生成；nextPlan/links不再作为常用表单项。当天重复日报返回409 REPORT_ALREADY_EXISTS。周报 weekStart 必须为周一，weekEnd 服务端计算。
     UpdateWeeklyReportRequest:
@@ -7822,6 +7964,12 @@ components:
             maxLength: 2048
             pattern: ^https?://
           maxItems: 10
+        images:
+          type: array
+          maxItems: 10
+          description: 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。
+          items:
+            $ref: '#/components/schemas/ReportImage'
       additionalProperties: false
       minProperties: 2
       description: 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。

@@ -23,7 +23,8 @@ import {
   validateDailyReportForm,
   type DailyReportFormValues,
 } from '@/views/member/dailyReportPayload'
-import type { DailyReport } from '@/api/types'
+import ReportImageUploader from '@/components/ReportImageUploader.vue'
+import type { DailyReport, ReportImageAnchor } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -42,7 +43,16 @@ const form = reactive<DailyReportFormValues>({
   learningContent: '',
   gains: '',
   problems: '',
+  images: [],
 })
+
+/** 图片可以统一放文末，也可以跟在某段正文之后。 */
+const IMAGE_ANCHORS: Array<{ value: ReportImageAnchor; label: string }> = [
+  { value: 'learningContent', label: '放在「学习内容」后' },
+  { value: 'gains', label: '放在「收获」后' },
+  { value: 'problems', label: '放在「问题」后' },
+  { value: 'end', label: '放在文末' },
+]
 
 const rules: FormRules = {
   learningContent: [{ required: true, message: '请输入学习内容', trigger: 'blur' }],
@@ -69,6 +79,7 @@ async function load(): Promise<void> {
     form.learningContent = loaded.learningContent
     form.gains = loaded.gains ?? ''
     form.problems = loaded.problems ?? ''
+    form.images = loaded.images ?? []
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -143,6 +154,7 @@ async function submit(): Promise<void> {
     form.learningContent = report.value.learningContent
     form.gains = report.value.gains ?? ''
     form.problems = report.value.problems ?? ''
+    form.images = report.value.images ?? []
     ElMessage.success('已正式提交，保底积分已入账，评分排队中')
   } catch (error) {
     const apiError = toApiError(error)
@@ -213,6 +225,15 @@ onMounted(load)
           show-word-limit
           placeholder="还有哪些问题需要继续解决？"
           data-test="problems"
+        />
+      </el-form-item>
+
+      <el-form-item label="笔记图片（选填）">
+        <ReportImageUploader
+          :model-value="form.images ?? []"
+          :anchors="IMAGE_ANCHORS"
+          :disabled="!editable"
+          @update:model-value="(next) => (form.images = next)"
         />
       </el-form-item>
 

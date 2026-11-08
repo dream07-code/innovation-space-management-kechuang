@@ -5,16 +5,21 @@
  * nextPlan/links 仅保留在旧 API 兼容类型中，不进入日报表单载荷。
  */
 
+import type { ReportImage } from '@/api/types'
+
 export interface DailyReportFormValues {
   learningContent: string
   gains: string
   problems: string
+  /** 笔记图片；与正文一起提交，随报告版本固化。旧调用方可不传。 */
+  images?: ReportImage[]
 }
 
 export interface DailyReportCreatePayload {
   learningContent: string
   gains?: string
   problems?: string
+  images?: ReportImage[]
 }
 
 export interface DailyReportUpdatePayload {
@@ -22,6 +27,7 @@ export interface DailyReportUpdatePayload {
   learningContent: string
   gains: string
   problems: string | null
+  images: ReportImage[]
 }
 
 export type DailyReportField = keyof DailyReportFormValues
@@ -42,6 +48,7 @@ export function buildCreateDailyReportPayload(
   const problems = optionalTrimmed(form.problems)
   if (gains !== undefined) payload.gains = gains
   if (problems !== undefined) payload.problems = problems
+  if ((form.images ?? []).length) payload.images = form.images
   return payload
 }
 
@@ -54,6 +61,7 @@ export function buildUpdateDailyReportPayload(
     learningContent: form.learningContent.trim(),
     gains: form.gains.trim(),
     problems: form.problems.trim() || null,
+    images: form.images ?? [],
   }
 }
 

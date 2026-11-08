@@ -1,4 +1,5 @@
 package io.github.dream07code.innovationspace.service.impl;
+import io.github.dream07code.innovationspace.service.ReportImageService;
 import io.github.dream07code.innovationspace.service.ReportService;
 import io.github.dream07code.innovationspace.report.*;
 import io.github.dream07code.innovationspace.scoring.ScoringRubric;
@@ -12,6 +13,7 @@ import io.github.dream07code.innovationspace.service.PointLedgerService;
 import io.github.dream07code.innovationspace.points.PointsPolicyProperties;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
+import io.github.dream07code.innovationspace.storage.ReportImageStorageProperties;
 import java.net.URI;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -46,6 +48,7 @@ public class ReportServiceImpl implements ReportService {
   private final Clock clock;
   private final TransactionTemplate tx;
   private final ReportPeriodPolicy periods;
+  private final ReportImagePolicy imagePolicy;
   private final JsonMapper json = JsonMapper.builder().build();
 
   public ReportServiceImpl(
@@ -55,7 +58,8 @@ public class ReportServiceImpl implements ReportService {
       PointsPolicyProperties pointsPolicy,
       PointLedgerService points,
       Clock clock,
-      PlatformTransactionManager manager) {
+      PlatformTransactionManager manager,
+      ReportImageStorageProperties storageProps) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.props = props;
@@ -64,6 +68,7 @@ public class ReportServiceImpl implements ReportService {
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
     this.periods = new ReportPeriodPolicy(clock);
+    this.imagePolicy = new ReportImagePolicy(storageProps.getDomain());
   }
 
   public IdempotencyService.StoredResponse create(
@@ -602,8 +607,16 @@ public class ReportServiceImpl implements ReportService {
       Map<String, Object> request, ReportType type, boolean create) {
     Set<String> allowed =
         type == ReportType.DAILY
-            ? Set.of("reportDate", "learningContent", "gains", "problems", "nextPlan", "links")
-            : Set.of("weekStart", "summary", "achievements", "reflections", "nextWeekPlan", "links");
+            ? Set.of(
+                "reportDate", "learningContent", "gains", "problems", "nextPlan", "links", "images")
+            : Set.of(
+                "weekStart",
+                "summary",
+                "achievements",
+                "reflections",
+                "nextWeekPlan",
+                "links",
+                "images");
     if (!allowed.containsAll(request.keySet())) throw bad();
     Map<String, Object> content = new LinkedHashMap<>();
     for (Map.Entry<String, Object> entry : request.entrySet()) {
@@ -611,6 +624,7 @@ public class ReportServiceImpl implements ReportService {
       if (key.equals("reportDate") || key.equals("weekStart") || key.equals("weekEnd")) continue;
       Object value = entry.getValue();
       if ("links".equals(key)) content.put(key, links(value));
+      else if ("images".equals(key)) content.put(key, imagePolicy.normalize(value, type));
       else content.put(key, text(value, limit(type, key)));
     }
     if (create) {
@@ -626,6 +640,7 @@ public class ReportServiceImpl implements ReportService {
         content.putIfAbsent("nextWeekPlan", null);
       }
       content.putIfAbsent("links", new ArrayList<>());
+      content.putIfAbsent("images", new ArrayList<>());
     }
     return content;
   }
@@ -633,12 +648,21 @@ public class ReportServiceImpl implements ReportService {
   private void normalizeMerged(Map<String, Object> content, ReportType type) {
     Set<String> allowed =
         type == ReportType.DAILY
-            ? Set.of("learningContent", "gains", "problems", "nextPlan", "links")
-            : Set.of("summary", "achievements", "reflections", "nextWeekPlan", "links");
+            ? Set.of("learningContent", "gains", "problems", "nextPlan", "links", "images")
+            : Set.of("summary", "achievements", "reflections", "nextWeekPlan", "links", "images");
     if (!allowed.containsAll(content.keySet())) throw bad();
     for (String key : allowed) {
       if (!content.containsKey(key)) {
-        content.put(key, "links".equals(key) ? new ArrayList<>() : key.equals("gains") || key.equals("achievements") || key.equals("learningContent") || key.equals("summary") ? "" : null);
+        content.put(
+            key,
+            "links".equals(key) || "images".equals(key)
+                ? new ArrayList<>()
+                : key.equals("gains")
+                        || key.equals("achievements")
+                        || key.equals("learningContent")
+                        || key.equals("summary")
+                    ? ""
+                    : null);
       }
     }
   }

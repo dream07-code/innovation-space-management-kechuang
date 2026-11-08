@@ -21,6 +21,7 @@ import type {
   DailyReport,
   ManualScoreReportRequest,
   PageData,
+  ReportImageUpload,
   ScoreStatus,
   UpdateDailyReportRequest,
   UpdateWeeklyReportRequest,
@@ -138,4 +139,25 @@ export async function scoreWeeklyReport(
   payload: ManualScoreReportRequest,
 ): Promise<WeeklyReport> {
   return postWithoutIdempotency<WeeklyReport>(`${WEEKLY}/${reportId}/score`, payload)
+}
+
+
+// ---------------------------------------------------------------------------
+// 笔记图片
+// ---------------------------------------------------------------------------
+
+/**
+ * 上传一张笔记图片，返回可直接渲染的 URL。
+ *
+ * 服务端按文件头判定类型（只收 JPEG/PNG/WebP），单张上限 10 MiB，
+ * 每人每分钟最多 20 次；超过会返回 429。
+ */
+export async function uploadReportImage(file: File): Promise<ReportImageUpload> {
+  const form = new FormData()
+  form.append('file', file)
+  return postWithoutIdempotency<ReportImageUpload>(`${API_PREFIX}/report-images`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    // 大图在慢网下可能超过默认 15s，单独放宽。
+    timeout: 120000,
+  })
 }

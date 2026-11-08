@@ -34,7 +34,7 @@ describe('日报表单载荷', () => {
     expect(payload).toEqual({ learningContent: 'Java 集合' })
   })
 
-  it('修改时只发送版本号和三个正文字段', () => {
+  it('修改时发送版本号、三个正文字段与图片列表', () => {
     const payload = buildUpdateDailyReportPayload(3, {
       learningContent: ' 更新后的学习内容 ',
       gains: '可选收获',
@@ -46,6 +46,7 @@ describe('日报表单载荷', () => {
       learningContent: '更新后的学习内容',
       gains: '可选收获',
       problems: '可选问题',
+      images: [],
     })
     expect(Object.keys(payload)).not.toContain('reportDate')
     expect(Object.keys(payload)).not.toContain('nextPlan')
@@ -58,5 +59,35 @@ describe('日报表单载荷', () => {
     expect(validateDailyReportForm({ learningContent: 'ok', gains: 'x'.repeat(10001), problems: '' }).gains).toBeTruthy()
     expect(validateDailyReportForm({ learningContent: 'ok', gains: '', problems: 'x'.repeat(5001) }).problems).toBeTruthy()
     expect(validateDailyReportForm({ learningContent: 'ok', gains: '', problems: '' })).toEqual({})
+  })
+})
+
+
+describe('日报图片', () => {
+  const image = {
+    url: 'https://kckj-1330648838.cos.ap-beijing.myqcloud.com/reports/2026/11/7/a.jpg',
+    name: '笔记.jpg',
+    size: 2048,
+    anchor: 'end' as const,
+  }
+
+  it('新建草稿时带上图片', () => {
+    const payload = buildCreateDailyReportPayload({
+      learningContent: '今天整理了笔记',
+      gains: '',
+      problems: '',
+      images: [image],
+    })
+    expect(payload.images).toEqual([image])
+  })
+
+  it('没有图片时不发送 images 字段', () => {
+    const payload = buildCreateDailyReportPayload({
+      learningContent: '纯文字日报',
+      gains: '',
+      problems: '',
+      images: [],
+    })
+    expect(Object.keys(payload)).not.toContain('images')
   })
 })

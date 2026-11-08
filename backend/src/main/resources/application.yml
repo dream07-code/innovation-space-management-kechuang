@@ -26,6 +26,11 @@ spring:
       include-binding-errors: never
       include-stacktrace: never
       include-exception: false
+  servlet:
+    multipart:
+      # 日报/周报笔记图片：前端会先压到 1600px 再传，这里按原始上限兜底。
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 springdoc:
   api-docs:
@@ -77,6 +82,17 @@ app:
     auto-removal-enabled: ${MEMBERSHIP_AUTO_REMOVAL_ENABLED:true}
     removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
     removal-batch-size: ${MEMBERSHIP_REMOVAL_BATCH_SIZE:500}
+  storage:
+    # 日报/周报笔记图片：腾讯云 COS。密钥只从环境变量注入，绝不写进仓库。
+    cos:
+      secret-id: ${COS_SECRET_ID:}
+      secret-key: ${COS_SECRET_KEY:}
+      bucket: ${COS_BUCKET:kckj-1330648838}
+      region: ${COS_REGION:ap-beijing}
+      domain: ${COS_DOMAIN:https://kckj-1330648838.cos.ap-beijing.myqcloud.com}
+      key-prefix: ${COS_KEY_PREFIX:reports}
+      connect-timeout-ms: ${COS_CONNECT_TIMEOUT_MS:5000}
+      request-timeout-ms: ${COS_REQUEST_TIMEOUT_MS:30000}
   ai:
     enabled: ${AI_SCORING_ENABLED:false}
     provider: ${AI_PROVIDER:disabled}

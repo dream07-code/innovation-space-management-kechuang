@@ -266,3 +266,12 @@ OJ 考核系统当前只发布 `planned` 契约，前端可先行开发考核、
 - `quiz-review/summary` 同时下发本场全部填空题（`questions`，含完整题干与参考答案），阅卷页一次请求即可渲染题目列表，不再逐题回查题库。
 - `quiz-review` 列表页大小上限 200；单场几十人的规模可直接一次取全，超过 200 条时前端才显示分页。
 - 进度口径区分两个数字：`progress` 是**本题**已批人数/已交卷人数，`pendingItems` 是**全场**跨所有填空题的待批明细数。
+
+## 5. 日报/周报笔记图片（2026-11 新增）
+
+- 图片存在报告内容的 `content_json.images` 里（`url/name/size/anchor`），随 `report_version` 一起固化，不单独建表。
+- 上传走 `POST /api/v1/report-images`（multipart，字段名 `file`）：按文件头判定 JPEG/PNG/WebP，单张 ≤ 10 MiB，每人每分钟最多 20 次。
+- 存储为腾讯云 COS，对象键 `reports/{yyyy}/{MM}/{userId}/{uuid}.{ext}`；桶为公有读，返回的 URL 可直接渲染。
+- 报告内容只接受本站图片域名下的 URL，外链一律 400；每篇最多 10 张，单张元数据上限与上传限制一致。
+- `anchor` 表示图片跟在哪个正文段落之后（日报是 learningContent/gains/problems，周报是 summary/achievements/reflections/nextWeekPlan），`end` 表示统一放文末。
+- 凭据只从环境变量 `COS_SECRET_ID` / `COS_SECRET_KEY` 注入；未配置时上传接口返回 503，其余功能不受影响。

@@ -219,7 +219,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-09',
     learningContent: '完成接口请求与参数校验练习。', gains: '理解了参数校验与异常映射。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '302', memberId: '201', directionId: '1', status: 'SUBMITTED', version: 2,
@@ -229,7 +229,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-10',
     learningContent: '练习分页与筛选参数的组合使用。', gains: '熟悉了列表接口的过滤口径。',
-    problems: '对同分排名规则理解不深。', nextPlan: '继续阅读契约示例。', links: [],
+    problems: '对同分排名规则理解不深。', nextPlan: '继续阅读契约示例。', links: [], images: [],
   },
   {
     id: '303', memberId: '201', directionId: '1', status: 'DRAFT', version: 1,
@@ -237,7 +237,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     firstSubmittedAt: null, updatedAt: `${todayBusiness()}T09:00:00+08:00`,
     editable: true, editableUntil: endOfDay(todayBusiness()), ruleVersion: 'mock-rule-1',
     reportDate: todayBusiness(),
-    learningContent: '', gains: '', problems: null, nextPlan: null, links: [],
+    learningContent: '', gains: '', problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '304', memberId: '206', directionId: '1', status: 'SUBMITTED', version: 2,
@@ -246,7 +246,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-08',
     learningContent: '完成组件状态管理练习。', gains: '理解了响应式数据流。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '305', memberId: '206', directionId: '1', status: 'SUBMITTED', version: 1,
@@ -255,7 +255,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-10',
     learningContent: '完成路由守卫练习。', gains: '理解了导航守卫的执行顺序。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '306', memberId: '207', directionId: '2', status: 'SUBMITTED', version: 2,
@@ -264,7 +264,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-10',
     learningContent: '学习鸿蒙应用模型基础。', gains: '了解了 Stage 模型。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '307', memberId: '209', directionId: '1', status: 'SUBMITTED', version: 2,
@@ -273,7 +273,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-09',
     learningContent: '完成表单校验练习。', gains: '掌握了异步校验器的写法。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
   {
     id: '308', memberId: '202', directionId: '1', status: 'SUBMITTED', version: 1,
@@ -282,7 +282,7 @@ const INITIAL_DAILY_REPORTS: ReportSeed<DailyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     reportDate: '2026-10-10',
     learningContent: '梳理本周方向内成员的报告情况。', gains: '跟进了两位同学的进度。',
-    problems: null, nextPlan: null, links: [],
+    problems: null, nextPlan: null, links: [], images: [],
   },
 ]
 
@@ -293,7 +293,7 @@ const INITIAL_WEEKLY_REPORTS: ReportSeed<WeeklyReport>[] = [
     firstSubmittedAt: null, updatedAt: `${todayBusiness()}T09:00:00+08:00`,
     editable: true, editableUntil: endOfWeek(currentWeekStart()), ruleVersion: 'mock-rule-1',
     weekStart: currentWeekStart(), weekEnd: weekEndOf(currentWeekStart()),
-    summary: '', achievements: '', reflections: null, nextWeekPlan: null, links: [],
+    summary: '', achievements: '', reflections: null, nextWeekPlan: null, links: [], images: [],
   },
   {
     id: '402', memberId: '206', directionId: '1', status: 'SUBMITTED', version: 2,
@@ -302,7 +302,7 @@ const INITIAL_WEEKLY_REPORTS: ReportSeed<WeeklyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     weekStart: '2026-09-28', weekEnd: '2026-10-04',
     summary: '本周完成基础 API 学习。', achievements: '完成了独立练习和复盘。',
-    reflections: null, nextWeekPlan: null, links: [],
+    reflections: null, nextWeekPlan: null, links: [], images: [],
   },
   {
     id: '405', memberId: '202', directionId: '1', status: 'SUBMITTED', version: 2,
@@ -311,7 +311,7 @@ const INITIAL_WEEKLY_REPORTS: ReportSeed<WeeklyReport>[] = [
     editable: false, editableUntil: null, ruleVersion: 'mock-rule-1',
     weekStart: '2026-10-05', weekEnd: '2026-10-11',
     summary: '本周完成方向内例会与个别辅导。', achievements: '组织了一次代码评审。',
-    reflections: null, nextWeekPlan: null, links: [],
+    reflections: null, nextWeekPlan: null, links: [], images: [],
   },
 ]
 
@@ -486,8 +486,8 @@ const INITIAL_LENGTHS = {
 function resetBusinessData(): void {
   MEMBERS.splice(0, MEMBERS.length, ...INITIAL_MEMBERS.map((m) => ({ ...m, managedDirectionIds: [...m.managedDirectionIds] })))
   POINT_ENTRIES.splice(0, POINT_ENTRIES.length, ...INITIAL_POINT_ENTRIES.map((e) => ({ ...e })))
-  DAILY_REPORTS.splice(0, DAILY_REPORTS.length, ...INITIAL_DAILY_REPORTS.map((r) => withMember({ ...r, links: [...r.links] })))
-  WEEKLY_REPORTS.splice(0, WEEKLY_REPORTS.length, ...INITIAL_WEEKLY_REPORTS.map((r) => withMember({ ...r, links: [...r.links] })))
+  DAILY_REPORTS.splice(0, DAILY_REPORTS.length, ...INITIAL_DAILY_REPORTS.map((r) => withMember({ ...r, links: [...r.links], images: [...r.images] })))
+  WEEKLY_REPORTS.splice(0, WEEKLY_REPORTS.length, ...INITIAL_WEEKLY_REPORTS.map((r) => withMember({ ...r, links: [...r.links], images: [...r.images] })))
   AUDITS.splice(0, AUDITS.length, ...INITIAL_AUDITS.map((a) => ({ ...a })))
   ACCOUNTS.splice(INITIAL_LENGTHS.accounts)
   memberSeq = 300

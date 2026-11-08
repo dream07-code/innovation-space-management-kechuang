@@ -21,7 +21,8 @@ import {
 } from '@/api/modules/reports'
 import { describeError, toApiError } from '@/api/errors'
 import { REPORT_STATUS_META, SCORE_STATUS_META } from '@/components/statusMeta'
-import type { WeeklyReport } from '@/api/types'
+import ReportImageUploader from '@/components/ReportImageUploader.vue'
+import type { ReportImage, ReportImageAnchor, WeeklyReport } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
 
 const route = useRoute()
@@ -44,7 +45,17 @@ const form = reactive({
   reflections: '',
   nextWeekPlan: '',
   linksText: '',
+  images: [] as ReportImage[],
 })
+
+/** 图片可以统一放文末，也可以跟在某段正文之后。 */
+const IMAGE_ANCHORS: Array<{ value: ReportImageAnchor; label: string }> = [
+  { value: 'summary', label: '放在「总结」后' },
+  { value: 'achievements', label: '放在「成果」后' },
+  { value: 'reflections', label: '放在「反思」后' },
+  { value: 'nextWeekPlan', label: '放在「下周计划」后' },
+  { value: 'end', label: '放在文末' },
+]
 
 const rules: FormRules = {
   weekStart: [{ required: true, message: '请选择周', trigger: 'change' }],
@@ -77,6 +88,7 @@ async function load(): Promise<void> {
     form.reflections = r.reflections ?? ''
     form.nextWeekPlan = r.nextWeekPlan ?? ''
     form.linksText = r.links.join('\n')
+    form.images = r.images ?? []
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -103,6 +115,7 @@ async function saveDraft(): Promise<void> {
       reflections: form.reflections || null,
       nextWeekPlan: form.nextWeekPlan || null,
       links: parseLinks(),
+      images: form.images,
     }
     if (isNew.value) {
       const valid = await formRef.value?.validate().catch(() => false)
@@ -160,6 +173,7 @@ async function submit(): Promise<void> {
       reflections: form.reflections || null,
       nextWeekPlan: form.nextWeekPlan || null,
       links: parseLinks(),
+      images: form.images,
     })
     report.value = updated
 
@@ -171,6 +185,7 @@ async function submit(): Promise<void> {
     report.value = submitted
     form.summary = submitted.summary
     form.achievements = submitted.achievements
+    form.images = submitted.images ?? []
     ElMessage.success('已正式提交，保底积分已入账，评分排队中')
   } catch (error) {
     const apiError = toApiError(error)
@@ -234,6 +249,10 @@ onMounted(load)
 
       <el-form-item label="相关链接（每行一个）">
         <el-input v-model="form.linksText" type="textarea" :rows="2" :disabled="!editable" />
+      </el-form-item>
+
+      <el-form-item label="笔记图片（选填）">
+        <ReportImageUploader v-model="form.images" :anchors="IMAGE_ANCHORS" :disabled="!editable" />
       </el-form-item>
 
       <template v-if="report">

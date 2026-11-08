@@ -89,6 +89,11 @@ export type VersionRequest = Schemas['VersionRequest']
 /** 人工评分请求：1–3 分，reason 可选。 */
 export type ManualScoreReportRequest = Schemas['ManualScoreReportRequest']
 
+export type ReportImage = Schemas['ReportImage']
+export type ReportImageUpload = Schemas['ReportImageUpload']
+/** 图片跟随的正文段落；end 表示统一放在文末。 */
+export type ReportImageAnchor = ReportImage['anchor']
+
 export type ReportStatus = DailyReport['status']
 export type ScoreStatus = DailyReport['scoreStatus']
 

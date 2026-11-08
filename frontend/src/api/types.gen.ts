@@ -2465,7 +2465,7 @@ export interface paths {
         };
         /**
          * 本人答题卡
-         * @description 考核 CLOSED/ARCHIVED 前剥离一切判分字段（防泄题），结束后含逐题对错与解析。
+         * @description 成绩发布前剥离一切判分字段；发布后含逐题得分、参考答案与评语。
          */
         get: {
             parameters: {
@@ -2540,6 +2540,265 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/quiz-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 按题查看填空作答与评分状态 */
+        get: {
+            parameters: {
+                query: {
+                    questionId: string;
+                    filter?: "all" | "pending" | "auto_zero" | "manual";
+                    page?: number;
+                    size?: number;
+                };
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 阅卷列表；仅 FILL_BLANK 可查，其他题型 400 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizReviewPageResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/quiz-review/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 阅卷进度与发布条件 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 已批/待批条数与 canPublish */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuizReviewSummaryResponse"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/quiz-review/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量保存填空人工评分
+         * @description 单次最多 200 条，整体一个事务；任一条版本冲突返回 409，不部分提交。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                    "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GradeQuizScoresRequest"];
+                };
+            };
+            responses: {
+                /** @description 每条的新版本与所属答卷新总分 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GradeQuizScoresResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/quiz-review/scores/{sheetId}/{position}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 撤销人工评分并回退自动分 */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                    "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    assessmentId: string;
+                    sheetId: string;
+                    position: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description 回退后的得分与总分 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{assessmentId}/publish-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发布成绩并结算考核积分
+         * @description 仅 CLOSED 且无待批填空明细时可发布；发布后学生可见分数、阅卷锁定、积分按最终成绩结算。发布单向不可撤回。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                    "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    assessmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description 发布时间、发布人与是否结算积分 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublishResultsResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/report-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 上传日报/周报笔记图片
+         * @description 仅接受 JPEG/PNG/WebP（按文件头判定），单张不超过 10 MiB，每人每分钟最多 20 次；返回的 URL 位于本站图片存储域名下，直接写进报告 content.images。
+         */
+        post: operations["uploadReportImage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2742,6 +3001,8 @@ export interface components {
         };
         AnswerSheetSummary: {
             memberId: string;
+            /** @description 成绩是否已发布（学生端未发布时不下发分数） */
+            resultsPublished?: boolean;
             memberName: string;
             /** @enum {string} */
             status: "DRAFT" | "SUBMITTED";
@@ -2754,9 +3015,23 @@ export interface components {
             position: number;
             answer: unknown;
             correct: boolean;
+            /** @description 当前生效得分（人工分优先） */
             awarded: number;
             correctAnswer?: unknown;
             analysis?: string | null;
+            /** @description 阅卷评语，学生可见 */
+            reviewComment?: string | null;
+            /** @description 交卷自动判分，仅教师视图返回 */
+            autoAwarded?: number;
+            /** @description 人工分，仅教师视图返回 */
+            manualScore?: number | null;
+            /** @description 是否已人工复核，仅教师视图返回 */
+            reviewed?: boolean;
+            /**
+             * Format: date-time
+             * @description 仅教师视图返回
+             */
+            reviewedAt?: string | null;
         };
         AnswerSheetSummaryResponse: {
             /** @enum {string} */
@@ -2768,6 +3043,8 @@ export interface components {
         AnswerSheetDetail: {
             /** @enum {string} */
             status: "DRAFT" | "SUBMITTED";
+            /** @description 成绩是否已发布；false 时 totalScore/items 均为 null */
+            resultsPublished?: boolean;
             answeredCount: number;
             totalScore?: number | null;
             submittedAt?: string | null;
@@ -2852,8 +3129,12 @@ export interface components {
             directionName: string;
             /** @enum {string} */
             status: "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
-            /** @description 是否开启考核积分奖励；开启后考核关闭时按成绩比例发放（第一名 20 分封顶）。 */
+            /** @description 是否开启考核积分奖励；开启后在发布成绩时按成绩比例发放（第一名 20 分封顶）。 */
             pointsEnabled?: boolean;
+            /** @description 成绩是否已由负责人/管理员发布；未发布时学生看不到分数与明细。 */
+            resultsPublished?: boolean;
+            /** Format: date-time */
+            resultsPublishedAt?: string | null;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -3100,12 +3381,12 @@ export interface components {
             endAt: string;
             allowedLanguages: ("java" | "python" | "cpp" | "javascript" | "go" | "rust")[];
             items: components["schemas"]["AssessmentItem"][];
-            /** @description 缺省 false；开启后考核关闭时按成绩比例发放积分（第一名 20 分封顶）。 */
+            /** @description 缺省 false；开启后在发布成绩时按成绩比例发放积分（第一名 20 分封顶）。 */
             pointsEnabled?: boolean;
         };
         UpdateAssessmentRequest: {
             version: number;
-            /** @description 缺省保持原值；开关在关闭时决定是否结算积分。 */
+            /** @description 缺省保持原值；开关在发布成绩时决定是否结算积分。 */
             pointsEnabled?: boolean;
             title?: string;
             description?: string;
@@ -3654,6 +3935,41 @@ export interface components {
             /** @enum {string} */
             accountStatus?: "ENABLED" | "DISABLED";
         };
+        ReportImage: {
+            /**
+             * @description 必须位于本站图片存储域名下；前端直接用于 img src。
+             * @example https://kckj-1330648838.cos.ap-beijing.myqcloud.com/reports/2026/11/7/a.jpg
+             */
+            url: string;
+            /** @description 原始文件名，仅用于展示。 */
+            name: string;
+            /**
+             * Format: int64
+             * @description 字节数，单张上限 10 MiB。
+             */
+            size: number;
+            /**
+             * @description 图片跟在哪个正文段落之后；end 表示统一放在文末。
+             * @enum {string}
+             */
+            anchor: "learningContent" | "gains" | "problems" | "summary" | "achievements" | "reflections" | "nextWeekPlan" | "end";
+        };
+        ReportImageUpload: {
+            /** @description 上传后的公开访问地址。 */
+            url: string;
+            name: string;
+            /** Format: int64 */
+            size: number;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp";
+        };
+        ReportImageUploadResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["ReportImageUpload"];
+        };
         DailyReport: {
             /**
              * @description 十进制字符串 ID，不转换为 JavaScript Number。
@@ -3727,6 +4043,8 @@ export interface components {
             problems: string | null;
             nextPlan: string | null;
             links: string[];
+            /** @description 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images: components["schemas"]["ReportImage"][];
         };
         DailyReportResponse: {
             /** @enum {string} */
@@ -3778,6 +4096,8 @@ export interface components {
             nextPlan?: string | null;
             /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             links?: string[];
+            /** @description 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images?: components["schemas"]["ReportImage"][];
         };
         /** @description 只改正文，不改成员或日期。当前日报表单只发送 version、learningContent、gains、problems；learningContent 必填且 trim 后不得为空，日期不变，历史 nextPlan/links 仅保留 API 兼容。 */
         UpdateDailyReportRequest: {
@@ -3796,6 +4116,8 @@ export interface components {
             nextPlan?: string | null;
             /** @description 历史兼容字段，当前日报表单不展示、不发送。 */
             links?: string[];
+            /** @description 笔记图片。日报允许 learningContent/gains/problems/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images?: components["schemas"]["ReportImage"][];
         };
         WeeklyReport: {
             /**
@@ -3875,6 +4197,8 @@ export interface components {
             reflections: string | null;
             nextWeekPlan: string | null;
             links: string[];
+            /** @description 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images: components["schemas"]["ReportImage"][];
         };
         /** @description 人工评分只接受 score 与 reason；报告必须为已提交状态。评分后 scoreStatus=MANUAL，finalScore 为人工分数，awardedPoints 为实际入账总分。 */
         ManualScoreReportRequest: {
@@ -3932,6 +4256,8 @@ export interface components {
             reflections?: string | null;
             nextWeekPlan?: string | null;
             links?: string[];
+            /** @description 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images?: components["schemas"]["ReportImage"][];
         };
         /** @description 只改内容，不改成员或日期。草稿可不完整；SUBMITTED 修改必须对合并后的完整正文重新执行必填及非空白校验，失败400且报告/积分/评分任务均不变；仅 editable=true 可改。 */
         UpdateWeeklyReportRequest: {
@@ -3947,6 +4273,8 @@ export interface components {
             reflections?: string | null;
             nextWeekPlan?: string | null;
             links?: string[];
+            /** @description 笔记图片。周报允许 summary/achievements/reflections/nextWeekPlan/end 作为 anchor，end 表示统一放文末；只接受本站图片存储域名下的 URL。 */
+            images?: components["schemas"]["ReportImage"][];
         };
         VersionRequest: {
             /**
@@ -4542,6 +4870,116 @@ export interface components {
         Health: {
             /** @enum {string} */
             status: "UP" | "DOWN";
+        };
+        QuizReviewRow: {
+            sheetId?: string;
+            memberId?: string;
+            memberName?: string;
+            studentNo?: string;
+            /** @description 原始作答，保留换行 */
+            answer?: string | null;
+            answered?: boolean;
+            autoAwarded?: number;
+            /** @description 当前生效得分 */
+            awarded?: number;
+            manualScore?: number | null;
+            reviewed?: boolean;
+            comment?: string | null;
+            version?: number | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+        };
+        QuizReviewQuestion: {
+            /** @description 题目在本场考核中的序号 */
+            position?: number;
+            questionId?: string;
+            /** @description 完整题干（保留换行） */
+            stem?: string;
+            /** @description 本题满分 */
+            score?: number;
+            referenceAnswers?: string[] | null;
+            analysis?: string | null;
+        };
+        QuizReviewPage: {
+            assessment?: {
+                id?: string;
+                title?: string;
+                status?: string;
+                directionId?: string;
+                resultsPublished?: boolean;
+            };
+            question?: components["schemas"]["QuizReviewQuestion"];
+            progress?: {
+                graded?: number;
+                total?: number;
+            };
+            items?: components["schemas"]["QuizReviewRow"][];
+            page?: number;
+            size?: number;
+            total?: number;
+        };
+        QuizReviewPageResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: components["schemas"]["QuizReviewPage"];
+        };
+        QuizReviewSummary: {
+            assessment?: {
+                id?: string;
+                title?: string;
+                status?: string;
+                resultsPublished?: boolean;
+            };
+            /** @description 本场全部填空题（含完整题干与参考答案），随进度一次下发，阅卷页无需逐题回查题库 */
+            questions?: components["schemas"]["QuizReviewQuestion"][];
+            totalItems?: number;
+            gradedItems?: number;
+            /** @description 已交卷答题卡中尚无人工分的填空明细数（全场口径，跨所有填空题） */
+            pendingItems?: number;
+            submittedSheets?: number;
+            resultsPublished?: boolean;
+            canPublish?: boolean;
+            pointsEnabled?: boolean;
+        };
+        QuizReviewSummaryResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: components["schemas"]["QuizReviewSummary"];
+        };
+        GradeQuizScoresRequest: {
+            items: {
+                sheetId: string;
+                position: number;
+                /** @description 0 到该题分值 */
+                score: number;
+                comment?: string;
+                version: number;
+            }[];
+        };
+        GradeQuizScoresResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                updated?: number;
+                sheets?: {
+                    sheetId?: string;
+                    totalScore?: number;
+                }[];
+            };
+        };
+        PublishResultsResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                /** Format: date-time */
+                publishedAt?: string;
+                publisher?: string;
+                settled?: boolean;
+            };
         };
     };
     responses: {
@@ -7599,6 +8037,48 @@ export interface operations {
                      */
                     "application/json": components["schemas"]["Health"];
                 };
+            };
+        };
+    };
+    uploadReportImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 上传成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportImageUploadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description 上传过于频繁 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 图片存储未配置或暂不可用 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

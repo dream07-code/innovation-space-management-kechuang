@@ -397,8 +397,8 @@ const DAILY_SPEC: ReportSpec<DailyReport> = {
   reportType: 'DAILY',
   periodKey: 'reportDate',
   requiredFields: ['learningContent'],
-  createAllowed: ['learningContent', 'gains', 'problems', 'nextPlan', 'links'],
-  updateAllowed: ['version', 'learningContent', 'gains', 'problems', 'nextPlan', 'links'],
+  createAllowed: ['learningContent', 'gains', 'problems', 'nextPlan', 'links', 'images'],
+  updateAllowed: ['version', 'learningContent', 'gains', 'problems', 'nextPlan', 'links', 'images'],
   automaticPeriod: todayBusiness,
   makeDraft(id, memberId, directionId, body) {
     const reportDate = todayBusiness()
@@ -426,6 +426,7 @@ const DAILY_SPEC: ReportSpec<DailyReport> = {
       problems: typeof body.problems === 'string' ? body.problems : null,
       nextPlan: typeof body.nextPlan === 'string' ? body.nextPlan : null,
       links: Array.isArray(body.links) ? (body.links as string[]) : [],
+      images: Array.isArray(body.images) ? body.images : [],
     }
   },
 }
@@ -437,8 +438,8 @@ const WEEKLY_SPEC: ReportSpec<WeeklyReport> = {
   reportType: 'WEEKLY',
   periodKey: 'weekStart',
   requiredFields: ['summary', 'achievements'],
-  createAllowed: ['weekStart', 'summary', 'achievements', 'reflections', 'nextWeekPlan', 'links'],
-  updateAllowed: ['version', 'summary', 'achievements', 'reflections', 'nextWeekPlan', 'links'],
+  createAllowed: ['weekStart', 'summary', 'achievements', 'reflections', 'nextWeekPlan', 'links', 'images'],
+  updateAllowed: ['version', 'summary', 'achievements', 'reflections', 'nextWeekPlan', 'links', 'images'],
   makeDraft(id, memberId, directionId, body) {
     const weekStart = body.weekStart as string
     const member = findMember(memberId)
@@ -466,6 +467,7 @@ const WEEKLY_SPEC: ReportSpec<WeeklyReport> = {
       reflections: typeof body.reflections === 'string' ? body.reflections : null,
       nextWeekPlan: typeof body.nextWeekPlan === 'string' ? body.nextWeekPlan : null,
       links: Array.isArray(body.links) ? (body.links as string[]) : [],
+      images: Array.isArray(body.images) ? body.images : [],
     }
   },
 }
