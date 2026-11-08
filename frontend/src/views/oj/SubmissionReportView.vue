@@ -16,6 +16,7 @@ import { ElMessage } from 'element-plus'
 import { getSubmissionReport } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { difficultyMetaLabel, languageLabel, verdictMeta } from '@/components/ojMeta'
+import { formatDateTime } from '@/utils/datetime'
 import type { SubmissionReport } from '@/api/types'
 
 const route = useRoute()
@@ -121,7 +122,7 @@ onMounted(load)
           </div>
           <div class="summary-item">
             <span class="summary-item__label">提交时间</span>
-            <span class="summary-item__value">{{ report.submission.submittedAt }}</span>
+            <span class="summary-item__value">{{ formatDateTime(report.submission.submittedAt) }}</span>
           </div>
         </div>
 
@@ -130,7 +131,7 @@ onMounted(load)
           <p class="report-cause">{{ ai.cause }}</p>
           <p class="report-meta">
             由 {{ ai.model ?? 'AI 模型' }} 生成 · 提示词 {{ ai.rubricVersion }}
-            <template v-if="ai.generatedAt"> · {{ ai.generatedAt }}</template>
+            <template v-if="ai.generatedAt"> · {{ formatDateTime(ai.generatedAt) }}</template>
             <template v-if="ai.cached"> · 命中缓存</template>
           </p>
         </template>

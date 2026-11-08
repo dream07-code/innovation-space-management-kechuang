@@ -16,6 +16,7 @@ import {
   listAssessmentSubmissions,
 } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
+import { formatDateTime } from '@/utils/datetime'
 import {
   languageLabel,
   submissionStatusMeta,
@@ -103,7 +104,9 @@ onMounted(load)
     </el-form>
 
     <el-table v-loading="loading" :data="items" row-key="id">
-      <el-table-column prop="submittedAt" label="提交时间" width="180" />
+      <el-table-column label="提交时间" width="170">
+        <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+      </el-table-column>
       <el-table-column label="成员" min-width="140">
         <template #default="{ row }">
           <div class="member-cell">
@@ -142,7 +145,7 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="codeHash" label="代码摘要" min-width="170" show-overflow-tooltip />
-      <el-table-column label="操作" width="170">
+      <el-table-column label="操作" width="205" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="goDetail(row)">详情</el-button>
           <el-button link type="primary" :icon="DataAnalysis" @click="goReport(row)">批改报告</el-button>
