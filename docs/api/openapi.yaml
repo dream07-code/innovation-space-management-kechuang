@@ -41,6 +41,7 @@ tags:
 - name: OJ题目
 - name: OJ提交
 - name: OJ评分
+- name: AI 助教
 - name: 规则
 - name: 审计
 - name: 运行状态
@@ -3604,18 +3605,21 @@ paths:
   /api/v1/tutor/chat:
     post:
       tags:
-      - OJ提交
-      summary: 通用 AI 助教对话（可不绑定提交）
+      - AI 助教
+      operationId: tutorChat
+      summary: 通用 AI 助教对话（会话落库）
       description: |
-        学生不做题也能问知识点。上下文只有「当前选中的题目」（problemId 可空），
-        由服务端按 id 取题库并做可见性校验；不读代码与判题结果，也不假设看过学生的提交。
-        对话历史由前端保存（localStorage）并逐轮带回，服务端不落库，因此不新增数据库结构。
-        复用日报/周报评分与批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，
-        讲知识点结合选中题目，不给可直接提交的完整答案，题面与学生贴的代码按不可信数据防注入。
-        AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答。
+        学生不做题也能问知识点。上下文只有「会话关联的题目」（可空），由服务端按 id 取题库
+        并做可见性校验，不读代码与判题结果。带 conversationId 时沿用该会话，必须是本人会话，
+        别人的 id 返回 404（与不存在一致）；不带时自动新建会话，并在响应里回传 conversationId。
+        历史由服务端按会话从 tutor_message 取最近 12 条，不接受前端上传的 history。
+        会话一旦绑定题目就不再跟随请求切换，避免一段对话里混入两道题的题面。
+        复用批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，讲知识点结合
+        会话题目，不给可直接提交的完整答案，题面按不可信数据防注入。
+        AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答；
+        学生这一问仍会落库，刷新后不会消失。
       x-implementation-status: implemented
       x-roles:
-      - COLLEGE_ADMIN
       - DIRECTION_LEADER
       - STUDENT
       requestBody:
@@ -3626,7 +3630,7 @@ paths:
               $ref: '#/components/schemas/TutorChatRequest'
       responses:
         '200':
-          description: 成功。
+          description: 成功；AI 不可用时 available=false 并在 error 给出原因。
           content:
             application/json:
               schema:
@@ -3643,6 +3647,263 @@ paths:
           $ref: '#/components/responses/MethodNotAllowed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/tutor/conversations:
+    get:
+      tags:
+      - AI 助教
+      operationId: listTutorConversations
+      summary: 我的助教会话列表
+      description: 只返回本人会话，最近更新在前；没有学生档案的账号返回 403。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: size
+        in: query
+        required: false
+        description: 每页条数，后端上限 50，超出按 50 处理。
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 50
+          default: 20
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConversationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - AI 助教
+      operationId: createTutorConversation
+      summary: 新建助教会话
+      description: |
+        title 可空：为空时用关联题目标题，仍为空则用「新对话」。problemId 可空，表示纯知识点问答；
+        不可见题目返回 404。会话归属写入本人 member_id，没有学生档案的账号 403。
+        写操作必须带 Idempotency-Key：同一用户+方法+路径+key 的成功结果保留 24 小时。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTutorConversationRequest'
+      responses:
+        '201':
+          description: 已创建；响应为完整会话。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/tutor/conversations/{conversationId}/messages:
+    parameters:
+    - name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+      example: '12'
+    get:
+      tags:
+      - AI 助教
+      operationId: getTutorConversationMessages
+      summary: 读一个会话的消息
+      description: |
+        返回会话元信息与消息（按时间正序）。只允许本人会话，别人的 id 与不存在同样返回 404。
+        最多返回最近 200 条，更早的消息不返回，并在 truncated 标记；消息内容不含模型原始响应。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConversationMessagesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/tutor/conversations/{conversationId}:
+    parameters:
+    - name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+      example: '12'
+    patch:
+      tags:
+      - AI 助教
+      operationId: renameTutorConversation
+      summary: 重命名助教会话
+      description: title 1-120 字，空标题返回 400；别人的会话返回 404。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTutorConversationRequest'
+      responses:
+        '200':
+          description: 成功；响应为重命名后的会话。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/tutor/conversations/{conversationId}/delete:
+    parameters:
+    - name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[1-9][0-9]{0,18}$
+      example: '12'
+    post:
+      tags:
+      - AI 助教
+      operationId: deleteTutorConversation
+      summary: 删除助教会话
+      description: |
+        删除会话，消息随后续外键级联删除。别人的会话与不存在同样返回 404。
+        写操作必须带 Idempotency-Key，重复提交同一 key 返回同一结果。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: 已删除。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConversationDeleteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/tutor/profile:
+    get:
+      tags:
+      - AI 助教
+      operationId: getTutorLearningProfile
+      summary: 我的学习画像（读时聚合，刷新快照）
+      description: |
+        聚合本人已判题的提交、判题结果与已发布成绩，写入/刷新学习和画像快照后返回。
+        尝试题数按题目去重（同题多次提交只算一题）；通过 = 该题至少一次 ACCEPTED；
+        薄弱知识点 = 尝试过且至少有一题没通过的标签，按未通过题数、通过率排序取前三；
+        推荐练习只从公开题库里选本人还没通过的题，优先命中最薄弱的标签，理由只引用真实数字。
+        没有任何判题完成的提交时返回 hasData=false、全零与空数组，并清除旧快照，不编造画像。
+      x-implementation-status: implemented
+      x-roles:
+      - DIRECTION_LEADER
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；无数据时 hasData=false。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -6238,17 +6499,16 @@ components:
           description: 本次问题；超过 1000 字符按 1000 截断。
           minLength: 1
           maxLength: 1000
+        conversationId:
+          type: string
+          nullable: true
+          description: 续聊的会话 id；为空时自动新建会话并在响应里回传 id。非法 id 400，别人的会话 404。
+          pattern: ^[1-9][0-9]{0,18}$
         problemId:
           type: string
           nullable: true
-          description: 当前选中的题目 ID；不传表示通用提问。非法 id 返回 400，不可见题目返回 404。
+          description: 仅当会话还没绑定题目时生效；非法 id 400，不可见题目 404。
           pattern: ^[1-9][0-9]{0,18}$
-        history:
-          type: array
-          description: 历史对话，按时间顺序；只取最后 12 条，非法角色会被丢弃。
-          maxItems: 40
-          items:
-            $ref: '#/components/schemas/SubmissionTutorTurn'
       additionalProperties: false
     TutorChatResponse:
       type: object
@@ -6258,8 +6518,14 @@ components:
         message: {type: string, example: Success}
         data:
           type: object
-          required: [available, promptVersion, generatedAt]
+          required: [available, promptVersion, generatedAt, conversationId]
           properties:
+            conversationId:
+              type: string
+              description: 本次对话所属会话 id；请求未带时为新建的会话。
+            conversationTitle:
+              type: string
+              description: 会话标题；新建时取第一句问题的前 30 个字。
             available:
               type: boolean
               description: AI 是否给出回答；false 表示未配置或调用失败，此时 reply 为 null。
@@ -6279,6 +6545,175 @@ components:
               description: available=false 时可直接展示给学生的原因。
           additionalProperties: false
       additionalProperties: false
+    TutorConversation:
+      type: object
+      required: [id, title, messageCount, createdAt, updatedAt]
+      properties:
+        id: {type: string, example: '12'}
+        title: {type: string, maxLength: 120}
+        problemId:
+          type: string
+          nullable: true
+          description: 关联题目；为空表示纯知识点问答。
+        problemTitle: {type: string, nullable: true}
+        messageCount: {type: integer, minimum: 0}
+        createdAt: {type: string}
+        updatedAt: {type: string}
+      additionalProperties: false
+    TutorMessage:
+      type: object
+      required: [id, role, content, createdAt]
+      properties:
+        id: {type: string}
+        role: {type: string, enum: [user, assistant]}
+        content: {type: string, maxLength: 8000}
+        createdAt: {type: string}
+      additionalProperties: false
+    CreateTutorConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 120
+          description: 可空；为空时用关联题目标题，仍为空则用「新对话」。
+        problemId:
+          type: string
+          nullable: true
+          description: 关联题目；非法 id 400，不可见题目 404。
+          pattern: ^[1-9][0-9]{0,18}$
+      additionalProperties: false
+    UpdateTutorConversationRequest:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120}
+      additionalProperties: false
+    TutorConversationResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data: {$ref: '#/components/schemas/TutorConversation'}
+    TutorConversationListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [items, page, size, total]
+          properties:
+            items:
+              type: array
+              items: {$ref: '#/components/schemas/TutorConversation'}
+            page: {type: integer, minimum: 1}
+            size: {type: integer, minimum: 1}
+            total: {type: integer, minimum: 0}
+          additionalProperties: false
+    TutorConversationMessagesResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [conversation, items, total, truncated]
+          properties:
+            conversation: {$ref: '#/components/schemas/TutorConversation'}
+            items:
+              type: array
+              items: {$ref: '#/components/schemas/TutorMessage'}
+            total: {type: integer, minimum: 0}
+            truncated:
+              type: boolean
+              description: true 表示只返回了最近 200 条，更早的消息未返回。
+          additionalProperties: false
+    TutorConversationDeleteResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [deleted, conversationId]
+          properties:
+            deleted: {type: boolean}
+            conversationId: {type: string}
+            title: {type: string, nullable: true}
+          additionalProperties: false
+    TutorProfileOverview:
+      type: object
+      required: [attemptedProblems, passedProblems, passRate, submissionCount]
+      properties:
+        attemptedProblems:
+          type: integer
+          minimum: 0
+          description: 有过判题完成提交的题目数，同题多次提交只算一题。
+        passedProblems:
+          type: integer
+          minimum: 0
+          description: 至少一次 ACCEPTED 的题目数。
+        passRate:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 通过题数 ÷ 尝试题数，四舍五入到整数百分比。
+        submissionCount: {type: integer, minimum: 0}
+        averageScore:
+          type: integer
+          nullable: true
+          description: 已发布成绩的平均分；没有已发布成绩时为 null。
+        lastSubmittedAt: {type: string, nullable: true}
+      additionalProperties: false
+    TutorWeakPoint:
+      type: object
+      required: [tag, attempted, passed, passRate]
+      properties:
+        tag: {type: string}
+        attempted: {type: integer, minimum: 0}
+        passed: {type: integer, minimum: 0}
+        passRate: {type: integer, minimum: 0, maximum: 100}
+      additionalProperties: false
+    TutorRecommendation:
+      type: object
+      required: [problemId, title, difficulty, reason]
+      properties:
+        problemId: {type: string}
+        title: {type: string}
+        difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+        tags:
+          type: array
+          items: {type: string}
+        reason:
+          type: string
+          description: 推荐理由，只引用真实的通过/尝试次数，不含模型生成内容。
+      additionalProperties: false
+    TutorProfileResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [hasData, overview, weakPoints, recommendations]
+          properties:
+            hasData:
+              type: boolean
+              description: false 表示本人还没有任何判题完成的提交，此时不生成画像。
+            snapshotAt: {type: string, nullable: true}
+            overview: {$ref: '#/components/schemas/TutorProfileOverview'}
+            weakPoints:
+              type: array
+              items: {$ref: '#/components/schemas/TutorWeakPoint'}
+            recommendations:
+              type: array
+              items: {$ref: '#/components/schemas/TutorRecommendation'}
+          additionalProperties: false
     SubmissionTutorRequest:
       type: object
       required: [message]

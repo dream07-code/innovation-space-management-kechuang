@@ -1697,46 +1697,139 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 通用 AI 助教对话（可不绑定提交）
-         * @description 学生不做题也能问知识点。上下文只有「当前选中的题目」（problemId 可空），
-         *     由服务端按 id 取题库并做可见性校验；不读代码与判题结果，也不假设看过学生的提交。
-         *     对话历史由前端保存（localStorage）并逐轮带回，服务端不落库，因此不新增数据库结构。
-         *     复用日报/周报评分与批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，
-         *     讲知识点结合选中题目，不给可直接提交的完整答案，题面与学生贴的代码按不可信数据防注入。
-         *     AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答。
+         * 通用 AI 助教对话（会话落库）
+         * @description 学生不做题也能问知识点。上下文只有「会话关联的题目」（可空），由服务端按 id 取题库
+         *     并做可见性校验，不读代码与判题结果。带 conversationId 时沿用该会话，必须是本人会话，
+         *     别人的 id 返回 404（与不存在一致）；不带时自动新建会话，并在响应里回传 conversationId。
+         *     历史由服务端按会话从 tutor_message 取最近 12 条，不接受前端上传的 history。
+         *     会话一旦绑定题目就不再跟随请求切换，避免一段对话里混入两道题的题面。
+         *     复用批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，讲知识点结合
+         *     会话题目，不给可直接提交的完整答案，题面按不可信数据防注入。
+         *     AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答；
+         *     学生这一问仍会落库，刷新后不会消失。
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["TutorChatRequest"];
-                };
-            };
-            responses: {
-                /** @description 成功。 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TutorChatResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-                405: components["responses"]["MethodNotAllowed"];
-                429: components["responses"]["TooManyRequests"];
-                500: components["responses"]["InternalError"];
-                503: components["responses"]["Unavailable"];
-            };
+        post: operations["tutorChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tutor/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
+        /**
+         * 我的助教会话列表
+         * @description 只返回本人会话，最近更新在前；没有学生档案的账号返回 403。
+         */
+        get: operations["listTutorConversations"];
+        put?: never;
+        /**
+         * 新建助教会话
+         * @description title 可空：为空时用关联题目标题，仍为空则用「新对话」。problemId 可空，表示纯知识点问答；
+         *     不可见题目返回 404。会话归属写入本人 member_id，没有学生档案的账号 403。
+         *     写操作必须带 Idempotency-Key：同一用户+方法+路径+key 的成功结果保留 24 小时。
+         */
+        post: operations["createTutorConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tutor/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * 读一个会话的消息
+         * @description 返回会话元信息与消息（按时间正序）。只允许本人会话，别人的 id 与不存在同样返回 404。
+         *     最多返回最近 200 条，更早的消息不返回，并在 truncated 标记；消息内容不含模型原始响应。
+         */
+        get: operations["getTutorConversationMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tutor/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 重命名助教会话
+         * @description title 1-120 字，空标题返回 400；别人的会话返回 404。
+         */
+        patch: operations["renameTutorConversation"];
+        trace?: never;
+    };
+    "/api/v1/tutor/conversations/{conversationId}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 删除助教会话
+         * @description 删除会话，消息随后续外键级联删除。别人的会话与不存在同样返回 404。
+         *     写操作必须带 Idempotency-Key，重复提交同一 key 返回同一结果。
+         */
+        post: operations["deleteTutorConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tutor/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我的学习画像（读时聚合，刷新快照）
+         * @description 聚合本人已判题的提交、判题结果与已发布成绩，写入/刷新学习和画像快照后返回。
+         *     尝试题数按题目去重（同题多次提交只算一题）；通过 = 该题至少一次 ACCEPTED；
+         *     薄弱知识点 = 尝试过且至少有一题没通过的标签，按未通过题数、通过率排序取前三；
+         *     推荐练习只从公开题库里选本人还没通过的题，优先命中最薄弱的标签，理由只引用真实数字。
+         *     没有任何判题完成的提交时返回 hasData=false、全零与空数组，并清除旧快照，不编造画像。
+         */
+        get: operations["getTutorLearningProfile"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3393,10 +3486,10 @@ export interface components {
         TutorChatRequest: {
             /** @description 本次问题；超过 1000 字符按 1000 截断。 */
             message: string;
-            /** @description 当前选中的题目 ID；不传表示通用提问。非法 id 返回 400，不可见题目返回 404。 */
+            /** @description 续聊的会话 id；为空时自动新建会话并在响应里回传 id。非法 id 400，别人的会话 404。 */
+            conversationId?: string | null;
+            /** @description 仅当会话还没绑定题目时生效；非法 id 400，不可见题目 404。 */
             problemId?: string | null;
-            /** @description 历史对话，按时间顺序；只取最后 12 条，非法角色会被丢弃。 */
-            history?: components["schemas"]["SubmissionTutorTurn"][];
         };
         TutorChatResponse: {
             /** @enum {string} */
@@ -3404,6 +3497,10 @@ export interface components {
             /** @example Success */
             message: string;
             data: {
+                /** @description 本次对话所属会话 id；请求未带时为新建的会话。 */
+                conversationId: string;
+                /** @description 会话标题；新建时取第一句问题的前 30 个字。 */
+                conversationTitle?: string;
                 /** @description AI 是否给出回答；false 表示未配置或调用失败，此时 reply 为 null。 */
                 available: boolean;
                 /** @description 助教回答的纯文本，可能包含分段与短代码块。 */
@@ -3415,6 +3512,117 @@ export interface components {
                 generatedAt: string;
                 /** @description available=false 时可直接展示给学生的原因。 */
                 error?: string | null;
+            };
+        };
+        TutorConversation: {
+            /** @example 12 */
+            id: string;
+            title: string;
+            /** @description 关联题目；为空表示纯知识点问答。 */
+            problemId?: string | null;
+            problemTitle?: string | null;
+            messageCount: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+        TutorMessage: {
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            content: string;
+            createdAt: string;
+        };
+        CreateTutorConversationRequest: {
+            /** @description 可空；为空时用关联题目标题，仍为空则用「新对话」。 */
+            title?: string;
+            /** @description 关联题目；非法 id 400，不可见题目 404。 */
+            problemId?: string | null;
+        };
+        UpdateTutorConversationRequest: {
+            title: string;
+        };
+        TutorConversationResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: components["schemas"]["TutorConversation"];
+        };
+        TutorConversationListResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                items: components["schemas"]["TutorConversation"][];
+                page: number;
+                size: number;
+                total: number;
+            };
+        };
+        TutorConversationMessagesResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                conversation: components["schemas"]["TutorConversation"];
+                items: components["schemas"]["TutorMessage"][];
+                total: number;
+                /** @description true 表示只返回了最近 200 条，更早的消息未返回。 */
+                truncated: boolean;
+            };
+        };
+        TutorConversationDeleteResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                deleted: boolean;
+                conversationId: string;
+                title?: string | null;
+            };
+        };
+        TutorProfileOverview: {
+            /** @description 有过判题完成提交的题目数，同题多次提交只算一题。 */
+            attemptedProblems: number;
+            /** @description 至少一次 ACCEPTED 的题目数。 */
+            passedProblems: number;
+            /** @description 通过题数 ÷ 尝试题数，四舍五入到整数百分比。 */
+            passRate: number;
+            submissionCount: number;
+            /** @description 已发布成绩的平均分；没有已发布成绩时为 null。 */
+            averageScore?: number | null;
+            lastSubmittedAt?: string | null;
+        };
+        TutorWeakPoint: {
+            tag: string;
+            attempted: number;
+            passed: number;
+            passRate: number;
+        };
+        TutorRecommendation: {
+            problemId: string;
+            title: string;
+            /** @enum {string} */
+            difficulty: "EASY" | "MEDIUM" | "HARD";
+            tags?: string[];
+            /** @description 推荐理由，只引用真实的通过/尝试次数，不含模型生成内容。 */
+            reason: string;
+        };
+        TutorProfileResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                /** @description false 表示本人还没有任何判题完成的提交，此时不生成画像。 */
+                hasData: boolean;
+                snapshotAt?: string | null;
+                overview: components["schemas"]["TutorProfileOverview"];
+                weakPoints: components["schemas"]["TutorWeakPoint"][];
+                recommendations: components["schemas"]["TutorRecommendation"][];
             };
         };
         SubmissionTutorRequest: {
@@ -7699,6 +7907,222 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    tutorChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TutorChatRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；AI 不可用时 available=false 并在 error 给出原因。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorChatResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listTutorConversations: {
+        parameters: {
+            query?: {
+                page?: number;
+                /** @description 每页条数，后端上限 50，超出按 50 处理。 */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorConversationListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createTutorConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateTutorConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description 已创建；响应为完整会话。 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorConversationResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTutorConversationMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorConversationMessagesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    renameTutorConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTutorConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功；响应为重命名后的会话。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorConversationResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteTutorConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID；同一用户+方法+路径+key 的成功结果保留24小时，同 key 不同请求体409。 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @example 12 */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorConversationDeleteResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTutorLearningProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功；无数据时 hasData=false。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorProfileResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];
         };

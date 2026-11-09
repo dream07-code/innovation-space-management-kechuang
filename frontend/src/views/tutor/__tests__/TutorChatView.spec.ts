@@ -6,7 +6,11 @@ import TutorChatView from '@/views/tutor/TutorChatView.vue'
 
 const mocks = vi.hoisted(() => ({
   listAssessmentProblems: vi.fn<() => Promise<unknown>>(),
+  listTutorConversations: vi.fn<(page?: number, size?: number) => Promise<unknown>>(),
+  getTutorConversationMessages: vi.fn<(id: string) => Promise<unknown>>(),
   askTutorChat: vi.fn<(payload: unknown) => Promise<unknown>>(),
+  renameTutorConversation: vi.fn<(id: string, title: string) => Promise<unknown>>(),
+  deleteTutorConversation: vi.fn<(id: string, key: string) => Promise<unknown>>(),
 }))
 
 vi.mock('@/api/modules/oj', () => ({
@@ -14,6 +18,11 @@ vi.mock('@/api/modules/oj', () => ({
 }))
 vi.mock('@/api/modules/tutor', () => ({
   askTutorChat: mocks.askTutorChat,
+  listTutorConversations: mocks.listTutorConversations,
+  getTutorConversationMessages: mocks.getTutorConversationMessages,
+  renameTutorConversation: mocks.renameTutorConversation,
+  deleteTutorConversation: mocks.deleteTutorConversation,
+  getTutorLearningProfile: vi.fn(),
 }))
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ displayName: '演示同学' }),
@@ -23,97 +32,108 @@ function problem(id: string, title: string, difficulty: string) {
   return { id, title, difficulty, allowedLanguages: ['java'], status: 'PUBLISHED' }
 }
 
+function conversation(id: string, title: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    title,
+    problemId: null,
+    problemTitle: null,
+    messageCount: 2,
+    createdAt: '2026-11-09T20:00:00+08:00',
+    updatedAt: '2026-11-09T21:00:00+08:00',
+    ...overrides,
+  }
+}
+
 function mountView() {
   return mount(TutorChatView, { global: { plugins: [ElementPlus] }, attachTo: document.body })
 }
 
+async function sendMessage(wrapper: ReturnType<typeof mountView>, text: string) {
+  await wrapper.find('textarea').setValue(text)
+  await wrapper.findAll('button').find((item) => item.text().includes('发送'))!.trigger('click')
+  await flushPromises()
+}
+
 beforeEach(() => {
-  mocks.listAssessmentProblems.mockReset()
-  mocks.askTutorChat.mockReset()
+  Object.values(mocks).forEach((mock) => mock.mockReset())
   localStorage.clear()
   mocks.listAssessmentProblems.mockResolvedValue({
     items: [problem('5', '两数之和', 'EASY'), problem('6', '统计质数个数', 'MEDIUM')],
     total: 2,
   })
+  mocks.listTutorConversations.mockResolvedValue({ items: [], page: 1, size: 50, total: 0 })
 })
 
 describe('TutorChatView', () => {
-  it('列出真实题库，选中题目后设为当前上下文', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-
-    const items = wrapper.findAll('.problem-list li')
-    expect(items).toHaveLength(2)
-    expect(wrapper.text()).toContain('两数之和')
-    expect(wrapper.text()).toContain('统计质数个数')
-    // 问候语带学生姓名
-    expect(wrapper.text()).toContain('你好，演示同学')
-    expect(wrapper.text()).toContain('未选择题目')
-
-    await items[1]!.trigger('click')
-    expect(wrapper.text()).toContain('当前题目：统计质数个数')
-    expect(wrapper.text()).toContain('现在在聊《统计质数个数》')
-  })
-
-  it('点预设问题直接发送，并带上当前题目的 problemId', async () => {
+  it('首句不带 conversationId，拿到后端新建的会话后继续用同一个 id', async () => {
     mocks.askTutorChat.mockResolvedValue({
+      conversationId: '12',
+      conversationTitle: '什么是时间复杂度',
       available: true,
       reply: '时间复杂度衡量输入规模增长时的增长趋势。',
       model: 'mimo-v2.6-flash',
       promptVersion: 'v1',
       generatedAt: '2026-11-09T20:00:00+08:00',
     })
+    mocks.listTutorConversations.mockResolvedValue({
+      items: [conversation('12', '什么是时间复杂度')],
+      page: 1,
+      size: 50,
+      total: 1,
+    })
 
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.findAll('.problem-list li')[0]!.trigger('click')
 
-    const preset = wrapper
-      .findAll('.presets__chip')
-      .find((item) => item.text().includes('这个知识点怎么理解'))
-    expect(preset).toBeTruthy()
-    await preset!.trigger('click')
-    await flushPromises()
+    await sendMessage(wrapper, '什么是时间复杂度')
 
-    expect(mocks.askTutorChat).toHaveBeenCalledWith({
-      message: '这个知识点怎么理解',
-      problemId: '5',
-      history: [],
-    })
+    expect(mocks.askTutorChat).toHaveBeenCalledWith({ message: '什么是时间复杂度' })
     expect(wrapper.text()).toContain('时间复杂度衡量输入规模增长时的增长趋势。')
     expect(wrapper.text()).toContain('mimo-v2.6-flash')
+    // 会话出现在列表里，标题来自后端
+    expect(wrapper.findAll('.conversation-list li')).toHaveLength(1)
+    expect(wrapper.text()).toContain('什么是时间复杂度')
+
+    await sendMessage(wrapper, '那空间复杂度呢')
+
+    const second = mocks.askTutorChat.mock.calls[1]![0] as Record<string, unknown>
+    expect(second).toEqual({ message: '那空间复杂度呢', conversationId: '12' })
+    expect(second).not.toHaveProperty('history')
   })
 
-  it('第二轮把上一轮问答作为 history 带回', async () => {
-    mocks.askTutorChat
-      .mockResolvedValueOnce({ available: true, reply: '第一轮回答', model: 'mimo-v2.6-flash' })
-      .mockResolvedValueOnce({ available: true, reply: '第二轮回答', model: 'mimo-v2.6-flash' })
+  it('打开历史会话时从后端读消息，并显示会话绑定的题目', async () => {
+    mocks.listTutorConversations.mockResolvedValue({
+      items: [conversation('9', '滑动窗口边界', { problemId: '6', problemTitle: '统计质数个数' })],
+      page: 1,
+      size: 50,
+      total: 1,
+    })
+    mocks.getTutorConversationMessages.mockResolvedValue({
+      conversation: conversation('9', '滑动窗口边界', { problemId: '6', problemTitle: '统计质数个数' }),
+      items: [
+        { id: '1', role: 'user', content: '上一问', createdAt: '2026-11-09T20:00:00+08:00' },
+        { id: '2', role: 'assistant', content: '上一答', createdAt: '2026-11-09T20:00:10+08:00' },
+      ],
+      total: 2,
+      truncated: false,
+    })
 
     const wrapper = mountView()
     await flushPromises()
-
-    await wrapper.find('textarea').setValue('什么是时间复杂度')
-    await wrapper.findAll('button').find((item) => item.text().includes('发送'))!.trigger('click')
+    await wrapper.find('.conversation-list li').trigger('click')
     await flushPromises()
 
-    await wrapper.find('textarea').setValue('那空间复杂度呢')
-    await wrapper.findAll('button').find((item) => item.text().includes('发送'))!.trigger('click')
-    await flushPromises()
-
-    const second = mocks.askTutorChat.mock.calls[1]![0] as {
-      message: string
-      history: { role: string; content: string }[]
-    }
-    expect(second.message).toBe('那空间复杂度呢')
-    expect(second.history).toEqual([
-      { role: 'user', content: '什么是时间复杂度' },
-      { role: 'assistant', content: '第一轮回答' },
-    ])
-    expect(wrapper.text()).toContain('第二轮回答')
+    expect(mocks.getTutorConversationMessages).toHaveBeenCalledWith('9')
+    expect(wrapper.text()).toContain('上一问')
+    expect(wrapper.text()).toContain('上一答')
+    expect(wrapper.text()).toContain('当前题目：统计质数个数')
   })
 
   it('AI 不可用时只显示原因，不渲染占位回答', async () => {
     mocks.askTutorChat.mockResolvedValue({
+      conversationId: '12',
+      conversationTitle: '什么是栈',
       available: false,
       reply: null,
       model: null,
@@ -124,42 +144,54 @@ describe('TutorChatView', () => {
 
     const wrapper = mountView()
     await flushPromises()
-
-    await wrapper.find('textarea').setValue('什么是栈')
-    await wrapper.findAll('button').find((item) => item.text().includes('发送'))!.trigger('click')
-    await flushPromises()
+    await sendMessage(wrapper, '什么是栈')
 
     expect(wrapper.text()).toContain('AI 助教未启用')
-    // 只有用户的提问气泡，没有助教回答气泡
     expect(wrapper.findAll('.bubble--assistant')).toHaveLength(0)
   })
 
-  it('把对话与选中题目存进 localStorage，并在重新进入时恢复', async () => {
+  it('不再往 localStorage 写对话历史', async () => {
     mocks.askTutorChat.mockResolvedValue({
+      conversationId: '12',
+      conversationTitle: '什么是栈',
       available: true,
-      reply: '恢复测试回答',
+      reply: '栈是后进先出。',
       model: 'mimo-v2.6-flash',
     })
 
-    const first = mountView()
+    const wrapper = mountView()
     await flushPromises()
-    await first.findAll('.problem-list li')[1]!.trigger('click')
-    await first.find('textarea').setValue('这题的边界怎么处理')
-    await first.findAll('button').find((item) => item.text().includes('发送'))!.trigger('click')
+    await sendMessage(wrapper, '什么是栈')
+
+    expect(localStorage.getItem('ai-tutor:v1')).toBeNull()
+  })
+
+  it('新建对话会清空当前消息并允许重新选题', async () => {
+    mocks.listTutorConversations.mockResolvedValue({
+      items: [conversation('9', '旧话题')],
+      page: 1,
+      size: 50,
+      total: 1,
+    })
+    mocks.getTutorConversationMessages.mockResolvedValue({
+      conversation: conversation('9', '旧话题'),
+      items: [
+        { id: '1', role: 'user', content: '旧问题', createdAt: '2026-11-09T20:00:00+08:00' },
+      ],
+      total: 1,
+      truncated: false,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.conversation-list li').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('旧问题')
+
+    await wrapper.findAll('button').find((item) => item.text().includes('新建'))!.trigger('click')
     await flushPromises()
 
-    const stored = JSON.parse(localStorage.getItem('ai-tutor:v1') ?? '{}')
-    expect(stored.name).toBe('演示同学')
-    expect(stored.problemId).toBe('6')
-    expect(stored.messages.length).toBeGreaterThanOrEqual(2)
-    first.unmount()
-
-    const second = mountView()
-    await flushPromises()
-
-    expect(second.text()).toContain('这题的边界怎么处理')
-    expect(second.text()).toContain('恢复测试回答')
-    expect(second.text()).toContain('当前题目：统计质数个数')
-    second.unmount()
+    expect(wrapper.text()).not.toContain('旧问题')
+    expect(wrapper.text()).toContain('可以这样问')
   })
 })

@@ -1,23 +1,40 @@
 <script setup lang="ts">
 /**
- * 独立 AI 助教页。
+ * 独立 AI 助教页：对话 + 学习画像两个标签页。
  *
- * 学生不做题也能用：左侧是真实题库（只显示后端返回的题），选中一道就设为上下文；
- * 右侧是对话区，历史只存在 localStorage，不落库、不进后端会话。
+ * 会话与消息都由后端保存（tutor_conversation / tutor_message），前端只记住当前
+ * conversationId：不传 id 时后端自动新建会话并回传 id，所以「直接发第一句」和
+ * 「点新建再发」走同一条路径。换会话就重新拉消息，不在本地拼历史。
  *
- * 与批改报告里的助教抽屉共用同一个模型与提示词口径，但这里不绑定提交：
- * 服务端只拿到「选中的题目 + 问题 + 历史」，不读代码与判题结果。
+ * 学习画像由后端按本人提交/判题/已发布成绩实时聚合，没有数据时显示空状态。
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { ChatDotRound, Delete, MagicStick, Promotion } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import {
+  ChatDotRound,
+  Delete,
+  MagicStick,
+  MoreFilled,
+  Plus,
+  Promotion,
+  TrendCharts,
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { listAssessmentProblems } from '@/api/modules/oj'
-import { askTutorChat } from '@/api/modules/tutor'
+import {
+  askTutorChat,
+  deleteTutorConversation,
+  getTutorConversationMessages,
+  listTutorConversations,
+  renameTutorConversation,
+} from '@/api/modules/tutor'
 import { describeError, toApiError } from '@/api/errors'
+import { newIdempotencyKey } from '@/api/idempotency'
 import { difficultyMetaLabel } from '@/components/ojMeta'
+import TutorProfilePanel from '@/components/tutor/TutorProfilePanel.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { AssessmentProblem, SubmissionTutorTurn } from '@/api/types'
+import { formatDateTime } from '@/utils/datetime'
+import type { AssessmentProblem, TutorConversation } from '@/api/types'
 
 interface Bubble {
   role: 'user' | 'assistant'
@@ -29,17 +46,25 @@ interface Segment {
   content: string
 }
 
-/** 本地会话键：只存本机浏览器，服务端不保存任何会话。 */
-const STORE_KEY = 'ai-tutor:v1'
-
 const auth = useAuthStore()
+
+const tab = ref<'chat' | 'profile'>('chat')
+
+const conversations = ref<TutorConversation[]>([])
+const conversationsLoading = ref(true)
+const conversationsError = ref('')
+const activeId = ref<string | null>(null)
+const boundProblemId = ref<string | null>(null)
+
+const messages = ref<Bubble[]>([])
+const messagesLoading = ref(false)
+const truncated = ref(false)
 
 const problems = ref<AssessmentProblem[]>([])
 const problemsLoading = ref(true)
-const problemError = ref('')
-const selected = ref<AssessmentProblem | null>(null)
+const problemsError = ref('')
+const selectedProblemId = ref<string>('')
 
-const messages = ref<Bubble[]>([])
 const draft = ref('')
 const sending = ref(false)
 const unavailable = ref('')
@@ -54,12 +79,25 @@ const presets = [
 
 const canSend = computed(() => draft.value.trim().length > 0 && !sending.value)
 
+const activeConversation = computed(
+  () => conversations.value.find((item) => item.id === activeId.value) ?? null,
+)
+
+/** 新会话用下拉框里选的题；已有会话固定用会话自己绑定的题（换题请新建对话）。 */
+const contextProblemId = computed(() =>
+  activeId.value ? boundProblemId.value : selectedProblemId.value || null,
+)
+
+const contextProblem = computed(
+  () => problems.value.find((item) => item.id === contextProblemId.value) ?? null,
+)
+
 const greeting = computed(() => {
   const name = auth.displayName || '同学'
-  if (selected.value) {
-    return `你好，${name}。我是 AI 助教，现在在聊《${selected.value.title}》，可以讲知识点、看代码、也可以让我推荐练习。`
+  if (contextProblem.value) {
+    return `你好，${name}。我是 AI 助教，现在在聊《${contextProblem.value.title}》，可以讲知识点、看代码、也可以让我推荐练习。`
   }
-  return `你好，${name}。我是 AI 助教，可以讲知识点、看代码片段、推荐练习。先从左侧选一道题，或者直接提问。`
+  return `你好，${name}。我是 AI 助教，可以讲知识点、看代码片段、推荐练习。先选一道题，或者直接提问。`
 })
 
 /** 模型偶尔给一小段示例代码，只把 ``` 围栏包住的部分按等宽渲染。 */
@@ -83,366 +121,494 @@ async function scrollToBottom(): Promise<void> {
   if (node) node.scrollTop = node.scrollHeight
 }
 
-function persist(): void {
-  if (!auth.displayName) return
-  try {
-    localStorage.setItem(
-      STORE_KEY,
-      JSON.stringify({
-        name: auth.displayName,
-        problemId: selected.value?.id ?? null,
-        messages: messages.value,
-      }),
-    )
-  } catch {
-    // 隐私模式下 localStorage 可能不可写，此时只是不保存历史，不影响对话。
-  }
-}
-
-/** 恢复本机会话；名字不匹配（换了账号）就丢弃，避免串到别人身上。 */
-function restore(): string | null {
-  try {
-    const raw = localStorage.getItem(STORE_KEY)
-    if (!raw) return null
-    const data = JSON.parse(raw) as {
-      name?: string
-      problemId?: string | null
-      messages?: Bubble[]
-    }
-    if (data.name !== auth.displayName) return null
-    if (Array.isArray(data.messages)) {
-      messages.value = data.messages
-        .filter(
-          (item): item is Bubble =>
-            (item?.role === 'user' || item?.role === 'assistant') &&
-            typeof item.content === 'string' &&
-            item.content.length > 0,
-        )
-        .slice(-40)
-    }
-    return typeof data.problemId === 'string' ? data.problemId : null
-  } catch {
-    return null
-  }
-}
-
 async function loadProblems(): Promise<void> {
   problemsLoading.value = true
-  problemError.value = ''
+  problemsError.value = ''
   try {
     const page = await listAssessmentProblems()
     problems.value = page.items
-    const restoredProblemId = restore()
-    if (restoredProblemId) {
-      const found = problems.value.find((item) => item.id === restoredProblemId)
-      if (found) selected.value = found
-    }
   } catch (error) {
-    problemError.value = describeError(toApiError(error))
+    problemsError.value = describeError(toApiError(error))
   } finally {
     problemsLoading.value = false
   }
 }
 
-function selectProblem(problem: AssessmentProblem): void {
-  if (selected.value?.id === problem.id) return
-  const hadConversation = messages.value.length > 0
-  selected.value = problem
-  // 历史里讨论的是上一道题，切题后继续会让模型上下文自相矛盾，因此开新对话。
-  if (hadConversation) {
-    messages.value = []
-    unavailable.value = ''
-    ElMessage.info(`已切换到《${problem.title}》，开始新的对话`)
+/** silent 用于发消息后刷新排序，不打断当前对话（不清空消息、不弹骨架屏）。 */
+async function loadConversations(silent = false): Promise<void> {
+  if (!silent) conversationsLoading.value = true
+  conversationsError.value = ''
+  try {
+    const page = await listTutorConversations(1, 50)
+    conversations.value = page.items
+    // 只有显式刷新列表时才因为「会话不在列表里」重置：发消息后的静默刷新可能还没包含
+    // 刚新建的会话，这里清空会把刚出现的对话和错误提示一起抹掉。
+    if (!silent && activeId.value && !page.items.some((item) => item.id === activeId.value)) {
+      resetChat()
+    }
+  } catch (error) {
+    if (!silent) conversationsError.value = describeError(toApiError(error))
+  } finally {
+    if (!silent) conversationsLoading.value = false
   }
 }
 
-function clearConversation(): void {
+function resetChat(): void {
+  activeId.value = null
+  boundProblemId.value = null
   messages.value = []
+  truncated.value = false
   unavailable.value = ''
   model.value = ''
-  persist()
+}
+
+function newConversation(): void {
+  resetChat()
+  selectedProblemId.value = ''
+}
+
+async function openConversation(item: TutorConversation): Promise<void> {
+  if (activeId.value === item.id) return
+  activeId.value = item.id
+  boundProblemId.value = item.problemId ?? null
+  unavailable.value = ''
+  model.value = ''
+  messagesLoading.value = true
+  try {
+    const data = await getTutorConversationMessages(item.id)
+    messages.value = (data.items ?? []).map((message) => ({
+      role: message.role,
+      content: message.content,
+    }))
+    truncated.value = data.truncated
+    boundProblemId.value = data.conversation.problemId ?? null
+  } catch (error) {
+    const apiError = toApiError(error)
+    // 会话可能刚被删除：回到新对话，不留下一个打不开的空白页。
+    if (apiError.httpStatus === 404) {
+      resetChat()
+      ElMessage.info('这个会话已不存在，已为你切换到新对话')
+    } else {
+      ElMessage.error(describeError(apiError))
+    }
+  } finally {
+    messagesLoading.value = false
+    await scrollToBottom()
+  }
+}
+
+async function onCommand(command: string, item: TutorConversation): Promise<void> {
+  if (command === 'rename') await rename(item)
+  if (command === 'delete') await remove(item)
+}
+
+async function rename(item: TutorConversation): Promise<void> {
+  try {
+    const result = await ElMessageBox.prompt('给这个会话起个名字，方便以后找回。', '重命名会话', {
+      inputValue: item.title,
+      inputValidator: (value) => (value && value.trim().length > 0 ? true : '标题不能为空'),
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+    })
+    const title = String(result.value ?? '').trim()
+    if (!title || title === item.title) return
+    await renameTutorConversation(item.id, title)
+    await loadConversations(true)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(describeError(toApiError(error)))
+  }
+}
+
+async function remove(item: TutorConversation): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `删除「${item.title}」后，这段对话的消息会一起删除，无法恢复。`,
+      '删除会话',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+    await deleteTutorConversation(item.id, newIdempotencyKey())
+    if (activeId.value === item.id) resetChat()
+    await loadConversations(true)
+    ElMessage.success('会话已删除')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(describeError(toApiError(error)))
+  }
 }
 
 async function send(text?: string): Promise<void> {
   const question = (text ?? draft.value).trim()
   if (!question || sending.value) return
   unavailable.value = ''
-
-  // 历史只带之前的轮次，本次问题单独放 message，避免模型看到重复消息。
-  const history: SubmissionTutorTurn[] = messages.value.map((item) => ({
-    role: item.role,
-    content: item.content,
-  }))
-  messages.value.push({ role: 'user', content: question })
   draft.value = ''
+  messages.value.push({ role: 'user', content: question })
   sending.value = true
-  persist()
   await scrollToBottom()
 
   try {
     const reply = await askTutorChat({
       message: question,
-      problemId: selected.value?.id,
-      history,
+      ...(activeId.value ? { conversationId: activeId.value } : {}),
+      ...(!activeId.value && selectedProblemId.value
+        ? { problemId: selectedProblemId.value }
+        : {}),
     })
+    if (!activeId.value) {
+      // 首句由后端建会话：拿到 id 后后续提问都带回去，历史由服务端接管。
+      activeId.value = reply.conversationId
+      boundProblemId.value = selectedProblemId.value || null
+    }
     if (reply.available && reply.reply) {
       messages.value.push({ role: 'assistant', content: reply.reply })
       model.value = reply.model ?? ''
     } else {
       unavailable.value = reply.error || 'AI 助教暂不可用，请稍后重试。'
     }
+    await loadConversations(true)
   } catch (error) {
     const apiError = toApiError(error)
     unavailable.value = describeError(apiError)
     ElMessage.error(unavailable.value)
   } finally {
     sending.value = false
-    persist()
     await scrollToBottom()
   }
 }
 
-watch([messages, selected], persist, { deep: true })
-
 onMounted(async () => {
-  await loadProblems()
+  await Promise.all([loadProblems(), loadConversations()])
   await scrollToBottom()
 })
 </script>
 
 <template>
   <div class="tutor-page">
-    <aside class="tutor-page__aside">
-      <header class="aside__head">
-        <h2>题库</h2>
-        <span>{{ problems.length }} 道题</span>
-      </header>
-      <p class="aside__hint">选一道题，助教会结合题面回答</p>
+    <el-tabs v-model="tab" class="tutor-tabs">
+      <el-tab-pane name="chat">
+        <template #label>
+          <span class="tabs__label"><el-icon><ChatDotRound /></el-icon>对话</span>
+        </template>
 
-      <div v-if="problemsLoading" class="aside__loading">
-        <el-skeleton :rows="6" animated />
-      </div>
-      <el-alert
-        v-else-if="problemError"
-        type="warning"
-        :closable="false"
-        show-icon
-        :title="problemError"
-      />
-      <template v-else>
-        <ul v-if="problems.length > 0" class="problem-list">
-          <li
-            v-for="problem in problems"
-            :key="problem.id"
-            :class="{ 'is-active': selected?.id === problem.id }"
-            role="button"
-            tabindex="0"
-            @click="selectProblem(problem)"
-            @keydown.enter.prevent="selectProblem(problem)"
-          >
-            <div class="problem-list__main">
-              <strong>{{ problem.title }}</strong>
-              <el-tag
-                :type="difficultyMetaLabel(problem.difficulty).type"
-                effect="plain"
-                size="small"
-              >
-                {{ difficultyMetaLabel(problem.difficulty).label }}
-              </el-tag>
+        <div class="chat-layout">
+          <aside class="conversations">
+            <header class="conversations__head">
+              <div>
+                <h2>我的会话</h2>
+                <span>{{ conversations.length }} 个话题</span>
+              </div>
+              <el-button type="primary" size="small" :icon="Plus" @click="newConversation">
+                新建
+              </el-button>
+            </header>
+
+            <div v-if="conversationsLoading" class="conversations__loading">
+              <el-skeleton :rows="5" animated />
             </div>
-            <span v-if="selected?.id === problem.id" class="problem-list__current">当前上下文</span>
-          </li>
-        </ul>
-        <el-empty v-else description="题库暂无题目" :image-size="60" />
-      </template>
-    </aside>
-
-    <section class="tutor-page__chat">
-      <header class="chat__head">
-        <div class="chat__title">
-          <el-icon class="chat__icon"><MagicStick /></el-icon>
-          <div>
-            <strong>AI 助教</strong>
-            <span>{{ selected ? `当前题目：${selected.title}` : '未选择题目，可直接问知识点' }}</span>
-          </div>
-        </div>
-        <div class="chat__actions">
-          <el-tag v-if="model" effect="plain" size="small">{{ model }}</el-tag>
-          <el-button
-            text
-            :icon="Delete"
-            :disabled="messages.length === 0 && !unavailable"
-            @click="clearConversation"
-          >
-            清空对话
-          </el-button>
-        </div>
-      </header>
-
-      <div ref="scroller" class="chat__body">
-        <div class="greeting">
-          <el-icon><ChatDotRound /></el-icon>
-          <p>{{ greeting }}</p>
-        </div>
-
-        <div v-if="messages.length === 0" class="presets">
-          <span class="presets__label">可以这样问：</span>
-          <div class="presets__chips">
-            <button
-              v-for="preset in presets"
-              :key="preset"
-              type="button"
-              class="presets__chip"
-              @click="send(preset)"
-            >
-              {{ preset }}
-            </button>
-          </div>
-        </div>
-
-        <div
-          v-for="(bubble, index) in messages"
-          :key="index"
-          class="bubble"
-          :class="bubble.role === 'user' ? 'bubble--user' : 'bubble--assistant'"
-        >
-          <span v-if="bubble.role === 'assistant'" class="bubble__avatar">助教</span>
-          <div class="bubble__text">
-            <template v-for="(segment, segIndex) in segments(bubble.content)" :key="segIndex">
-              <pre v-if="segment.type === 'code'" class="bubble__code">{{ segment.content }}</pre>
-              <p v-else-if="segment.content.trim()" class="bubble__para">{{ segment.content.trim() }}</p>
+            <el-alert
+              v-else-if="conversationsError"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="conversationsError"
+            />
+            <template v-else>
+              <ul v-if="conversations.length > 0" class="conversation-list">
+                <li
+                  v-for="item in conversations"
+                  :key="item.id"
+                  :class="{ 'is-active': activeId === item.id }"
+                  role="button"
+                  tabindex="0"
+                  @click="openConversation(item)"
+                  @keydown.enter.prevent="openConversation(item)"
+                >
+                  <div class="conversation__main">
+                    <strong :title="item.title">{{ item.title }}</strong>
+                    <span>
+                      {{ formatDateTime(item.updatedAt) }} · {{ item.messageCount }} 条
+                    </span>
+                  </div>
+                  <el-dropdown
+                    trigger="click"
+                    @command="(command: string) => onCommand(command, item)"
+                    @click.stop
+                  >
+                    <el-button text :icon="MoreFilled" size="small" class="conversation__more" />
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </li>
+              </ul>
+              <div v-else class="conversations__empty">
+                <p>还没有会话</p>
+                <span>直接在右侧提问，会自动新建一个会话。</span>
+              </div>
             </template>
-          </div>
-        </div>
+          </aside>
 
-        <div v-if="sending" class="bubble bubble--assistant">
-          <span class="bubble__avatar">助教</span>
-          <p class="bubble__text bubble__pending">正在组织回答…</p>
-        </div>
+          <section class="chat">
+            <header class="chat__head">
+              <div class="chat__title">
+                <el-icon class="chat__icon"><MagicStick /></el-icon>
+                <div>
+                  <strong>{{ activeConversation?.title || '新对话' }}</strong>
+                  <span>{{
+                    contextProblem ? `当前题目：${contextProblem.title}` : '未选择题目，可直接问知识点'
+                  }}</span>
+                </div>
+              </div>
+              <div class="chat__actions">
+                <el-select
+                  v-model="selectedProblemId"
+                  class="chat__problem"
+                  size="small"
+                  filterable
+                  clearable
+                  :disabled="activeId !== null"
+                  :loading="problemsLoading"
+                  placeholder="关联题目（可不选）"
+                >
+                  <el-option
+                    v-for="problem in problems"
+                    :key="problem.id"
+                    :label="problem.title"
+                    :value="problem.id"
+                  />
+                </el-select>
+                <el-tag v-if="model" effect="plain" size="small">{{ model }}</el-tag>
+                <el-button
+                  text
+                  :icon="Delete"
+                  :disabled="messages.length === 0 && !unavailable"
+                  @click="newConversation"
+                >
+                  清空
+                </el-button>
+              </div>
+            </header>
 
-        <el-alert
-          v-if="unavailable"
-          :title="unavailable"
-          type="warning"
-          :closable="false"
-          show-icon
-          class="chat__alert"
-        />
-      </div>
+            <p v-if="problemsError" class="chat__notice">{{ problemsError }}</p>
 
-      <footer class="chat__footer">
-        <el-input
-          v-model="draft"
-          type="textarea"
-          :rows="3"
-          resize="none"
-          maxlength="1000"
-          show-word-limit
-          :placeholder="
-            selected
-              ? `就《${selected.title}》继续提问，或贴一段代码`
-              : '问一个知识点，或先在左侧选一道题'
-          "
-          @keydown.enter.exact.prevent="send()"
-        />
-        <div class="chat__send">
-          <span class="chat__tip">
-            回答由 AI 生成，只讲思路与方法，不会直接给出可提交的完整代码。
-          </span>
-          <el-button
-            type="primary"
-            :icon="Promotion"
-            :loading="sending"
-            :disabled="!canSend"
-            @click="send()"
-          >
-            发送
-          </el-button>
+            <div ref="scroller" class="chat__body">
+              <div class="greeting">
+                <el-icon><ChatDotRound /></el-icon>
+                <p>{{ greeting }}</p>
+              </div>
+
+              <p v-if="truncated" class="chat__notice">只显示最近 200 条消息，更早的消息未加载。</p>
+
+              <div v-if="messagesLoading" class="chat__loading">
+                <el-skeleton :rows="4" animated />
+              </div>
+
+              <template v-else>
+                <div v-if="messages.length === 0" class="presets">
+                  <span class="presets__label">可以这样问：</span>
+                  <div class="presets__chips">
+                    <button
+                      v-for="preset in presets"
+                      :key="preset"
+                      type="button"
+                      class="presets__chip"
+                      @click="send(preset)"
+                    >
+                      {{ preset }}
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  v-for="(bubble, index) in messages"
+                  :key="index"
+                  class="bubble"
+                  :class="bubble.role === 'user' ? 'bubble--user' : 'bubble--assistant'"
+                >
+                  <span v-if="bubble.role === 'assistant'" class="bubble__avatar">助教</span>
+                  <div class="bubble__text">
+                    <template
+                      v-for="(segment, segIndex) in segments(bubble.content)"
+                      :key="segIndex"
+                    >
+                      <pre v-if="segment.type === 'code'" class="bubble__code">{{ segment.content }}</pre>
+                      <p v-else-if="segment.content.trim()" class="bubble__para">
+                        {{ segment.content.trim() }}
+                      </p>
+                    </template>
+                  </div>
+                </div>
+
+                <div v-if="sending" class="bubble bubble--assistant">
+                  <span class="bubble__avatar">助教</span>
+                  <p class="bubble__text bubble__pending">正在组织回答…</p>
+                </div>
+              </template>
+
+              <el-alert
+                v-if="unavailable"
+                :title="unavailable"
+                type="warning"
+                :closable="false"
+                show-icon
+                class="chat__alert"
+              />
+            </div>
+
+            <footer class="chat__footer">
+              <el-input
+                v-model="draft"
+                type="textarea"
+                :rows="3"
+                resize="none"
+                maxlength="1000"
+                show-word-limit
+                :placeholder="
+                  contextProblem
+                    ? `就《${contextProblem.title}》继续提问，或贴一段代码`
+                    : '问一个知识点，或先选一道题'
+                "
+                @keydown.enter.exact.prevent="send()"
+              />
+              <div class="chat__send">
+                <span class="chat__tip">
+                  回答由 AI 生成，只讲思路与方法，不会直接给出可提交的完整代码。对话会保存在你的账号下。
+                </span>
+                <el-button
+                  type="primary"
+                  :icon="Promotion"
+                  :loading="sending"
+                  :disabled="!canSend"
+                  @click="send()"
+                >
+                  发送
+                </el-button>
+              </div>
+            </footer>
+          </section>
         </div>
-      </footer>
-    </section>
+      </el-tab-pane>
+
+      <el-tab-pane name="profile" lazy>
+        <template #label>
+          <span class="tabs__label"><el-icon><TrendCharts /></el-icon>学习画像</span>
+        </template>
+        <TutorProfilePanel />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <style scoped>
 .tutor-page {
-  display: grid;
-  height: calc(100vh - 168px);
-  min-height: 560px;
-  gap: 16px;
-  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
 }
 
-.tutor-page__aside {
+.tutor-tabs {
+  border-radius: 8px;
+  background: transparent;
+}
+
+.tabs__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chat-layout {
+  display: grid;
+  height: calc(100vh - 220px);
+  min-height: 540px;
+  gap: 16px;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.conversations {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
 }
 
-.aside__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.aside__head h2 {
-  margin: 0;
-  color: var(--app-ink);
-  font-size: 15px;
-}
-
-.aside__head span {
-  color: var(--app-muted);
-  font-size: 11px;
-}
-
-.aside__hint {
-  margin: 6px 0 12px;
-  color: var(--app-muted);
-  font-size: 11px;
-}
-
-.aside__loading {
-  padding-top: 6px;
-}
-
-.problem-list {
-  overflow-y: auto;
-  flex: 1;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.problem-list li {
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.problem-list li:hover {
-  background: var(--app-surface-soft);
-}
-
-.problem-list li.is-active {
-  border-color: var(--app-brand);
-  background: rgba(76, 125, 255, 0.07);
-}
-
-.problem-list__main {
+.conversations__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.problem-list__main strong {
+.conversations__head h2 {
+  margin: 0;
+  color: var(--app-ink);
+  font-size: 15px;
+}
+
+.conversations__head span {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+.conversations__loading {
+  padding-top: 10px;
+}
+
+.conversations__empty {
+  padding: 24px 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.conversations__empty p {
+  margin: 0 0 4px;
+  color: var(--app-ink);
+  font-size: 13px;
+}
+
+.conversation-list {
+  overflow-y: auto;
+  flex: 1;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conversation-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.conversation-list li:hover {
+  background: var(--app-surface-soft);
+}
+
+.conversation-list li.is-active {
+  border-color: var(--app-brand);
+  background: rgba(76, 125, 255, 0.07);
+}
+
+.conversation__main {
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation__main strong {
+  display: block;
   overflow: hidden;
   color: var(--app-ink);
   font-size: 13px;
@@ -451,16 +617,26 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.problem-list__current {
+.conversation__main span {
   display: block;
-  margin-top: 4px;
-  color: var(--app-brand);
+  margin-top: 3px;
+  color: var(--app-muted);
   font-size: 10px;
 }
 
-.tutor-page__chat {
+.conversation__more {
+  visibility: hidden;
+}
+
+.conversation-list li:hover .conversation__more,
+.conversation-list li.is-active .conversation__more {
+  visibility: visible;
+}
+
+.chat {
   display: flex;
   overflow: hidden;
+  min-width: 0;
   flex-direction: column;
   border: 1px solid var(--app-border);
   border-radius: 8px;
@@ -471,25 +647,33 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--app-border);
 }
 
 .chat__title {
   display: flex;
+  overflow: hidden;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .chat__icon {
+  flex: none;
   color: #4c7dff;
   font-size: 20px;
 }
 
 .chat__title strong {
   display: block;
+  overflow: hidden;
+  max-width: 320px;
   color: var(--app-ink);
   font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat__title span {
@@ -501,17 +685,32 @@ onMounted(async () => {
 
 .chat__actions {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
 }
 
+.chat__problem {
+  width: 190px;
+}
+
+.chat__notice {
+  margin: 8px 16px 0;
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
 .chat__body {
+  display: flex;
   overflow-y: auto;
   flex: 1;
-  padding: 16px;
-  display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px;
+}
+
+.chat__loading {
+  padding-top: 4px;
 }
 
 .greeting {
@@ -643,17 +842,21 @@ onMounted(async () => {
 }
 
 @media (max-width: 960px) {
-  .tutor-page {
+  .chat-layout {
     height: auto;
     grid-template-columns: 1fr;
   }
 
-  .tutor-page__aside {
-    max-height: 260px;
+  .conversations {
+    max-height: 240px;
   }
 
-  .tutor-page__chat {
-    height: 620px;
+  .chat {
+    height: 600px;
+  }
+
+  .chat__problem {
+    width: 130px;
   }
 }
 </style>

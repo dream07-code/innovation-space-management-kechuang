@@ -37,6 +37,11 @@ class OJApiContractIT {
         "/api/v1/assessment-submissions/{submissionId}/report",
         "/api/v1/assessment-submissions/{submissionId}/reviews",
         "/api/v1/tutor/chat",
+        "/api/v1/tutor/conversations",
+        "/api/v1/tutor/conversations/{conversationId}",
+        "/api/v1/tutor/conversations/{conversationId}/messages",
+        "/api/v1/tutor/conversations/{conversationId}/delete",
+        "/api/v1/tutor/profile",
         "/api/v1/assessments/{assessmentId}/results"
     }) {
       assertNotNull(api.getPaths().get(path), path);
@@ -83,7 +88,19 @@ class OJApiContractIT {
         "AssessmentResultPageResponse",
         "SubmissionReportResponse",
         "TutorChatRequest",
-        "TutorChatResponse"
+        "TutorChatResponse",
+        "TutorConversation",
+        "TutorMessage",
+        "CreateTutorConversationRequest",
+        "UpdateTutorConversationRequest",
+        "TutorConversationResponse",
+        "TutorConversationListResponse",
+        "TutorConversationMessagesResponse",
+        "TutorConversationDeleteResponse",
+        "TutorProfileOverview",
+        "TutorWeakPoint",
+        "TutorRecommendation",
+        "TutorProfileResponse"
     }) {
       assertNotNull(api.getComponents().getSchemas().get(schema), schema);
     }
@@ -95,6 +112,21 @@ class OJApiContractIT {
     assertTrue(reportData.getProperties().containsKey("recommendation"));
     assertFalse(reportData.getProperties().containsKey("code"));
     assertFalse(reportData.getProperties().containsKey("rawResponse"));
+
+    // 助教会话落库：请求只带 conversationId，历史由服务端按会话取，不再接受前端上传。
+    var tutorChat = api.getComponents().getSchemas().get("TutorChatRequest");
+    assertTrue(tutorChat.getProperties().containsKey("conversationId"));
+    assertFalse(tutorChat.getProperties().containsKey("history"), "历史改为服务端按会话读取");
+    var tutorChatData =
+        ((io.swagger.v3.oas.models.media.ObjectSchema)
+            api.getComponents().getSchemas().get("TutorChatResponse").getProperties().get("data"));
+    assertTrue(tutorChatData.getRequired().contains("conversationId"));
+    // 画像只回聚合数字与推荐，不回题面、代码或模型原始输出。
+    var profileData =
+        ((io.swagger.v3.oas.models.media.ObjectSchema)
+            api.getComponents().getSchemas().get("TutorProfileResponse").getProperties().get("data"));
+    assertTrue(profileData.getRequired().containsAll(
+        java.util.Set.of("hasData", "overview", "weakPoints", "recommendations")));
 
     var createProblem = api.getComponents().getSchemas().get("CreateAssessmentProblemRequest");
     assertTrue(createProblem.getRequired().contains("assessmentTestCases"));

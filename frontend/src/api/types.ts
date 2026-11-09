@@ -169,9 +169,22 @@ export type SubmissionTutorReply = Schemas['SubmissionTutorResponse']['data']
 /** 助教请求体：本次问题 + 前端持有的历史对话（服务端不保存会话）。 */
 export type SubmissionTutorRequest = Schemas['SubmissionTutorRequest']
 export type SubmissionTutorTurn = Schemas['SubmissionTutorTurn']
-/** 通用 AI 助教（不绑定提交）：可选题目上下文 + 历史对话，回答只有文本。 */
+/** 通用 AI 助教（不绑定提交）：会话 id + 本题问题，历史由服务端按会话取。 */
 export type TutorChatReply = Schemas['TutorChatResponse']['data']
 export type TutorChatRequest = Schemas['TutorChatRequest']
+/** 助教会话：一个学生可以有多个话题，标题取第一句问题或被重命名。 */
+export type TutorConversation = Schemas['TutorConversation']
+export type TutorConversationList = Schemas['TutorConversationListResponse']['data']
+export type TutorConversationMessages = Schemas['TutorConversationMessagesResponse']['data']
+export type TutorConversationDeleted = Schemas['TutorConversationDeleteResponse']['data']
+export type TutorConversationMessage = Schemas['TutorMessage']
+export type CreateTutorConversationRequest = Schemas['CreateTutorConversationRequest']
+export type UpdateTutorConversationRequest = Schemas['UpdateTutorConversationRequest']
+/** 学习画像：读时聚合本人提交/判题/成绩后返回的快照。 */
+export type TutorLearningProfile = Schemas['TutorProfileResponse']['data']
+export type TutorProfileOverview = Schemas['TutorProfileOverview']
+export type TutorWeakPoint = Schemas['TutorWeakPoint']
+export type TutorRecommendation = Schemas['TutorRecommendation']
 export type CreateAssessmentReviewRequest = Schemas['CreateAssessmentReviewRequest']
 
 export type AssessmentLanguage = Assessment['allowedLanguages'][number]

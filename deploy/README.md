@@ -97,6 +97,18 @@ SKIP_BUILD=true ./deploy/one-click-deploy.sh  # 复用已有镜像
 
 升级已有部署时无需手工迁移：后端启动命令会先执行 Flyway，再启动服务。日报评分规则升级（`rubricVersion=v2`）不涉及表结构变更，历史报告的旧分数不会被重算；AI 配置（`AI_SCORING_ENABLED` 等）只用于日报评分，OJ 考核已不再调用 AI。
 
+**升级到带 AI 助教会话的版本（V17）**：V17 只新增 `tutor_conversation`、`tutor_message`、`tutor_learning_profile` 三张表，不改任何既有表。库结构版本同时提升到 17，后端启动时会校验 `flyway_schema_history` 的最新版本，**库没迁移到 17 会直接判定 schema 未就绪并拒绝服务**（`/actuator/health` 为 down），因此升级顺序必须是「先迁移、再切流量」：
+
+```bash
+# Docker Compose 部署：后端启动命令已内置，重启即可
+docker compose up -d backend
+
+# 非 Compose（例如直接跑 jar 的机器）：显式执行一次受控迁移，再启动服务
+java -jar app.jar --app.migration.mode=migrate
+```
+
+迁移命令只建表、不启动 HTTP，也不写任何演示数据；重复执行是安全的（Flyway 只跑未应用的版本）。
+
 **OJ 考核计分规则**：自动分 = 通过测试点数 ÷ 总测试点数 × 100（四舍五入），例如 6/7 为 86 分；判题内部错误或没有测试点时不自动计分，结果置为“待复核”。方向负责人和学院管理员可以在考核结果页点「评分」按提交代码人工调整分数，人工分覆盖自动分。V11 迁移会把历史 AI 分数重算为按测试点的自动分。
 
 一键脚本默认部署本机 Judge0 并启用真实判题（`ENABLE_JUDGE0=true`，自动接线 `OJ_PROVIDER=judge0`）。`OJ_PROVIDER=mock` 仅用于无判题机的开发环境；`local` 模式供本地开发直接调用宿主机 `g++`/`javac`/`python3`/`node` 编译执行，无容器隔离，**禁止用于生产**。

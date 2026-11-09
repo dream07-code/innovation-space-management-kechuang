@@ -9,7 +9,8 @@ import java.util.List;
  * 差别只在上下文：这里不读学生代码与判题结果，只带「当前选中的题目」与问题本身，
  * 因此学生不做题也能问知识点。
  *
- * <p>会话历史由前端保存并逐轮传入，服务端不保存，不需要数据库结构支持。
+ * <p>会话历史由服务端按 conversationId 从 tutor_message 取最近若干条后传进来；
+ * 本接口仍然只负责一次模型调用，不读也不写数据库。
  * 不可用时抛 {@link Unavailable}，绝不返回占位回答。
  */
 public interface TutorChatAi {
