@@ -66,6 +66,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: MEMBER_ROLES, title: '个人首页' },
       },
       {
+        path: 'tutor',
+        name: 'tutor',
+        component: () => import('@/views/tutor/TutorChatView.vue'),
+        meta: { roles: MEMBER_ROLES, title: 'AI 助教' },
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: () => import('@/views/member/ProfileView.vue'),

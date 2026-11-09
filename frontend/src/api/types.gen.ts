@@ -1687,6 +1687,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tutor/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 通用 AI 助教对话（可不绑定提交）
+         * @description 学生不做题也能问知识点。上下文只有「当前选中的题目」（problemId 可空），
+         *     由服务端按 id 取题库并做可见性校验；不读代码与判题结果，也不假设看过学生的提交。
+         *     对话历史由前端保存（localStorage）并逐轮带回，服务端不落库，因此不新增数据库结构。
+         *     复用日报/周报评分与批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，
+         *     讲知识点结合选中题目，不给可直接提交的完整答案，题面与学生贴的代码按不可信数据防注入。
+         *     AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TutorChatRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TutorChatResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-submissions/{submissionId}/tutor": {
         parameters: {
             query?: never;
@@ -3333,6 +3389,33 @@ export interface components {
             input?: string | null;
             actualOutput?: string | null;
             expectedOutput?: string | null;
+        };
+        TutorChatRequest: {
+            /** @description 本次问题；超过 1000 字符按 1000 截断。 */
+            message: string;
+            /** @description 当前选中的题目 ID；不传表示通用提问。非法 id 返回 400，不可见题目返回 404。 */
+            problemId?: string | null;
+            /** @description 历史对话，按时间顺序；只取最后 12 条，非法角色会被丢弃。 */
+            history?: components["schemas"]["SubmissionTutorTurn"][];
+        };
+        TutorChatResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                /** @description AI 是否给出回答；false 表示未配置或调用失败，此时 reply 为 null。 */
+                available: boolean;
+                /** @description 助教回答的纯文本，可能包含分段与短代码块。 */
+                reply?: string | null;
+                /** @description 实际调用的模型名，便于核对是否走了真实模型。 */
+                model?: string | null;
+                /** @example v1 */
+                promptVersion: string;
+                generatedAt: string;
+                /** @description available=false 时可直接展示给学生的原因。 */
+                error?: string | null;
+            };
         };
         SubmissionTutorRequest: {
             /** @description 本次问题；超过 1000 字符按 1000 截断。 */

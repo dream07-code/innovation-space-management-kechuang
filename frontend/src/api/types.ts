@@ -169,6 +169,9 @@ export type SubmissionTutorReply = Schemas['SubmissionTutorResponse']['data']
 /** 助教请求体：本次问题 + 前端持有的历史对话（服务端不保存会话）。 */
 export type SubmissionTutorRequest = Schemas['SubmissionTutorRequest']
 export type SubmissionTutorTurn = Schemas['SubmissionTutorTurn']
+/** 通用 AI 助教（不绑定提交）：可选题目上下文 + 历史对话，回答只有文本。 */
+export type TutorChatReply = Schemas['TutorChatResponse']['data']
+export type TutorChatRequest = Schemas['TutorChatRequest']
 export type CreateAssessmentReviewRequest = Schemas['CreateAssessmentReviewRequest']
 
 export type AssessmentLanguage = Assessment['allowedLanguages'][number]

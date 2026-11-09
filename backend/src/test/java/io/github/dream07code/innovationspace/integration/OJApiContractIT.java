@@ -36,6 +36,7 @@ class OJApiContractIT {
         "/api/v1/assessment-submissions/{submissionId}/code",
         "/api/v1/assessment-submissions/{submissionId}/report",
         "/api/v1/assessment-submissions/{submissionId}/reviews",
+        "/api/v1/tutor/chat",
         "/api/v1/assessments/{assessmentId}/results"
     }) {
       assertNotNull(api.getPaths().get(path), path);
@@ -80,7 +81,9 @@ class OJApiContractIT {
         "AssessmentSubmissionPageResponse",
         "AssessmentReviewPageResponse",
         "AssessmentResultPageResponse",
-        "SubmissionReportResponse"
+        "SubmissionReportResponse",
+        "TutorChatRequest",
+        "TutorChatResponse"
     }) {
       assertNotNull(api.getComponents().getSchemas().get(schema), schema);
     }

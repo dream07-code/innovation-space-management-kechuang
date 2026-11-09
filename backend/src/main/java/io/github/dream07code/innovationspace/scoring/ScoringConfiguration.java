@@ -39,6 +39,12 @@ public class ScoringConfiguration {
     return new OpenAiCompatibleSubmissionTutorAi(properties);
   }
 
+  /** 通用助教（不绑定提交）同样复用这套配置，只换成学科助教的提示词。 */
+  @Bean
+  OpenAiCompatibleTutorChatAi openAiCompatibleTutorChatAi(ScoringProperties properties) {
+    return new OpenAiCompatibleTutorChatAi(properties);
+  }
+
   @Bean
   ScoringProviderRegistry scoringProviderRegistry(
       ScoringProperties properties, List<ReportScoringProvider> providers) {

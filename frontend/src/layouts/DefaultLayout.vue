@@ -11,6 +11,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft,
   Calendar,
+  ChatDotRound,
   DataLine,
   Document,
   HomeFilled,
@@ -50,6 +51,7 @@ const iconMap: Record<MenuIconKey, unknown> = {
   setting: Setting,
   list: List,
   audit: DataLine,
+  chat: ChatDotRound,
 }
 
 const groups = computed(() => menuForRole(auth.role))

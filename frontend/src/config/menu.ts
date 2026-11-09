@@ -22,6 +22,7 @@ export type MenuIconKey =
   | 'setting'
   | 'list'
   | 'audit'
+  | 'chat'
 
 export interface MenuItem {
   label: string
@@ -41,6 +42,12 @@ const OJ_MEMBER_GROUP: MenuGroup = {
     { label: '题库', path: '/oj/problems', icon: 'list' },
     { label: '提交记录', path: '/oj/submissions', icon: 'document' },
   ],
+}
+
+/** AI 助教对所有成员开放：不做题也能问知识点。 */
+const TUTOR_GROUP: MenuGroup = {
+  title: 'AI',
+  items: [{ label: 'AI 助教', path: '/tutor', icon: 'chat' }],
 }
 
 const OJ_STAFF_GROUP: MenuGroup = {
@@ -122,10 +129,10 @@ export function menuForRole(role: Role | null): MenuGroup[] {
   }
 
   if (role === 'DIRECTION_LEADER') {
-    return [...MEMBER_GROUPS, OJ_STAFF_GROUP, ...STAFF_GROUPS, RANKING_GROUP]
+    return [...MEMBER_GROUPS, TUTOR_GROUP, OJ_STAFF_GROUP, ...STAFF_GROUPS, RANKING_GROUP]
   }
 
-  return [...MEMBER_GROUPS, OJ_MEMBER_GROUP, RANKING_GROUP]
+  return [...MEMBER_GROUPS, TUTOR_GROUP, OJ_MEMBER_GROUP, RANKING_GROUP]
 }
 
 /** 角色中文名，用于界面展示。 */

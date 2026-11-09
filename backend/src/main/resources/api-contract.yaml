@@ -3601,6 +3601,53 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /api/v1/tutor/chat:
+    post:
+      tags:
+      - OJ提交
+      summary: 通用 AI 助教对话（可不绑定提交）
+      description: |
+        学生不做题也能问知识点。上下文只有「当前选中的题目」（problemId 可空），
+        由服务端按 id 取题库并做可见性校验；不读代码与判题结果，也不假设看过学生的提交。
+        对话历史由前端保存（localStorage）并逐轮带回，服务端不落库，因此不新增数据库结构。
+        复用日报/周报评分与批改报告的 openai-compatible 模型，只换提示词：计算机学科助教，
+        讲知识点结合选中题目，不给可直接提交的完整答案，题面与学生贴的代码按不可信数据防注入。
+        AI 未配置或调用失败时仍返回 200，available=false 并给出可展示原因，绝不返回占位回答。
+      x-implementation-status: implemented
+      x-roles:
+      - COLLEGE_ADMIN
+      - DIRECTION_LEADER
+      - STUDENT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TutorChatRequest'
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /api/v1/assessment-submissions/{submissionId}/tutor:
     parameters:
     - $ref: '#/components/parameters/SubmissionId'
@@ -6181,6 +6228,56 @@ components:
         input: {type: string, nullable: true, maxLength: 2000}
         actualOutput: {type: string, nullable: true, maxLength: 2000}
         expectedOutput: {type: string, nullable: true, maxLength: 2000}
+      additionalProperties: false
+    TutorChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: 本次问题；超过 1000 字符按 1000 截断。
+          minLength: 1
+          maxLength: 1000
+        problemId:
+          type: string
+          nullable: true
+          description: 当前选中的题目 ID；不传表示通用提问。非法 id 返回 400，不可见题目返回 404。
+          pattern: ^[1-9][0-9]{0,18}$
+        history:
+          type: array
+          description: 历史对话，按时间顺序；只取最后 12 条，非法角色会被丢弃。
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/SubmissionTutorTurn'
+      additionalProperties: false
+    TutorChatResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [available, promptVersion, generatedAt]
+          properties:
+            available:
+              type: boolean
+              description: AI 是否给出回答；false 表示未配置或调用失败，此时 reply 为 null。
+            reply:
+              type: string
+              nullable: true
+              description: 助教回答的纯文本，可能包含分段与短代码块。
+            model:
+              type: string
+              nullable: true
+              description: 实际调用的模型名，便于核对是否走了真实模型。
+            promptVersion: {type: string, example: v1}
+            generatedAt: {type: string}
+            error:
+              type: string
+              nullable: true
+              description: available=false 时可直接展示给学生的原因。
+          additionalProperties: false
       additionalProperties: false
     SubmissionTutorRequest:
       type: object
