@@ -13,6 +13,7 @@ import { ElMessage } from 'element-plus'
 import { listAssessments } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { assessmentStatusMeta, languageLabel } from '@/components/ojMeta'
+import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
 import type { Assessment, AssessmentStatus, PageData } from '@/api/types'
 
@@ -86,8 +87,11 @@ onMounted(load)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="时间" width="210">
-        <template #default="{ row }">{{ row.startAt }} 至 {{ row.endAt }}</template>
+      <el-table-column label="时间" width="200">
+        <template #default="{ row }">
+          <span class="time-range">{{ formatDateTime(row.startAt) }}</span>
+          <span class="time-range time-range--end">至 {{ formatDateTime(row.endAt) }}</span>
+        </template>
       </el-table-column>
       <el-table-column label="允许语言" min-width="170">
         <template #default="{ row }">{{ row.allowedLanguages.map(languageLabel).join('、') }}</template>
@@ -117,5 +121,16 @@ onMounted(load)
 
 .page__filter {
   margin-bottom: 16px;
+}
+
+/* 起止时间竖排：单行放不下会把右侧操作列挤出可视区。 */
+.time-range {
+  display: block;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.time-range--end {
+  color: var(--el-text-color-secondary);
 }
 </style>
