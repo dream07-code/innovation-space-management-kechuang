@@ -10,7 +10,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ChatDotRound, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, MagicStick, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { getSubmissionReport } from '@/api/modules/oj'
@@ -80,8 +80,9 @@ onMounted(load)
           </div>
           <div class="page__actions">
             <el-button
+              class="ai-cta"
               type="primary"
-              :icon="ChatDotRound"
+              :icon="MagicStick"
               :disabled="!report"
               @click="tutorOpen = true"
             >
@@ -145,14 +146,28 @@ onMounted(load)
           </div>
         </div>
 
-        <el-divider content-position="left">错因解析</el-divider>
+        <div class="ai-section__head">
+          <span class="ai-badge">
+            <el-icon><MagicStick /></el-icon>
+            AI 批改
+          </span>
+          <span class="ai-section__title">错因解析</span>
+        </div>
         <template v-if="ai?.available && ai.cause">
           <p class="report-cause">{{ ai.cause }}</p>
-          <p class="report-meta">
-            由 {{ ai.model ?? 'AI 模型' }} 生成 · 提示词 {{ ai.rubricVersion }}
-            <template v-if="ai.generatedAt"> · {{ formatDateTime(ai.generatedAt) }}</template>
-            <template v-if="ai.cached"> · 命中缓存</template>
-          </p>
+          <div class="ai-signature">
+            <span class="ai-signature__model">
+              <el-icon><MagicStick /></el-icon>
+              由 {{ ai.model ?? 'AI 模型' }} 生成
+            </span>
+            <span class="ai-signature__item">提示词 {{ ai.rubricVersion }}</span>
+            <span v-if="ai.generatedAt" class="ai-signature__item">
+              {{ formatDateTime(ai.generatedAt) }}
+            </span>
+            <span v-if="ai.cached" class="ai-signature__item ai-signature__item--cached">
+              命中缓存
+            </span>
+          </div>
         </template>
         <el-alert
           v-else
@@ -237,6 +252,85 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* 「问 AI 助教」是这一页的主操作，用渐变主按钮把它和普通按钮区分开。 */
+.ai-cta {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4c7dff, #8b5cf6);
+  box-shadow: 0 4px 12px rgba(76, 125, 255, 0.28);
+}
+
+.ai-cta:hover,
+.ai-cta:focus {
+  border-color: transparent;
+  background: linear-gradient(135deg, #3f70f5, #7c4ef0);
+}
+
+.ai-cta.is-disabled {
+  background: var(--el-button-disabled-bg-color);
+  box-shadow: none;
+}
+
+.ai-section__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 12px;
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4c7dff, #8b5cf6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ai-section__title {
+  color: var(--app-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ai-signature {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(76, 125, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(76, 125, 255, 0.06);
+}
+
+.ai-signature__model {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #3f70f5;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-signature__item {
+  padding-left: 8px;
+  border-left: 1px solid rgba(76, 125, 255, 0.22);
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+.ai-signature__item--cached {
+  padding: 1px 7px;
+  border: 1px solid rgba(76, 125, 255, 0.25);
+  border-radius: 999px;
+  color: #3f70f5;
 }
 
 .page__actions {

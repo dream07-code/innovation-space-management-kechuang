@@ -98,6 +98,9 @@ describe('SubmissionReportView', () => {
     expect(wrapper.text()).toContain('第一次阶段考核')
     expect(wrapper.text()).toContain('两数之和')
     expect(wrapper.text()).toContain('第 2 行把加号写成了减号')
+    // 错因区块带 AI 徽标，并明确署名是哪个模型生成的
+    expect(wrapper.text()).toContain('AI 批改')
+    expect(wrapper.text()).toContain('mimo-v2.6-flash')
     expect(wrapper.text()).toContain('把 a-b 改成 a+b')
     expect(wrapper.text()).toContain('本次未通过 · 同难度补练')
     expect(wrapper.text()).toContain('三数最大值')

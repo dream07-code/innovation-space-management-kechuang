@@ -19,6 +19,7 @@ import {
   scoreLabel,
   scoreSourceMeta,
 } from '@/components/ojMeta'
+import AiCoachingCard from '@/components/dashboard/AiCoachingCard.vue'
 import DashboardEmptyState from '@/components/dashboard/DashboardEmptyState.vue'
 import DashboardErrorState from '@/components/dashboard/DashboardErrorState.vue'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -163,6 +164,8 @@ onMounted(load)
     </template>
 
     <template v-else>
+      <AiCoachingCard />
+
       <DashboardOverviewStrip :items="overviewItems" />
 
       <DashboardSection

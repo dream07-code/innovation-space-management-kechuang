@@ -16,6 +16,8 @@ vi.mock('@/api/modules/oj', () => ({
   getAssessment: mocks.getAssessment,
   getAssessmentProblem: mocks.getAssessmentProblem,
   listAssessmentReviews: mocks.listAssessmentReviews,
+  // 助教抽屉内部使用，本用例不触发发送。
+  askSubmissionTutor: vi.fn(),
 }))
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ isAdmin: false, isLeader: false }),
@@ -63,6 +65,8 @@ describe('SubmissionDetailView 安全逐测试点结果', () => {
     expect(wrapper.text()).toContain('逐测试点结果')
     expect(wrapper.text()).toContain('1 / 1')
     expect(wrapper.text()).toContain('12 ms')
+    // 详情页直接给助教入口，不必先跳到批改报告页
+    expect(wrapper.text()).toContain('问 AI 助教')
     expect(wrapper.text()).not.toContain('input')
     expect(wrapper.text()).not.toContain('expectedOutput')
   })

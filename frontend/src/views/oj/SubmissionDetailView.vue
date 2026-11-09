@@ -7,7 +7,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataAnalysis, EditPen } from '@element-plus/icons-vue'
+import { DataAnalysis, EditPen, MagicStick } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import {
@@ -18,6 +18,7 @@ import {
   listAssessmentReviews,
 } from '@/api/modules/oj'
 import CodeEditor from '@/components/CodeEditor.vue'
+import SubmissionTutorDrawer from '@/components/SubmissionTutorDrawer.vue'
 import { describeError, toApiError } from '@/api/errors'
 import { formatDateTime } from '@/utils/datetime'
 import {
@@ -47,6 +48,8 @@ const problem = ref<AssessmentProblem | null>(null)
 const reviews = ref<AssessmentReview[]>([])
 const loading = ref(false)
 const submittedCode = ref('')
+/** 助教抽屉：详情页直接开问，不必先跳去批改报告页。 */
+const tutorOpen = ref(false)
 
 const canReview = computed(() => auth.isAdmin || auth.isLeader)
 const activeReview = computed(() => reviews.value.find((review) => review.status === 'ACTIVE') ?? null)
@@ -97,6 +100,15 @@ onMounted(load)
       <div class="page__header">
         <span>提交详情 · {{ submission?.id ?? '' }}</span>
         <div class="page__actions">
+          <el-button
+            v-if="submission"
+            class="ai-cta"
+            type="primary"
+            :icon="MagicStick"
+            @click="tutorOpen = true"
+          >
+            问 AI 助教
+          </el-button>
           <el-button
             v-if="submission"
             :icon="DataAnalysis"
@@ -239,6 +251,13 @@ onMounted(load)
       </template>
     </template>
   </el-card>
+
+  <SubmissionTutorDrawer
+    v-if="submission"
+    v-model="tutorOpen"
+    :submission-id="submissionId"
+    :problem-title="problem?.title"
+  />
 </template>
 
 <style scoped>
@@ -259,6 +278,19 @@ onMounted(load)
 .page__actions {
   display: flex;
   gap: 8px;
+}
+
+/* AI 助教是入口级操作，用渐变主按钮和「人工批阅」区分开。 */
+.ai-cta {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4c7dff, #8b5cf6);
+  box-shadow: 0 4px 12px rgba(76, 125, 255, 0.28);
+}
+
+.ai-cta:hover,
+.ai-cta:focus {
+  border-color: transparent;
+  background: linear-gradient(135deg, #3f70f5, #7c4ef0);
 }
 
 .final-result {
