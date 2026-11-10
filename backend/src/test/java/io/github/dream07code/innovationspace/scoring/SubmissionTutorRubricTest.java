@@ -39,11 +39,25 @@ class SubmissionTutorRubricTest {
   void systemPromptCarriesTheTeachingRules() {
     String system = SubmissionTutorRubric.system(input(List.of(), "为什么错"));
 
-    // 这三条是产品要求，不是可选的措辞微调
-    assertTrue(system.contains("为什么"), "必须覆盖「为什么错」");
+    // 这几条是产品要求，不是可选的措辞微调
+    assertTrue(system.contains("定位"), "开头要先说清错在哪");
     assertTrue(system.contains("不要给完整题解"), "必须禁止直接给可提交答案");
     assertTrue(system.contains("不可信"), "代码与题面必须按不可信数据处理");
     assertTrue(system.contains("不评价判题机"), "不得评价判题机");
+  }
+
+  @Test
+  void systemPromptTeachesSocratically() {
+    String system = SubmissionTutorRubric.system(input(List.of(), "为什么错"));
+
+    // 引导式教学：先定位、一次一步、答错先提示、不给改好的代码
+    assertTrue(system.contains("苏格拉底"), "要写明苏格拉底式引导");
+    assertTrue(system.contains("哪一行"), "第一轮要落到具体行");
+    assertTrue(system.contains("只问一个问题"), "一轮只问一个问题");
+    assertTrue(system.contains("停下来等学生回答"), "问完必须等学生回答");
+    assertTrue(system.contains("先给一级提示"), "学生卡住先给提示");
+    assertTrue(system.contains("不要提前把后面几步讲完"), "不许一次讲完");
+    assertTrue(system.contains("200 字"), "控制回答长度");
   }
 
   @Test

@@ -72,7 +72,7 @@ class SubmissionTutorServiceImplTest {
     assertEquals(true, body.get("available"));
     assertEquals("第 3 行写成了 a - b，题目要求和。", body.get("reply"));
     assertEquals("mimo-v2.6-flash", body.get("model"));
-    assertEquals("v1", body.get("promptVersion"));
+    assertEquals("v2", body.get("promptVersion"));
     assertNull(body.get("error"));
   }
 

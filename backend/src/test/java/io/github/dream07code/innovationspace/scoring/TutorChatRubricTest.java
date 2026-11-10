@@ -29,7 +29,20 @@ class TutorChatRubricTest {
     assertTrue(system.contains("不可信"), "题面与学生代码要按不可信输入处理");
     assertTrue(system.contains("结合"), "讲知识点要结合选中题目");
     assertTrue(system.contains("编造"), "不允许编造判题结果与测试数据");
-    assertTrue(system.contains("300 字"), "控制回答长度");
+    assertTrue(system.contains("200 字"), "控制回答长度");
+  }
+
+  @Test
+  void systemPromptTeachesSocratically() {
+    String system = TutorChatRubric.system(input(problem(), List.of(), "哈希表为什么 O(n)？"));
+
+    // 引导式教学的产品要求：一步一步问、答错先提示、讲完继续问
+    assertTrue(system.contains("苏格拉底"), "要写明苏格拉底式引导");
+    assertTrue(system.contains("只问一个问题"), "一轮只问一个问题");
+    assertTrue(system.contains("停下来等学生回答"), "问完必须等学生回答");
+    assertTrue(system.contains("先给一级提示"), "学生卡住先给提示，不直接讲答案");
+    assertTrue(system.contains("讲完接着问下一步"), "讲完概念要继续推进");
+    assertTrue(system.contains("示例代码"), "允许给示例代码片段");
   }
 
   @Test

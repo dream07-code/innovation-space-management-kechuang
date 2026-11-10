@@ -84,7 +84,7 @@ class TutorChatServiceImplTest {
     assertEquals(true, body.get("available"));
     assertEquals("时间复杂度衡量增长趋势。", body.get("reply"));
     assertEquals("mimo-v2.6-flash", body.get("model"));
-    assertEquals("v1", body.get("promptVersion"));
+    assertEquals("v2", body.get("promptVersion"));
     assertEquals(String.valueOf(CONVERSATION_ID), body.get("conversationId"));
     assertEquals("什么是时间复杂度？", body.get("conversationTitle"));
     assertNull(body.get("error"));
