@@ -205,4 +205,3 @@ VITE_DEV_PROXY_TARGET=http://127.0.0.1:8081 corepack pnpm dev --port 5174 --host
 - 本次跑的 MySQL 与后端是**前台进程**（后台任务），机器重启后不会自动启动；重新验收需按 §8 再起一次。
 - 演示数据在 `innovation_space` 库里，含 1 名学生、1 道题、2 道客观题、3 场考核、4 条提交。要干净重来：`DROP DATABASE innovation_space` 后重跑迁移。
 - 仓库侧零改动：`git status` 干净，没有新增未跟踪文件，`node_modules` 与 `target` 均被忽略。
-- 建议同步更新 `docs/user-manual.md` 附录 A：第 2、3、5 条（自动代交、提交次数、练习是否计入画像）现在有实测答案，可以定稿；第 4 条（报告缓存）仍需配好 AI 才能验证。
