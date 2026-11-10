@@ -180,16 +180,23 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     String language = request.get("language") instanceof String value ? value : null;
     if (language == null || !LANGUAGES.contains(language)) throw bad();
     if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000) throw bad();
-    var assessments =
-        jdbc.queryForList(
-            "SELECT * FROM assessment WHERE id=? AND status='PUBLISHED' AND start_at<=? AND end_at>=?",
-            assessmentId,
-            Timestamp.from(clock.instant()),
-            Timestamp.from(clock.instant()));
+    var assessments = jdbc.queryForList("SELECT * FROM assessment WHERE id=?", assessmentId);
     if (assessments.isEmpty()) throw new ApiException(404, ErrorCode.NOT_FOUND);
     var assessment = assessments.getFirst();
+    // 方向不符仍按不存在处理（404），不泄露其他方向的考核。
     if (!"COLLEGE_ADMIN".equals(actor.role())
         && !memberDirection(actor.memberId()).equals(((Number) assessment.get("direction_id")).longValue()))
+      throw new ApiException(404, ErrorCode.NOT_FOUND);
+    Instant now = clock.instant();
+    String status = String.valueOf(assessment.get("status"));
+    // 已关闭 / 已归档，或已发布但过了截止时间：明确告诉学生「考核已关闭」，不要笼统报「资源不存在」。
+    // 草稿状态的考核对学员一律当作不存在，不因日期已过就暴露它存在。
+    boolean closed =
+        Set.of("CLOSED", "ARCHIVED").contains(status)
+            || ("PUBLISHED".equals(status) && now.isAfter(instant(assessment.get("end_at"))));
+    if (closed) throw new ApiException(409, ErrorCode.ASSESSMENT_CLOSED, "status=" + status);
+    // 草稿、以及已发布但还没到开始时间：维持原来的 404 口径，本次不动。
+    if (!"PUBLISHED".equals(status) || now.isBefore(instant(assessment.get("start_at"))))
       throw new ApiException(404, ErrorCode.NOT_FOUND);
     if (!languageList(assessment.get("allowed_languages")).contains(language)) throw bad();
     var problems =
@@ -367,14 +374,17 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     return value == null ? null : HexFormat.of().formatHex(value);
   }
 
+  /** 库里时间列按 UTC 存，JDBC 取出来可能是 Timestamp 或 LocalDateTime，统一转 Instant。 */
+  private static Instant instant(Object value) {
+    return value instanceof Timestamp timestamp
+        ? timestamp.toInstant()
+        : value instanceof LocalDateTime local
+            ? local.toInstant(ZoneOffset.UTC)
+            : (Instant) value;
+  }
+
   private static String time(Object value) {
-    Instant instant =
-        value instanceof Timestamp timestamp
-            ? timestamp.toInstant()
-            : value instanceof LocalDateTime local
-                ? local.toInstant(ZoneOffset.UTC)
-                : (Instant) value;
-    return instant.atZone(ZoneId.of("Asia/Shanghai")).toOffsetDateTime().toString();
+    return instant(value).atZone(ZoneId.of("Asia/Shanghai")).toOffsetDateTime().toString();
   }
 
   private static ApiException bad() {

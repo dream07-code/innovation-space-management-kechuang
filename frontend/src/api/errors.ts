@@ -3,7 +3,7 @@
  *
  * 契约约定（docs/api/README.md §4.3、§4.1）：
  *   - 失败使用正确的 HTTP 状态码，data 为 null，不把失败包装成 HTTP 200；
- *   - ErrorResponse.code 是一个扁平枚举（25 个值），不按 HTTP 状态码区分；
+ *   - ErrorResponse.code 是一个扁平枚举，不按 HTTP 状态码区分；
  *     后端目前只实现了其中一部分，其余为待实现业务码。
  *
  * 因此本模块把任意失败（HTTP 错误响应 / 网络错误 / 非信封响应）统一成 ApiError，
@@ -31,6 +31,7 @@ const KNOWN_CODES = new Set<string>([
   'REPORT_ALREADY_EXISTS',
   'REPORT_NOT_EDITABLE',
   'INVALID_STATE',
+  'ASSESSMENT_CLOSED',
   'IDEMPOTENCY_CONFLICT',
   'MONTH_CLOSED',
   'SCORING_PENDING',
@@ -273,6 +274,8 @@ export function describeError(error: ApiError): string {
       return '该报告当前不可修改'
     case 'INVALID_STATE':
       return '当前状态不允许该操作'
+    case 'ASSESSMENT_CLOSED':
+      return '该考核已关闭，不能再提交代码；如需补交请联系老师'
     case 'MONTH_CLOSED':
       return '该月份已结算，需管理员重新开启'
     case 'SCORING_PENDING':

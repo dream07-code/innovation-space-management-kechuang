@@ -16,7 +16,7 @@ x-frontend-contract:
     COLLEGE_ADMIN: [assessment.manage, problem.manage, submission.read, evaluation.read, review.manage, result.read]
     DIRECTION_LEADER: [assessment.manage.scope, problem.manage, submission.read.scope, evaluation.read.scope, review.manage.scope, result.read.scope]
     STUDENT: [assessment.read.published, problem.read.published, submission.create.own, submission.read.own, evaluation.read.own, result.read.own]
-  errorCodes: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, INVALID_STATE, VERSION_CONFLICT, IDEMPOTENCY_CONFLICT, SERVICE_UNAVAILABLE]
+  errorCodes: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, INVALID_STATE, ASSESSMENT_CLOSED, VERSION_CONFLICT, IDEMPOTENCY_CONFLICT, SERVICE_UNAVAILABLE]
   privacy:
     neverExpose: [code, codeText, codeLocator, privateTestData, rawProviderResponse, apiToken, password]
     idFormat: 十进制字符串；前端不得转换为 JavaScript Number。
@@ -5723,6 +5723,7 @@ components:
           - REPORT_ALREADY_EXISTS
           - REPORT_NOT_EDITABLE
           - INVALID_STATE
+          - ASSESSMENT_CLOSED
           - PROBLEM_IN_USE
           - MEMBER_IN_USE
           - IDEMPOTENCY_CONFLICT

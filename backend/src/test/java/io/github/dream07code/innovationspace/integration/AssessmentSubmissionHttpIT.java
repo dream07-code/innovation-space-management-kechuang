@@ -219,6 +219,45 @@ class AssessmentSubmissionHttpIT {
     assertEquals(404, send(otherStudentToken, "GET", "/api/v1/assessment-submissions/" + id, null, null).statusCode());
   }
 
+  @Test
+  void closedAssessmentRejectsSubmissionWithExplicitCode() throws Exception {
+    var closed =
+        send(
+            adminToken,
+            "POST",
+            "/api/v1/assessments/" + assessmentId + "/close",
+            "{\"version\":2}",
+            UUID.randomUUID().toString());
+    assertEquals(200, closed.statusCode());
+
+    String body = """
+        {"problemId":"%s","language":"java","code":"class Main{}"}
+        """.formatted(problemId);
+
+    var rejected =
+        send(
+            studentToken,
+            "POST",
+            "/api/v1/assessments/" + assessmentId + "/submissions",
+            body,
+            UUID.randomUUID().toString());
+    // 考核已关闭就不再是「资源不存在」：学生要能看出是考核关了，而不是链接错了。
+    assertEquals(409, rejected.statusCode());
+    assertEquals("ASSESSMENT_CLOSED", HttpTestSupport.json(rejected).at("/code").asText());
+    assertTrue(HttpTestSupport.json(rejected).at("/data").isNull());
+
+    // 不存在的考核仍然是 404，本次只改「已关闭」这一种情况。
+    var missing =
+        send(
+            studentToken,
+            "POST",
+            "/api/v1/assessments/99999999/submissions",
+            body,
+            UUID.randomUUID().toString());
+    assertEquals(404, missing.statusCode());
+    assertEquals("NOT_FOUND", HttpTestSupport.json(missing).at("/code").asText());
+  }
+
   private HttpResponse<String> awaitJudged(String token, String id) throws Exception {
     long deadline = System.nanoTime() + 5_000_000_000L;
     HttpResponse<String> response = send(token, "GET", "/api/v1/assessment-submissions/" + id, null, null);
