@@ -202,14 +202,29 @@ public class JdbcTutorRepository implements TutorRepository {
 
   @Override
   public Integer averagePublishedScore(long memberId) {
-    // 与成绩页同一口径：只统计已发布成绩，未发布的分数不进画像。
+    // 与成绩页同一口径：一份考核算一个分，取「每题最后一次提交的 final_score 之和 + 客观题答题卡分」，
+    // 再对已发布的考核求平均。不能直接 AVG(assessment_submission.final_score)：那是按单题提交平均，
+    // 同一题多次提交会被重复计入，数值和成绩页对不上。
     return jdbc.queryForObject(
-        "SELECT ROUND(AVG(r.final_score)) FROM assessment_submission s"
-            + " JOIN assessment a ON a.id=s.assessment_id"
-            + " JOIN assessment_result r ON r.submission_id=s.id"
-            + " WHERE s.member_id=? AND a.results_published_at IS NOT NULL"
-            + " AND r.final_score IS NOT NULL",
+        "SELECT ROUND(AVG(t.total_score)) FROM ("
+            + " SELECT a.id,"
+            + " COALESCE(SUM(r.final_score),0) + COALESCE(MAX(sh.total_score),0) AS total_score"
+            + " FROM assessment a"
+            + " LEFT JOIN ("
+            + "  SELECT s.assessment_id,s.id AS submission_id,"
+            + "   ROW_NUMBER() OVER (PARTITION BY s.assessment_id,s.problem_id"
+            + "    ORDER BY s.submitted_at DESC,s.id DESC) AS rn"
+            + "  FROM assessment_submission s WHERE s.member_id=?"
+            + " ) l ON l.assessment_id=a.id AND l.rn=1"
+            + " LEFT JOIN assessment_result r ON r.submission_id=l.submission_id"
+            + " LEFT JOIN assessment_answer_sheet sh"
+            + "  ON sh.assessment_id=a.id AND sh.member_id=?"
+            + " WHERE a.results_published_at IS NOT NULL"
+            + "  AND (l.submission_id IS NOT NULL OR sh.total_score IS NOT NULL)"
+            + " GROUP BY a.id"
+            + ") t",
         Integer.class,
+        memberId,
         memberId);
   }
 

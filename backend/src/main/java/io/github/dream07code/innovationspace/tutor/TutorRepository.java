@@ -39,7 +39,7 @@ public interface TutorRepository {
   /** 本人所有判题完成的题目，一题一行。 */
   List<AttemptedProblem> attemptedProblems(long memberId);
 
-  /** 已发布成绩的平均分；没有任何已发布成绩时返回 null，不按 0 分算。 */
+  /** 已发布成绩按考核汇总后的平均分（与成绩页同口径）；无已发布成绩时返回 null，不按 0 分算。 */
   Integer averagePublishedScore(long memberId);
 
   /** 公开题库候选题，只含 id/标题/难度/标签。 */
