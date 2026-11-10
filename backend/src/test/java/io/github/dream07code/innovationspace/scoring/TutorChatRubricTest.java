@@ -17,7 +17,7 @@ class TutorChatRubricTest {
   private static TutorChatAi.Problem problem() {
     return new TutorChatAi.Problem(
         "两数之和", "EASY", "实现 sum 函数，返回两个整数之和。", "两个整数", "一个整数",
-        "基础,运算符", "sum", "int,int", "int");
+        "基础,运算符", "sum", "int,int", "int", "java");
   }
 
   @Test
@@ -43,6 +43,20 @@ class TutorChatRubricTest {
     assertTrue(system.contains("先给一级提示"), "学生卡住先给提示，不直接讲答案");
     assertTrue(system.contains("讲完接着问下一步"), "讲完概念要继续推进");
     assertTrue(system.contains("示例代码"), "允许给示例代码片段");
+  }
+
+  @Test
+  void systemPromptPicksExampleLanguage() {
+    // 选了题目：题目语言进上下文，规则要求按它举例
+    String withProblem = TutorChatRubric.system(input(problem(), List.of(), "哈希表怎么写？"));
+    assertTrue(withProblem.contains("language=java"), "题目语言要进上下文");
+    assertTrue(withProblem.contains("题目的限定语言"), "选了题目要用题目语言举例");
+
+    // 没选题：按学生提问里提到的语言，没提到就先问，不允许默认 Python
+    String noProblem = TutorChatRubric.system(input(null, List.of(), "什么是哈希表？"));
+    assertTrue(noProblem.contains("不要默认 Python"), "没提语言时不能默认 Python");
+    assertTrue(noProblem.contains("先用一句话问清"), "没提语言要先问一句");
+    assertTrue(noProblem.contains("问 Python 就给 Python"), "提到语言就跟着换");
   }
 
   @Test

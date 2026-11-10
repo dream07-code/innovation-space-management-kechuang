@@ -248,7 +248,8 @@ public class TutorChatServiceImpl implements TutorChatService {
         string(row.get("tags")),
         string(row.get("functionName")),
         join(row.get("parameterTypes")),
-        string(row.get("returnType")));
+        string(row.get("returnType")),
+        join(row.get("allowedLanguages")));
   }
 
   private ProblemRef optionalProblem(Object raw, SessionPrincipal actor) {

@@ -35,7 +35,9 @@ public interface TutorChatAi {
       String tags,
       String functionName,
       String parameterTypes,
-      String returnType) {}
+      String returnType,
+      /** 题目限定的语言（取 allowed_languages，如 java）；示例代码按它写。 */
+      String language) {}
 
   /** 一轮历史对话，只允许 user / assistant 两种角色。 */
   record Turn(String role, String content) {

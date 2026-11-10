@@ -26,7 +26,8 @@ class OpenAiCompatibleTutorChatAiTest {
               "数学,素数",
               "countPrimes",
               "int",
-              "int"),
+              "int",
+              "python"),
           List.of(
               new TutorChatAi.Turn("user", "埃氏筛为什么从 i*i 开始？"),
               new TutorChatAi.Turn("assistant", "因为更小的倍数已经被更小的质数筛过了。")),
