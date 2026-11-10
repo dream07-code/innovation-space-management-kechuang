@@ -57,7 +57,7 @@ management:
 app:
   migration:
     mode: disabled
-    required-version: "17"
+    required-version: "18"
   auth:
     initial-password: ${MEMBER_INITIAL_PASSWORD:}
   report:

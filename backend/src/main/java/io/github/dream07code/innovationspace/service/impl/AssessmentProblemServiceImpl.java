@@ -26,6 +26,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -34,6 +36,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class AssessmentProblemServiceImpl implements AssessmentProblemService {
+  private static final Logger LOG = LoggerFactory.getLogger(AssessmentProblemServiceImpl.class);
   private final JdbcTemplate jdbc;
   private final IdempotencyService idem;
   private final Clock clock;
@@ -174,6 +177,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       return trialResult(id, language, code);
     }
     var result = judgeWorker.practice(id, language, code);
+    recordPracticeAttempt(id, actor.memberId(), language, result);
     var cases = practiceCases;
     var details = new ArrayList<Map<String, Object>>();
     for (var testCaseResult : result.testCaseResults()) {
@@ -200,6 +204,30 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     out.put("safeError", result.safeError());
     out.put("testCaseResults", details);
     return out;
+  }
+
+  /**
+   * 记一条练习运行，供学习画像统计活动指标（提交数、做题数、通过率）。
+   *
+   * <p>练习本身不产生提交号、不产生成绩，所以这里只留判题结论；写失败也只记日志，
+   * 不回滚判题结果——学生已经拿到判题输出了，不该因为统计写不进去而报错。
+   */
+  private void recordPracticeAttempt(
+      long problemId, long memberId, String language, OjJudgeResult result) {
+    try {
+      jdbc.update(
+          "INSERT INTO problem_practice_attempt(problem_id,member_id,language,verdict,"
+              + " passed_test_cases,total_test_cases,created_at) VALUES(?,?,?,?,?,?,?)",
+          problemId,
+          memberId,
+          language,
+          result.verdict().name(),
+          result.passedTestCases(),
+          result.totalTestCases(),
+          Timestamp.from(clock.instant()));
+    } catch (RuntimeException error) {
+      LOG.warn("Failed to record practice attempt problemId={} memberId={}", problemId, memberId, error);
+    }
   }
 
   /**

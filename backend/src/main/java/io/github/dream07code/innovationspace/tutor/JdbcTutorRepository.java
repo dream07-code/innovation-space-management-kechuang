@@ -176,16 +176,28 @@ public class JdbcTutorRepository implements TutorRepository {
   @Override
   public List<AttemptedProblem> attemptedProblems(long memberId) {
     var out = new ArrayList<AttemptedProblem>();
-    // 只看判题完成的提交：还在判题中的提交既不算学会也不算没学会。
+    // 活动口径 = 考核提交 + 题库练习，两者按「本人 + 题目」并成一条流再分组：
+    // - 只算已判出结论的：还在判题中的提交既不算学会也不算没学会；
+    // - 同一题无论提交几次、练习几次，都只算一题，通过 = 任意一次 ACCEPTED；
+    // - 提交数把练习次数一并计入（练习也是学生真实做过的活动）。
+    // 练习不产生成绩，因此这个口径只影响活动指标，不影响「已发布成绩均分」。
     for (var row : jdbc.queryForList(
-        "SELECT p.id,p.title,p.difficulty,p.tags,COUNT(s.id) submissions,"
-            + " MAX(CASE WHEN j.verdict='ACCEPTED' THEN 1 ELSE 0 END) accepted,"
-            + " MAX(s.submitted_at) last_submitted_at"
-            + " FROM assessment_submission s"
-            + " JOIN assessment_problem p ON p.id=s.problem_id"
-            + " LEFT JOIN oj_judge_result j ON j.submission_id=s.id"
-            + " WHERE s.member_id=? AND s.status IN ('JUDGED','FAILED','NEEDS_REVIEW')"
+        "SELECT p.id,p.title,p.difficulty,p.tags,COUNT(*) submissions,"
+            + " MAX(a.accepted) accepted,MAX(a.occurred_at) last_submitted_at"
+            + " FROM ("
+            + "  SELECT s.problem_id,CASE WHEN j.verdict='ACCEPTED' THEN 1 ELSE 0 END accepted,"
+            + "   s.submitted_at occurred_at"
+            + "  FROM assessment_submission s"
+            + "  LEFT JOIN oj_judge_result j ON j.submission_id=s.id"
+            + "  WHERE s.member_id=? AND s.status IN ('JUDGED','FAILED','NEEDS_REVIEW')"
+            + "  UNION ALL"
+            + "  SELECT pa.problem_id,CASE WHEN pa.verdict='ACCEPTED' THEN 1 ELSE 0 END,"
+            + "   pa.created_at"
+            + "  FROM problem_practice_attempt pa WHERE pa.member_id=?"
+            + " ) a"
+            + " JOIN assessment_problem p ON p.id=a.problem_id"
             + " GROUP BY p.id,p.title,p.difficulty,p.tags ORDER BY p.id",
+        memberId,
         memberId)) {
       out.add(
           new AttemptedProblem(

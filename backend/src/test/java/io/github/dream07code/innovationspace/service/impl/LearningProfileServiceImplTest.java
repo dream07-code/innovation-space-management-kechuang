@@ -117,6 +117,28 @@ class LearningProfileServiceImplTest {
   }
 
   @Test
+  void practiceActivityDoesNotChangeAverageScore() {
+    // 只有练习记录、没有已发布考核成绩：活动指标有数，均分仍为空。
+    when(repository.attemptedProblems(MEMBER_ID))
+        .thenReturn(
+            List.of(
+                new AttemptedProblem(
+                    4L, "数组去重", "EASY", List.of("数组"), 2, true, NOW.minusSeconds(10))));
+    when(repository.averagePublishedScore(MEMBER_ID)).thenReturn(null);
+    when(repository.publishedProblems(500)).thenReturn(List.of());
+
+    var body = service.profile(ACTOR);
+
+    @SuppressWarnings("unchecked")
+    var overview = (Map<String, Object>) body.get("overview");
+    assertEquals(1, overview.get("attemptedProblems"));
+    assertEquals(1, overview.get("passedProblems"));
+    assertEquals(100, overview.get("passRate"));
+    assertEquals(2, overview.get("submissionCount"), "练习次数计入提交数");
+    assertNull(overview.get("averageScore"), "练习不产生成绩，均分不能因此变成 0 或 100");
+  }
+
+  @Test
   void requiresMemberProfile() {
     var admin = new SessionPrincipal(2L, null, "COLLEGE_ADMIN", List.of(), false, 1L, 2L);
 

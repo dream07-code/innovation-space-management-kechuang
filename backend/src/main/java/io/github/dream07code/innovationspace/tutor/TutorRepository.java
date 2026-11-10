@@ -36,7 +36,11 @@ public interface TutorRepository {
 
   long countMessages(long conversationId);
 
-  /** 本人所有判题完成的题目，一题一行。 */
+  /**
+   * 本人所有判题完成的题目，一题一行；考核提交与题库练习合并统计。
+   *
+   * <p>练习只计入活动指标（提交数/做题数/通过率），不参与 {@link #averagePublishedScore(long)}。
+   */
   List<AttemptedProblem> attemptedProblems(long memberId);
 
   /** 已发布成绩按考核汇总后的平均分（与成绩页同口径）；无已发布成绩时返回 null，不按 0 分算。 */
