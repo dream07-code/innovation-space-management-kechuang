@@ -2,7 +2,8 @@
 /**
  * AI 批改报告。
  *
- * 一次判题出一页报告：判题结果 → 错因解析 → 改进建议 → 推荐下一题。
+ * 一次判题出一页报告：判题结果 → 错因解析 / AI 点评 → 改进建议 → 推荐下一题。
+ * 未通过时才叫「错因解析」，通过时这段 AI 结论是在评这段代码写得好在哪，叫「AI 点评」。
  *
  * 数据全部来自真实链路：判定与失败用例来自 Judge0，题干取自题库，AI 结论来自
  * 与日报/周报评分同一个 openai-compatible 模型（Mimo）。页面不做任何本地推断，
@@ -39,6 +40,11 @@ const ruleLabel = computed(() =>
 )
 const failedCases = computed(() => judge.value?.failedCases ?? [])
 const paperQuestions = computed(() => report.value?.paperQuestions ?? [])
+/**
+ * 这段 AI 结论的标题随判定切换：通过了是在点评代码好在哪，没通过才是找错因。
+ * 判定缺失（判题未完成）时按未通过处理，与下方「本次未通过 · 同难度补练」口径一致。
+ */
+const causeTitle = computed(() => (judge.value?.verdict === 'ACCEPTED' ? 'AI 点评' : '错因解析'))
 
 async function load(): Promise<void> {
   loading.value = true
@@ -151,7 +157,7 @@ onMounted(load)
             <el-icon><MagicStick /></el-icon>
             AI 批改
           </span>
-          <span class="ai-section__title">错因解析</span>
+          <span class="ai-section__title">{{ causeTitle }}</span>
         </div>
         <template v-if="ai?.available && ai.cause">
           <p class="report-cause">{{ ai.cause }}</p>

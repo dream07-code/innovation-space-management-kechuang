@@ -101,6 +101,9 @@ describe('SubmissionReportView', () => {
     // 错因区块带 AI 徽标，并明确署名是哪个模型生成的
     expect(wrapper.text()).toContain('AI 批改')
     expect(wrapper.text()).toContain('mimo-v2.6-flash')
+    // 未通过时标题是「错因解析」，不是「AI 点评」
+    expect(wrapper.text()).toContain('错因解析')
+    expect(wrapper.text()).not.toContain('AI 点评')
     expect(wrapper.text()).toContain('把 a-b 改成 a+b')
     expect(wrapper.text()).toContain('本次未通过 · 同难度补练')
     expect(wrapper.text()).toContain('三数最大值')
@@ -108,6 +111,46 @@ describe('SubmissionReportView', () => {
     expect(wrapper.text()).toContain('2 3')
     expect(wrapper.text()).toContain('-1')
     expect(wrapper.text()).toContain('5')
+  })
+
+  it('通过时标题显示 AI 点评', async () => {
+    mocks.getSubmissionReport.mockResolvedValue(
+      report({
+        judge: {
+          verdict: 'ACCEPTED',
+          accepted: true,
+          passedTestCases: 5,
+          totalTestCases: 5,
+          timeMs: 88,
+          memoryKb: 31000,
+          safeError: null,
+          failedCases: [],
+        },
+        ai: {
+          available: true,
+          model: 'mimo-v2.6-flash',
+          rubricVersion: 'v1',
+          cause: '思路清晰，哈希表选型正确，边界情况都覆盖到了。',
+          advice: ['可以补一句复杂度注释'],
+          cached: false,
+          generatedAt: '2026-11-08T20:11:00+08:00',
+        },
+        recommendation: {
+          rule: 'NEXT_DIFFICULTY',
+          targetDifficulty: 'MEDIUM',
+          reason: '本次通过，沿难度升一档继续练。',
+          problem: { id: '9103', title: '区间求和', difficulty: 'MEDIUM' },
+        },
+      }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('AI 点评')
+    expect(wrapper.text()).not.toContain('错因解析')
+    expect(wrapper.text()).toContain('思路清晰，哈希表选型正确')
+    expect(wrapper.text()).toContain('本次通过 · 升一档')
   })
 
   it('点击推荐题目跳转到该题详情', async () => {
