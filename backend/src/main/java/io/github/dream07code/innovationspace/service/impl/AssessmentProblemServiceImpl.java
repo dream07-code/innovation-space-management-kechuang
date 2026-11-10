@@ -7,6 +7,7 @@ import io.github.dream07code.innovationspace.assessment.service.AssessmentJudgeW
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
 import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
+import io.github.dream07code.innovationspace.common.validation.RequestFields;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import java.nio.charset.StandardCharsets;
@@ -158,8 +159,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     requireStudent(actor);
     var row = row(id);
     requirePublished(row);
-    if (request == null || request.size() != 2 || !request.containsKey("language") || !request.containsKey("code"))
-      throw bad();
+    if (request == null) throw bad();
+    // 只接受 language/code：多带字段直接拒绝，并指出是哪个字段。
+    RequestFields.rejectUnknown(request, Set.of("language", "code"));
+    RequestFields.requirePresent(request, "language", "code");
     if (!(request.get("language") instanceof String language) || !LANGUAGES.contains(language))
       throw bad();
     if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000)
@@ -208,8 +211,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     requireStudent(actor);
     var row = row(id);
     requirePublished(row);
-    if (request == null || request.size() != 2 || !request.containsKey("language") || !request.containsKey("code"))
-      throw bad();
+    if (request == null) throw bad();
+    // 只接受 language/code：多带字段直接拒绝，并指出是哪个字段。
+    RequestFields.rejectUnknown(request, Set.of("language", "code"));
+    RequestFields.requirePresent(request, "language", "code");
     if (!(request.get("language") instanceof String language) || !LANGUAGES.contains(language))
       throw bad();
     if (!(request.get("code") instanceof String code) || code.isBlank() || code.length() > 200000)

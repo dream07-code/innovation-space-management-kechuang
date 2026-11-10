@@ -294,8 +294,12 @@ export function describeError(error: ApiError): string {
       return '请求的资源不存在'
     case 'METHOD_NOT_ALLOWED':
       return '请求方式不正确'
-    case 'INVALID_REQUEST':
-      return '请求内容不合法'
+    case 'INVALID_REQUEST': {
+      // 后端对字段级校验会回「Invalid request: unknown field: problemId」这类信息，
+      // 有细节就带上，只说「内容不合法」时根本不知道改哪儿。
+      const detail = (error.message ?? '').replace(/^Invalid request:\s*/, '').trim()
+      return detail && detail !== 'Invalid request' ? `请求内容不合法：${detail}` : '请求内容不合法'
+    }
     case 'SERVICE_UNAVAILABLE':
       return '服务暂时不可用，请稍后重试'
     case 'INTERNAL_ERROR':

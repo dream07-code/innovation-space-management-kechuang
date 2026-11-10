@@ -53,7 +53,7 @@ public class WebProbeConfiguration {
         }
 
         @GetMapping("/invalid-detail")
-        @Operation(summary = "测试 400 排查细节只进日志")
+        @Operation(summary = "测试 400 排查细节（字段名）回显")
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数不合法")
         public ApiResponse<Void> invalidDetail() {
             throw new io.github.dream07code.innovationspace.common.exception.ApiException(

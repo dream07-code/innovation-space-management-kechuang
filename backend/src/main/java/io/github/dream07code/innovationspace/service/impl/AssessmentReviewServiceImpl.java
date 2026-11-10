@@ -7,6 +7,7 @@ import io.github.dream07code.innovationspace.assessment.*;
 import io.github.dream07code.innovationspace.common.api.ApiResponse;
 import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
+import io.github.dream07code.innovationspace.common.validation.RequestFields;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import java.sql.Timestamp;
@@ -181,17 +182,19 @@ public class AssessmentReviewServiceImpl implements AssessmentReviewService {
   }
 
   private static void validate(Map<String, Object> request) {
-    if (request == null
-        || !Set.of("submissionVersion", "reviewVersion", "score", "comment").equals(request.keySet()))
-      throw bad();
-    long submissionVersion = integer(request.get("submissionVersion"));
-    long reviewVersion = integer(request.get("reviewVersion"));
-    long score = integer(request.get("score"));
-    if (submissionVersion < 1 || reviewVersion < 1 || reviewVersion > 1_000_000 || score < 0 || score > 100)
-      throw bad();
+    if (request == null) throw bad();
+    // 多带字段、缺字段、数值越界都要点名到字段：只说「内容不合法」时排查不动。
+    RequestFields.rejectUnknown(
+        request, Set.of("submissionVersion", "reviewVersion", "score", "comment"));
+    RequestFields.requirePresent(request, "submissionVersion", "reviewVersion", "score", "comment");
+    RequestFields.integerInRange(request.get("submissionVersion"), "submissionVersion", 1, Integer.MAX_VALUE);
+    // reviewVersion 从 1 开始、上限一百万：传 0 时提示里直接写出合法区间。
+    RequestFields.integerInRange(request.get("reviewVersion"), "reviewVersion", 1, 1_000_000);
+    RequestFields.integerInRange(request.get("score"), "score", 0, 100);
     if (!(request.get("comment") instanceof String comment)
         || comment.isBlank()
-        || comment.length() > 2000) throw bad();
+        || comment.length() > 2000)
+      throw new ApiException(400, ErrorCode.INVALID_REQUEST, "comment must be 1-2000 characters");
   }
 
   private static long integer(Object value) {

@@ -119,14 +119,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void invalidRequestDetailOnlyGoesToTheLog(CapturedOutput output) throws Exception {
+    void invalidRequestEchoesTheFieldButNotTheValue(CapturedOutput output) throws Exception {
         var response = mockMvc.perform(get("/api/v1/test-probe/invalid-detail"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-            .andExpect(jsonPath("$.message").value("Invalid request"))
+            .andExpect(jsonPath("$.message").value("Invalid request: unsupported fields [directionId]"))
             .andReturn().getResponse();
-        // 排查细节（非法字段名）只写日志，响应体仍是通用文案。
-        assertThat(response.getContentAsString()).doesNotContain("directionId", "unsupported fields");
+        // 只回字段名，不回请求里的取值；日志里同样只记字段名。
+        assertThat(response.getContentAsString()).contains("directionId").doesNotContain("secret7");
         assertThat(output.getAll()).contains("unsupported fields [directionId]");
     }
 }

@@ -13,11 +13,11 @@ public final class ApiException extends RuntimeException {
   }
 
   /**
-   * 带排查细节的版本：细节只进日志，不进响应体。
+   * 带排查细节的版本：细节会随 INVALID_REQUEST 一起回给调用方。
    *
-   * 响应文案由 {@code ApiResponse.failure(code)} 从枚举取，与异常 message 无关，
-   * 因此这里可以放心写明非法字段名、条目下标等结构信息；调用方看到的仍是通用文案，
-   * 契约要求的"不通过错误信息回显输入值"也依然成立（细节里只放字段名和下标，不放值）。
+   * <p>响应 message 由 {@code GlobalExceptionHandler} 取这里的 message；
+   * 因此细节里只放字段名与合法范围，绝不放请求里的取值
+   * （契约要求"不通过错误信息回显输入值"）。
    */
   public ApiException(int status, ErrorCode code, String detail) {
     super(code.message() + ": " + detail);
