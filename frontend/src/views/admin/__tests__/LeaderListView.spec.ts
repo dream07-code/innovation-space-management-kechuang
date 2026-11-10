@@ -52,6 +52,16 @@ const mountOptions = {
 
 const emptyLeaders = { items: [], page: 1, size: 20, total: 0 }
 
+const zhaoliu = {
+  id: '4',
+  studentNo: '20260004',
+  name: '赵六',
+  directionId: '1',
+  membershipStatus: 'ACTIVE',
+  version: 3,
+  managedDirectionIds: ['1'],
+}
+
 const wangwu = {
   id: '3',
   studentNo: '20260003',
@@ -108,6 +118,72 @@ describe('负责人管理', () => {
       },
       'test-idempotency-key',
     )
+  })
+
+  it('调整管辖方向用下拉选择，提交仍传方向 ID', async () => {
+    mocks.listLeaders.mockResolvedValue({ items: [zhaoliu], page: 1, size: 20, total: 1 })
+    mocks.updateLeader.mockResolvedValue({})
+
+    const wrapper = mount(LeaderListView, mountOptions)
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('调整管辖'))!
+      .trigger('click')
+    await flushPromises()
+
+    // 弹窗带出当前方向名称，管理员不用记方向 ID。
+    expect(wrapper.text()).toContain('调整管辖方向')
+    expect(wrapper.text()).toContain('AI 全栈')
+    // 原来的「请输入新的方向 ID」手输输入框已不存在：弹窗里没有 input，只剩原因 textarea。
+    expect(wrapper.text()).not.toContain('请输入新的方向 ID')
+    expect(wrapper.find('.el-dialog input').exists()).toBe(false)
+
+    // 下拉选中「鸿蒙」（stub 触发 update:modelValue = ['2']）。
+    await wrapper.find('.select-stub').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('.el-dialog textarea').setValue('联调验证：调整管辖方向')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('确认调整'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateLeader).toHaveBeenCalledWith('4', {
+      version: 3,
+      reason: '联调验证：调整管辖方向',
+      managedDirectionIds: ['2'],
+    })
+    expect(mocks.listLeaders).toHaveBeenCalledTimes(2)
+  })
+
+  it('调整管辖方向未选方向时给出提示且不能提交', async () => {
+    mocks.listLeaders.mockResolvedValue({ items: [zhaoliu], page: 1, size: 20, total: 1 })
+
+    const wrapper = mount(LeaderListView, mountOptions)
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('调整管辖'))!
+      .trigger('click')
+    await flushPromises()
+
+    // 清空下拉：提交按钮要禁用，并给出明确提示。
+    wrapper.findComponent(ElSelectStub).vm.$emit('update:modelValue', [])
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('至少选择一个方向')
+    const confirm = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('确认调整'))!
+    expect(confirm.attributes('disabled')).toBeDefined()
+
+    await confirm.trigger('click')
+    await flushPromises()
+    expect(mocks.updateLeader).not.toHaveBeenCalled()
   })
 
   it('学号不存在时给出提示且不提交', async () => {

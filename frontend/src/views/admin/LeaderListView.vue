@@ -5,7 +5,7 @@
  * 契约：/direction-leaders。全部仅学院管理员可用。
  * 任命时按学号定位成员（学号是业务唯一标识），不要求管理员记住内部成员 ID。
  */
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { appointLeader, listLeaders, revokeLeader, updateLeader } from '@/api/modules/leaders'
@@ -117,37 +117,56 @@ async function load(): Promise<void> {
   }
 }
 
-async function handleUpdate(row: Member): Promise<void> {
-  const { value: managedDirectionIds } = await ElMessageBox.prompt(
-    `当前管辖方向：${row.managedDirectionIds.join(', ')}。请输入新的方向 ID（多个用逗号分隔）`,
-    '调整管辖方向',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      inputValue: row.managedDirectionIds.join(', '),
-      inputValidator: (v) => (v && v.trim().length > 0 ? true : '请输入方向 ID'),
-    },
-  ).catch(() => ({ value: null as string | null }))
-  if (!managedDirectionIds) return
+// 调整管辖：方向从下拉里选，不再让管理员手输方向 ID（手输容易写错、也看不出是哪个方向）。
+const updateVisible = ref(false)
+const updateSubmitting = ref(false)
+const updateTarget = ref<Member | null>(null)
+const updateForm = reactive({
+  managedDirectionIds: [] as string[],
+  reason: '',
+})
 
-  const { value: reason } = await ElMessageBox.prompt('请输入调整原因（至少 5 个字符）', '调整管辖方向', {
-    confirmButtonText: '确认调整',
-    cancelButtonText: '取消',
-    inputValidator: (v) => (v && v.trim().length >= 5 ? true : '原因至少 5 个字符'),
-  }).catch(() => ({ value: null as string | null }))
-  if (!reason) return
+/** 弹窗里展示「当前方向」，让管理员一眼看出改的是哪个方向，而不是记 ID。 */
+const currentDirectionNames = computed(() => {
+  const ids = updateTarget.value?.managedDirectionIds ?? []
+  if (!ids.length) return '暂无'
+  return ids.map((id) => directions.nameOf(id)).join('、')
+})
 
+function openUpdate(row: Member): void {
+  updateTarget.value = row
+  // 默认带出当前管辖方向，管理员只需增删；清空后不能提交。
+  updateForm.managedDirectionIds = [...row.managedDirectionIds]
+  updateForm.reason = ''
+  updateVisible.value = true
+}
+
+async function submitUpdate(): Promise<void> {
+  const target = updateTarget.value
+  if (!target) return
+  if (!updateForm.managedDirectionIds.length) {
+    ElMessage.warning('请至少选择一个管辖方向')
+    return
+  }
+  if (updateForm.reason.trim().length < 5) {
+    ElMessage.warning('调整原因至少 5 个字符')
+    return
+  }
+  updateSubmitting.value = true
   try {
     const payload: UpdateLeaderRequest = {
-      version: row.version,
-      reason: reason.trim(),
-      managedDirectionIds: managedDirectionIds.split(',').map((s) => s.trim()).filter(Boolean),
+      version: target.version,
+      reason: updateForm.reason.trim(),
+      managedDirectionIds: [...updateForm.managedDirectionIds],
     }
-    await updateLeader(row.id, payload)
+    await updateLeader(target.id, payload)
     ElMessage.success('已调整')
+    updateVisible.value = false
     await load()
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    updateSubmitting.value = false
   }
 }
 
@@ -196,7 +215,7 @@ onMounted(async () => {
       </el-table-column>
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
-          <el-button link type="primary" @click="handleUpdate(row)">调整管辖</el-button>
+          <el-button link type="primary" @click="openUpdate(row)">调整管辖</el-button>
           <el-button link type="danger" @click="handleRevoke(row)">撤销</el-button>
         </template>
       </el-table-column>
@@ -247,6 +266,53 @@ onMounted(async () => {
         <el-button @click="appointVisible = false">取消</el-button>
         <el-button type="primary" :loading="appointSubmitting" @click="submitAppoint">
           确认任命
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="updateVisible" title="调整管辖方向" width="520px" destroy-on-close>
+      <el-form label-width="90px">
+        <el-form-item label="负责人">
+          <span>{{ updateTarget?.name }}（{{ updateTarget?.studentNo }}）</span>
+        </el-form-item>
+        <el-form-item label="当前方向">
+          <span>{{ currentDirectionNames }}</span>
+        </el-form-item>
+        <el-form-item label="管辖方向" required>
+          <el-select
+            v-model="updateForm.managedDirectionIds"
+            data-test="managed-directions"
+            multiple
+            placeholder="请选择管辖方向（可多选）"
+            style="width: 100%"
+          >
+            <el-option v-for="d in directions.items" :key="d.id" :label="d.name" :value="d.id" />
+          </el-select>
+          <div v-if="!updateForm.managedDirectionIds.length" class="appoint-hint appoint-hint--error">
+            至少选择一个方向，清空后不能提交
+          </div>
+        </el-form-item>
+        <el-form-item label="调整原因" required>
+          <el-input
+            v-model="updateForm.reason"
+            type="textarea"
+            :rows="3"
+            maxlength="1000"
+            show-word-limit
+            placeholder="至少 5 个字符"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="updateVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          data-test="confirm-update"
+          :loading="updateSubmitting"
+          :disabled="!updateForm.managedDirectionIds.length"
+          @click="submitUpdate"
+        >
+          确认调整
         </el-button>
       </template>
     </el-dialog>
