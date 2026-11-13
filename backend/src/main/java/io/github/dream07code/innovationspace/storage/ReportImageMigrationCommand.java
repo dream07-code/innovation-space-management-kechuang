@@ -120,6 +120,8 @@ public class ReportImageMigrationCommand implements ApplicationRunner {
                 compressed == null ? -1 : compressed.height());
           }
           image.put("url", local.getPublicPrefix() + "/" + key);
+          // size 改成实际落盘大小：压缩后的真实值，避免页面显示的还是原图体积。
+          image.put("size", Files.size(target));
           imagesMigrated++;
           changed = true;
         } catch (Exception error) {
