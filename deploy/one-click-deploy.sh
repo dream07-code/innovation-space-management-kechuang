@@ -206,6 +206,10 @@ else
 fi
 
 if [[ "${SKIP_BUILD:-false}" != "true" ]]; then
+  # 构建缓存会长期占着 /data（日报图片也落在这块盘上），每次部署先清一次。
+  # 只清构建缓存，不带 -a/--all：正在跑的镜像与容器不动。
+  echo "清理 Docker 构建缓存（保留镜像与运行中的容器）..."
+  docker builder prune -f >/dev/null 2>&1 || echo "构建缓存清理跳过（不影响部署）"
   compose build
 fi
 
