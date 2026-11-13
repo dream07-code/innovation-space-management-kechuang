@@ -2,6 +2,7 @@ package io.github.dream07code.innovationspace.service.impl;
 
 import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
+import io.github.dream07code.innovationspace.report.ReportImageCompressor;
 import io.github.dream07code.innovationspace.security.RateLimitService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
 import io.github.dream07code.innovationspace.service.ReportImageService;
@@ -13,6 +14,8 @@ import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Service
 public class ReportImageServiceImpl implements ReportImageService {
+  private static final Logger LOG = LoggerFactory.getLogger(ReportImageServiceImpl.class);
   /** 单张上限，与 application.yml 的 multipart 限制保持一致。 */
   static final int MAX_BYTES = ReportImageService.MAX_BYTES;
   /** 一次日报最多 10 张，留一倍余量给删掉重传。 */
@@ -35,6 +39,7 @@ public class ReportImageServiceImpl implements ReportImageService {
   private final ReportImageStorageProperties properties;
   private final RateLimitService rateLimit;
   private final Clock clock;
+  private final ReportImageCompressor compressor = new ReportImageCompressor();
 
   public ReportImageServiceImpl(
       ReportImageStorage storage,
@@ -67,14 +72,39 @@ public class ReportImageServiceImpl implements ReportImageService {
     rateLimit.check("report-image:" + actor.userId(), UPLOADS_PER_MINUTE, 60);
     if (!storage.available()) throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
 
-    String key = objectKey(actor.userId(), contentType);
-    String url = storage.upload(bytes, contentType, key);
+    // 落盘前统一压缩：手机原图常见 200–300KB，压到一百来 KB 既省空间也快。
+    var compressed = compressor.compress(bytes);
+    byte[] stored = compressed == null ? bytes : compressed.bytes();
+    String storedType = compressed == null ? contentType : "image/jpeg";
+
+    String key = objectKey(actor.userId(), storedType);
+    String url = storage.upload(stored, storedType, key);
+
+    if (compressed == null) {
+      // ImageIO 解不了的格式（例如 WebP）按原样存储，不能让上传直接失败。
+      LOG.warn(
+          "report image kept as-is (not decodable): type={} original={}B key={}",
+          contentType,
+          bytes.length,
+          key);
+    } else {
+      LOG.info(
+          "report image compressed: {}x{} -> {}x{}, {}B -> {}B ({}%), key={}",
+          compressed.sourceWidth(),
+          compressed.sourceHeight(),
+          compressed.width(),
+          compressed.height(),
+          bytes.length,
+          stored.length,
+          stored.length * 100 / Math.max(1, bytes.length),
+          key);
+    }
 
     var out = new LinkedHashMap<String, Object>();
     out.put("url", url);
-    out.put("name", safeName(file.getOriginalFilename(), contentType));
-    out.put("size", bytes.length);
-    out.put("contentType", contentType);
+    out.put("name", safeName(file.getOriginalFilename(), storedType));
+    out.put("size", stored.length);
+    out.put("contentType", storedType);
     return out;
   }
 

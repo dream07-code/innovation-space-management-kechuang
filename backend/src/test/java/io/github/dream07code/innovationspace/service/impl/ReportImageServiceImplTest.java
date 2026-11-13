@@ -27,6 +27,10 @@ class ReportImageServiceImplTest {
   private static final byte[] PNG = {
     (byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A, 0, 0
   };
+  private static final byte[] WEBP = {
+    (byte) 'R', (byte) 'I', (byte) 'F', (byte) 'F', 0, 0, 0, 0,
+    (byte) 'W', (byte) 'E', (byte) 'B', (byte) 'P', 0, 0, 0, 0
+  };
   private static final Clock FIXED =
       Clock.fixed(Instant.parse("2026-11-08T02:00:00Z"), ZoneOffset.UTC);
 
@@ -58,6 +62,47 @@ class ReportImageServiceImplTest {
         service().upload(new MockMultipartFile("file", "a.png", "image/png", PNG), STUDENT);
     assertEquals("image/png", result.get("contentType"));
     assertTrue(storage.lastKey.endsWith(".png"), storage.lastKey);
+  }
+
+  @Test
+  void compressesRealImageToJpegBeforeStoring() throws Exception {
+    // 2000px 宽的 PNG（模拟手机原图/截图），上传后应压到 1600px 宽并以 JPEG 存储。
+    byte[] original = realImage(2000, 1000);
+
+    var result = service().upload(new MockMultipartFile("file", "shot.png", "image/png", original), STUDENT);
+
+    assertEquals("image/jpeg", result.get("contentType"));
+    assertTrue(storage.lastKey.endsWith(".jpg"), storage.lastKey);
+    assertEquals("image/jpeg", storage.lastType);
+    int stored = (Integer) result.get("size");
+    assertTrue(stored < original.length, "存下来应比原图小：" + stored + " vs " + original.length);
+    assertEquals(storage.lastBytes.length, stored);
+    assertEquals(0xFF, storage.lastBytes[0] & 0xFF, "落盘的是 JPEG");
+  }
+
+  @Test
+  void keepsUndecodableImageAsIsInsteadOfFailingUpload() {
+    // WebP 这类 ImageIO 解不了的格式：按原样存储，不能把上传直接拒掉。
+    var result =
+        service().upload(new MockMultipartFile("file", "a.webp", "image/webp", WEBP), STUDENT);
+    assertEquals("image/webp", result.get("contentType"));
+    assertEquals(WEBP.length, result.get("size"));
+    assertTrue(storage.lastKey.endsWith(".webp"), storage.lastKey);
+  }
+
+  /** 生成一张“照片味”的图（带噪声），纯色块 PNG 反而比 JPEG 小，压不出对比。 */
+  private static byte[] realImage(int width, int height) throws Exception {
+    var image = new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    var random = new java.util.Random(20261111L);
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        int gray = 128 + random.nextInt(96) - 48;
+        image.setRGB(x, y, (gray << 16) | (gray << 8) | gray);
+      }
+    }
+    var out = new java.io.ByteArrayOutputStream();
+    javax.imageio.ImageIO.write(image, "png", out);
+    return out.toByteArray();
   }
 
   @Test
@@ -106,6 +151,8 @@ class ReportImageServiceImplTest {
   private static final class FakeStorage implements ReportImageStorage {
     boolean available = true;
     String lastKey;
+    String lastType;
+    byte[] lastBytes;
     int calls;
 
     @Override
@@ -117,6 +164,8 @@ class ReportImageServiceImplTest {
     public String upload(byte[] content, String contentType, String key) {
       calls++;
       lastKey = key;
+      lastType = contentType;
+      lastBytes = content;
       return "https://cdn.example.com/" + key;
     }
   }
