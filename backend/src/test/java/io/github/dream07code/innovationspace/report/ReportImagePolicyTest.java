@@ -97,6 +97,27 @@ class ReportImagePolicyTest {
   }
 
   @Test
+  void acceptsSiteRelativeUploadsAndLegacyCosUrlsTogether() {
+    // 迁移过渡期：新图是 /uploads/...，老日报还是 COS 域名，两种都必须放行。
+    var both = new ReportImagePolicy(List.of("/uploads", DOMAIN));
+
+    var local =
+        both.normalize(List.of(image("/uploads/reports/2026/11/7/a.jpg")), ReportType.DAILY);
+    assertEquals("/uploads/reports/2026/11/7/a.jpg", local.get(0).get("url"));
+
+    var legacy = both.normalize(List.of(image(DOMAIN + "/reports/2026/11/7/b.jpg")), ReportType.DAILY);
+    assertEquals(DOMAIN + "/reports/2026/11/7/b.jpg", legacy.get(0).get("url"));
+
+    // 站外地址仍然拒绝：不能因为多了个前缀就放宽成任意外链。
+    assertEquals(
+        400,
+        assertThrows(
+                ApiException.class,
+                () -> both.normalize(List.of(image("https://evil.example.com/a.jpg")), ReportType.DAILY))
+            .status());
+  }
+
+  @Test
   void rejectsEverythingWhenDomainIsNotConfigured() {
     ReportImagePolicy unconfigured = new ReportImagePolicy("");
     assertEquals(

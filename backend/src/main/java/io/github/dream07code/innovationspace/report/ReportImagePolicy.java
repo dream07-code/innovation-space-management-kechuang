@@ -4,6 +4,7 @@ import io.github.dream07code.innovationspace.common.api.ErrorCode;
 import io.github.dream07code.innovationspace.common.exception.ApiException;
 import io.github.dream07code.innovationspace.service.ReportImageService;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +13,11 @@ import java.util.Set;
 /**
  * 报告内容里图片列表的规范化与校验。
  *
- * <p>只接受本站图片存储域名下的地址：报告正文会被直接渲染成 {@code <img src>}，
+ * <p>只接受本站图片存储的地址：报告正文会被直接渲染成 {@code <img src>}，
  * 若允许任意外链，等于把学生日报变成可嵌入第三方跟踪资源的载体。
+ *
+ * <p>允许的前缀可能有多个：图片改存本地后，新图是站内相对地址（{@code /uploads/...}），
+ * 而历史日报里仍是老的 COS 域名，两种都要能通过校验，否则老草稿一改就 400。
  */
 public final class ReportImagePolicy {
   private static final Set<String> DAILY_ANCHORS =
@@ -21,12 +25,20 @@ public final class ReportImagePolicy {
   private static final Set<String> WEEKLY_ANCHORS =
       Set.of("summary", "achievements", "reflections", "nextWeekPlan", "end");
 
-  private final String allowedPrefix;
+  private final List<String> allowedPrefixes;
 
   public ReportImagePolicy(String domain) {
-    String value = domain == null ? "" : domain.trim();
-    while (value.endsWith("/")) value = value.substring(0, value.length() - 1);
-    this.allowedPrefix = value.isEmpty() ? "" : value + "/";
+    this(domain == null ? List.of() : List.of(domain));
+  }
+
+  public ReportImagePolicy(Collection<String> prefixes) {
+    var normalized = new ArrayList<String>();
+    for (String raw : prefixes == null ? List.<String>of() : prefixes) {
+      String value = raw == null ? "" : raw.trim();
+      while (value.endsWith("/")) value = value.substring(0, value.length() - 1);
+      if (!value.isEmpty()) normalized.add(value + "/");
+    }
+    this.allowedPrefixes = List.copyOf(normalized);
   }
 
   /** 把请求里的图片数组规范成固定结构；非法输入一律 400。 */
@@ -39,7 +51,8 @@ public final class ReportImagePolicy {
       if (!(raw instanceof Map<?, ?> item)) throw bad();
       Object rawUrl = item.get("url");
       if (!(rawUrl instanceof String url) || url.length() > 512) throw bad();
-      if (allowedPrefix.isEmpty() || !url.startsWith(allowedPrefix)) throw bad();
+      if (allowedPrefixes.isEmpty()
+          || allowedPrefixes.stream().noneMatch(url::startsWith)) throw bad();
 
       Object rawName = item.get("name");
       if (rawName != null && (!(rawName instanceof String name) || name.length() > 120)) throw bad();

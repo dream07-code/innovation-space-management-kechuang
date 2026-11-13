@@ -83,7 +83,13 @@ app:
     removal-check-interval-ms: ${MEMBERSHIP_REMOVAL_CHECK_INTERVAL_MS:3600000}
     removal-batch-size: ${MEMBERSHIP_REMOVAL_BATCH_SIZE:500}
   storage:
-    # 日报/周报笔记图片：腾讯云 COS。密钥只从环境变量注入，绝不写进仓库。
+    # 日报/周报笔记图片：优先存本机磁盘（同源回显，不受校外网络对 *.myqcloud.com 的拦截）。
+    # 留空则退回下面的 COS 配置。
+    local:
+      root: ${REPORT_IMAGE_DIR:}
+      public-prefix: ${REPORT_IMAGE_PREFIX:/uploads}
+    # 腾讯云 COS：仅在未配置本地目录时用于上传；迁移历史图片时用于下载。
+    # 密钥只从环境变量注入，绝不写进仓库。
     cos:
       secret-id: ${COS_SECRET_ID:}
       secret-key: ${COS_SECRET_KEY:}

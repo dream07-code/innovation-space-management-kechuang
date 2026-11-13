@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // 业务接口
         '/api': { target: backendTarget, changeOrigin: true },
+        // 日报图片（本地存储）：与生产 nginx 一致，同源转发到后端。
+        '/uploads': { target: backendTarget, changeOrigin: true },
         // 健康检查是唯一已实现的后端接口，返回裸 {status}（无业务信封）
         '/actuator': { target: backendTarget, changeOrigin: true },
       },

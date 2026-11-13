@@ -13,6 +13,7 @@ import io.github.dream07code.innovationspace.service.PointLedgerService;
 import io.github.dream07code.innovationspace.points.PointsPolicyProperties;
 import io.github.dream07code.innovationspace.security.IdempotencyService;
 import io.github.dream07code.innovationspace.security.SessionPrincipal;
+import io.github.dream07code.innovationspace.storage.LocalReportImageProperties;
 import io.github.dream07code.innovationspace.storage.ReportImageStorageProperties;
 import java.net.URI;
 import java.sql.Timestamp;
@@ -59,7 +60,8 @@ public class ReportServiceImpl implements ReportService {
       PointLedgerService points,
       Clock clock,
       PlatformTransactionManager manager,
-      ReportImageStorageProperties storageProps) {
+      ReportImageStorageProperties storageProps,
+      LocalReportImageProperties localStorageProps) {
     this.jdbc = jdbc;
     this.idem = idem;
     this.props = props;
@@ -68,7 +70,21 @@ public class ReportServiceImpl implements ReportService {
     this.clock = clock;
     this.tx = new TransactionTemplate(manager);
     this.periods = new ReportPeriodPolicy(clock);
-    this.imagePolicy = new ReportImagePolicy(storageProps.getDomain());
+    this.imagePolicy = new ReportImagePolicy(allowedImagePrefixes(storageProps, localStorageProps));
+  }
+
+  /**
+   * 允许出现在日报内容里的图片前缀。
+   *
+   * <p>本地存储启用后新图是 {@code /uploads/...}；历史日报仍指向 COS 域名，
+   * 迁移完成前这两种都要放行，否则学生一编辑老日报就会被判非法。
+   */
+  private static java.util.List<String> allowedImagePrefixes(
+      ReportImageStorageProperties storageProps, LocalReportImageProperties localProps) {
+    var prefixes = new java.util.ArrayList<String>();
+    if (localProps.enabled()) prefixes.add(localProps.getPublicPrefix());
+    if (!storageProps.getDomain().isBlank()) prefixes.add(storageProps.getDomain());
+    return prefixes;
   }
 
   public IdempotencyService.StoredResponse create(
