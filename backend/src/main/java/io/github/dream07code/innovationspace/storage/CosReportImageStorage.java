@@ -130,6 +130,65 @@ public class CosReportImageStorage implements ReportImageStorage {
         + signature;
   }
 
+  /** 桶的访问域名（不带结尾斜杠）；迁移时用它识别库里的 COS 地址前缀。 */
+  public String domain() {
+    return props.getDomain();
+  }
+
+  /**
+   * 下载一个已上传的对象，供「历史图片迁到本地」使用。
+   *
+   * <p>GET 请求只签 host 头，与 PUT 的签名串不同（没有 content-type），所以单独拼一次；
+   * 返回的字节由调用方决定怎么处理（压缩、落盘）。
+   */
+  public byte[] download(String url) {
+    if (!available()) throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+    String prefix = props.getDomain() + "/";
+    if (url == null || !url.startsWith(prefix))
+      throw new IllegalArgumentException("not a COS url of this bucket: " + url);
+    String objectKey = url.substring(prefix.length());
+    String path = "/" + objectKey;
+
+    long now = Instant.now().getEpochSecond();
+    String keyTime = now + ";" + (now + SIGN_TTL_SECONDS);
+    String headerString = "host=" + urlEncode(props.host());
+    String signature = signature(keyTime, "get\n" + path + "\n\n" + headerString + "\n");
+    String authorization =
+        "q-sign-algorithm=sha1"
+            + "&q-ak="
+            + props.getSecretId()
+            + "&q-sign-time="
+            + keyTime
+            + "&q-key-time="
+            + keyTime
+            + "&q-header-list=host"
+            + "&q-url-param-list="
+            + "&q-signature="
+            + signature;
+
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create("https://" + props.host() + path))
+            .timeout(Duration.ofMillis(props.getRequestTimeoutMs()))
+            .header("Authorization", authorization)
+            .GET()
+            .build();
+    HttpResponse<byte[]> response;
+    try {
+      response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+    } catch (Exception e) {
+      log.warn("COS 下载失败 key={}: {}", objectKey, e.toString());
+      throw new ApiException(503, ErrorCode.SERVICE_UNAVAILABLE);
+    }
+    if (response.statusCode() / 100 != 2) {
+      log.warn("COS 拒绝下载 key={} status={}", objectKey, response.statusCode());
+      throw new ApiException(502, ErrorCode.SERVICE_UNAVAILABLE);
+    }
+    return response.body();
+  }
+
   /**
    * COS V5 签名：signKey = hex(HMAC-SHA1(KeyTime, SecretKey))，再对 stringToSign 做一次 HMAC。
    *
