@@ -176,6 +176,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'OJ 题库' },
       },
       {
+        path: 'top100',
+        name: 'oj-top100',
+        component: () => import('@/views/oj/LeetcodeTop100View.vue'),
+        meta: { roles: ['STUDENT'], title: '力扣 Top 100' },
+      },
+      {
         path: 'problems/new',
         name: 'oj-problem-new',
         component: () => import('@/views/oj/ProblemEditView.vue'),

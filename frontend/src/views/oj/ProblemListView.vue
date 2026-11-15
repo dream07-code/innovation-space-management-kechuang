@@ -10,7 +10,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Delete, Edit, MagicStick, Plus, Upload, View } from '@element-plus/icons-vue'
+import { Delete, Edit, MagicStick, Plus, Trophy, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
@@ -235,6 +235,15 @@ onMounted(load)
           <el-radio-button :value="false">全部题目</el-radio-button>
           <el-radio-button :value="true">我的题库</el-radio-button>
         </el-radio-group>
+      </el-form-item>
+      <el-form-item v-if="canUseAi">
+        <el-button
+          data-test="top100-entry"
+          :icon="Trophy"
+          @click="router.push({ name: 'oj-top100' })"
+        >
+          力扣 Top 100
+        </el-button>
       </el-form-item>
       <el-form-item v-if="canUseAi">
         <el-button
