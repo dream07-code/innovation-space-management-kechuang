@@ -158,6 +158,35 @@ python3 generate_bank.py --limit 10 -o out/oj-problems-10.json
 python3 check_weak_solutions.py out/oj-problems-30.json
 ```
 
+## 2026-11 题库扩充：24 道函数传参题
+
+`build_24_function_problems.py` 生成 `oj-bank-24-function.json`，包含 24 道力扣风格函数题
+（简单 5 / 中等 14 / 困难 5），导入后题库共 30 道（简单 10 / 中等 15 / 困难 5）。
+
+```bash
+# 重新生成导入文件（脚本内含每题题面、Java 参考解与 Python 参考实现）
+python3 build_24_function_problems.py
+
+# 导入（管理员 token）
+curl -X POST http://127.0.0.1:8080/api/v1/assessment-problems/import \
+  -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
+  -H 'Content-Type: application/json' --data-binary @oj-bank-24-function.json
+```
+
+要点：
+
+- 每题的 `expectedOutput` 由脚本里的 **Python 参考实现**算出，正式用例 4–7 个，练习用例 2 个；
+  导入前请用 Java 参考解在本地 `javac` 跑一遍全量用例，再走平台 `practice-run` 验证判题链路。
+- 函数签名只用平台支持的 8 种类型（`int/long/bool/string/int[]/long[]/string[]/int[][]`）。
+  链表、二叉树题用整数数组表达（`-1` 表示空位），`string[][]` 不支持的题（字母异位词分组）
+  按题面写的口径拍平成 `string[]`。
+- 排序口径都写进了题面（子集/全排列按长度+字典序、三数之和按字典序、中位数返回 5 位小数字符串），
+  避免学生做对了却因为顺序不同被判错。
+- **发布**：后端目前没有「发布题目」接口，导入后是 `DRAFT`。要么走「创建考核 → 发布考核」带出，
+  要么直接 `UPDATE assessment_problem SET status='PUBLISHED'`。本次 24 道题用的是后者，
+  以免在考核管理里留下一个只为发布题目而建的临时考核。
+
+
 `generate_bank.py` 在生成时会强制检查：
 
 - 字段长度、枚举值、数值区间与后端契约一致；
