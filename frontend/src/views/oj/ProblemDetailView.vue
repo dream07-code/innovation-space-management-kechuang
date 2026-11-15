@@ -140,6 +140,14 @@ onMounted(load)
           >
             {{ problemStatusMeta(problem.status).label }}
           </el-tag>
+          <el-tag
+            v-if="problem?.source === 'AI'"
+            class="status-tag"
+            type="success"
+            effect="plain"
+          >
+            AI 生成
+          </el-tag>
         </div>
         <div v-if="problem" class="header-actions">
           <el-button

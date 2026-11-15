@@ -4,10 +4,13 @@
  *
  * 学生只显示 PUBLISHED 题目；管理员和负责人可维护 DRAFT/RETIRED 题目。
  * 普通题目接口不包含私有测试数据。
+ *
+ * 学生额外有「AI 出题」入口：按知识点生成一道专属题，生成成功后直接进入详情页；
+ * 「我的题库」开关走 mine=true，只看自己生成的题。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Delete, Edit, Plus, Upload, View } from '@element-plus/icons-vue'
+import { Delete, Edit, MagicStick, Plus, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
@@ -25,6 +28,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import type { AssessmentProblem, PageData } from '@/api/types'
 import { newIdempotencyKey } from '@/api/idempotency'
+import AiProblemDialog from '@/views/oj/AiProblemDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -34,6 +38,8 @@ const loading = ref(false)
 const status = ref('')
 const difficulty = ref('')
 const keyword = ref('')
+const mineOnly = ref(false)
+const aiDialogVisible = ref(false)
 const importInput = ref<HTMLInputElement>()
 const importVisible = ref(false)
 const importing = ref(false)
@@ -42,6 +48,7 @@ const importPreview = ref<OjImportPreview | null>(null)
 const importApiErrors = ref<Array<{ index: number; code: string }>>([])
 
 const canManage = computed(() => auth.isAdmin || auth.isLeader)
+const canUseAi = computed(() => auth.isStudent)
 const items = computed(() =>
   (data.value?.items ?? []).filter((problem) => {
     if (status.value && problem.status !== status.value) return false
@@ -55,7 +62,9 @@ const items = computed(() =>
 async function load(): Promise<void> {
   loading.value = true
   try {
-    data.value = await listAssessmentProblems()
+    data.value = await listAssessmentProblems(
+      canUseAi.value && mineOnly.value ? { mine: true } : {},
+    )
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -63,8 +72,25 @@ async function load(): Promise<void> {
   }
 }
 
+/** 「我的题库」是服务端过滤，切换后必须重新拉取。 */
+watch(mineOnly, () => {
+  void load()
+})
+
 function goDetail(row: AssessmentProblem): void {
   void router.push({ name: 'oj-problem-detail', params: { problemId: row.id } })
+}
+
+function openAiDialog(): void {
+  aiDialogVisible.value = true
+}
+
+/** 生成成功：服务端已落库发布，直接进详情页开始做题。 */
+function handleGenerated(problemId: string): void {
+  if (mineOnly.value) {
+    void load()
+  }
+  void router.push({ name: 'oj-problem-detail', params: { problemId } })
 }
 
 async function removeProblem(row: AssessmentProblem): Promise<void> {
@@ -204,10 +230,43 @@ onMounted(load)
       <el-form-item label="搜索">
         <el-input v-model="keyword" placeholder="标题/摘要/标签" clearable style="width: 220px" />
       </el-form-item>
+      <el-form-item v-if="canUseAi">
+        <el-radio-group v-model="mineOnly" data-test="mine-toggle">
+          <el-radio-button :value="false">全部题目</el-radio-button>
+          <el-radio-button :value="true">我的题库</el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item v-if="canUseAi">
+        <el-button
+          data-test="ai-generate"
+          type="primary"
+          :icon="MagicStick"
+          @click="openAiDialog"
+        >
+          AI 出题
+        </el-button>
+      </el-form-item>
     </el-form>
 
     <el-table v-loading="loading" :data="items" row-key="id">
-      <el-table-column prop="title" label="题目" min-width="210" show-overflow-tooltip />
+      <el-table-column prop="title" label="题目" min-width="230">
+        <template #default="{ row }">
+          <div class="problem-title-cell">
+            <el-tooltip :content="row.title" placement="top" :show-after="300">
+              <span class="problem-title-text">{{ row.title }}</span>
+            </el-tooltip>
+            <el-tag
+              v-if="row.source === 'AI'"
+              class="problem-source"
+              size="small"
+              type="success"
+              effect="plain"
+            >
+              AI 生成
+            </el-tag>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="summary" label="摘要" min-width="250" show-overflow-tooltip />
       <el-table-column label="难度" width="90">
         <template #default="{ row }">
@@ -254,6 +313,8 @@ onMounted(load)
         </template>
       </el-table-column>
     </el-table>
+
+    <AiProblemDialog v-model="aiDialogVisible" @generated="handleGenerated" />
 
     <el-dialog v-model="importVisible" title="导入预览" width="640px">
       <div class="import-summary">
@@ -335,5 +396,26 @@ onMounted(load)
 
 .page__notice {
   margin-bottom: 16px;
+}
+
+.problem-source {
+  flex: none;
+  margin-left: 6px;
+}
+
+/*
+ * 标题过长时省略号只吃掉标题，不能把「AI 生成」标签一起挤掉：
+ * 用 flex + min-width:0，标签固定不收缩。
+ */
+.problem-title-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.problem-title-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>

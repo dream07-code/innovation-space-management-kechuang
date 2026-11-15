@@ -7,6 +7,8 @@
  */
 import { API_PREFIX, get, patch, post, postWithoutIdempotency } from '../client'
 import type {
+  AiProblemGenerateRequest,
+  AiProblemGeneration,
   Assessment,
   AssessmentCommandRequest,
   AssessmentProblem,
@@ -37,6 +39,15 @@ import type {
 const ASSESSMENTS = `${API_PREFIX}/assessments`
 const PROBLEMS = `${API_PREFIX}/assessment-problems`
 const SUBMISSIONS = `${API_PREFIX}/assessment-submissions`
+const AI_GENERATE_PROBLEM = `${API_PREFIX}/ai-generate-problem`
+
+/**
+ * AI 出题的独立超时（3 分钟）。
+ *
+ * 该接口在请求内跑完「模型生成 → 参考解法逐点真跑自测」，实测约 70 秒，
+ * 在慢速模型或自测重试时会接近 2 分钟，远超客户端默认的 15 秒，必须单独放宽。
+ */
+export const AI_GENERATE_TIMEOUT_MS = 180_000
 
 // ---------------------------------------------------------------------------
 // 考核
@@ -84,8 +95,31 @@ export async function closeAssessment(
 // 题目
 // ---------------------------------------------------------------------------
 
-export async function listAssessmentProblems(): Promise<PageData<AssessmentProblem>> {
-  return get<PageData<AssessmentProblem>>(PROBLEMS)
+export interface AssessmentProblemListQuery {
+  page?: number
+  size?: number
+  /** 只看本人 AI 生成的题目；学生专用。 */
+  mine?: boolean
+}
+
+export async function listAssessmentProblems(
+  query: AssessmentProblemListQuery = {},
+): Promise<PageData<AssessmentProblem>> {
+  return get<PageData<AssessmentProblem>>(PROBLEMS, { params: query })
+}
+
+/**
+ * AI 出题：按知识点与难度生成一道函数传参题，服务端自测通过后才落库并返回。
+ *
+ * 同步长请求且不做幂等表（避免长事务锁用户行），重复提交只能靠界面禁用按钮兜住；
+ * 服务端另有每人 10 分钟 6 道的限流。因此这里不带 Idempotency-Key，并单独放宽超时。
+ */
+export async function generateAiProblem(
+  payload: AiProblemGenerateRequest,
+): Promise<AiProblemGeneration> {
+  return postWithoutIdempotency<AiProblemGeneration>(AI_GENERATE_PROBLEM, payload, {
+    timeout: AI_GENERATE_TIMEOUT_MS,
+  })
 }
 
 export async function createAssessmentProblem(

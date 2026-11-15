@@ -7,6 +7,7 @@ vi.mock('@/api/client', () => ({
   get: vi.fn<(url: string, config?: unknown) => Promise<unknown>>(),
   patch: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   post: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  postWithoutIdempotency: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
 const mockedGet = vi.mocked(get)
@@ -55,5 +56,32 @@ describe('OJ 题目测试点 API', () => {
     await api.getAssessmentProblemTestCases('9101')
 
     expect(mockedGet).toHaveBeenCalledWith('/api/v1/assessment-problems/9101/test-cases')
+  })
+})
+
+describe('AI 出题 API', () => {
+  it('超时单独放宽到 3 分钟，且不带幂等键（服务端不落幂等表）', async () => {
+    const api = await import('@/api/modules/oj')
+    const client = await import('@/api/client')
+
+    await api.generateAiProblem({ topic: '动态规划', difficulty: 'MEDIUM', category: null })
+
+    expect(vi.mocked(client.postWithoutIdempotency)).toHaveBeenCalledWith(
+      '/api/v1/ai-generate-problem',
+      { topic: '动态规划', difficulty: 'MEDIUM', category: null },
+      { timeout: 180_000 },
+    )
+  })
+
+  it('mine 过滤通过查询参数传给服务端', async () => {
+    const api = await import('@/api/modules/oj')
+
+    await api.listAssessmentProblems({ mine: true })
+    expect(mockedGet).toHaveBeenLastCalledWith('/api/v1/assessment-problems', {
+      params: { mine: true },
+    })
+
+    await api.listAssessmentProblems()
+    expect(mockedGet).toHaveBeenLastCalledWith('/api/v1/assessment-problems', { params: {} })
   })
 })

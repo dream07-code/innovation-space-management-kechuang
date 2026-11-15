@@ -154,6 +154,16 @@ export type AssessmentProblemTestCasesResponse = Schemas['AssessmentProblemTestC
 export type AssessmentProblemTestCases = AssessmentProblemTestCasesResponse['data']
 export type AssessmentProblemPracticeTestCasesResponse = Schemas['AssessmentProblemPracticeTestCasesResponse']
 export type AssessmentProblemPracticeTestCases = AssessmentProblemPracticeTestCasesResponse['data']
+/** AI 出题请求：知识点 + 难度（+ 可选题型）。 */
+export type AiProblemGenerateRequest = Schemas['AiProblemGenerateRequest']
+/**
+ * AI 出题结果：落库后的题目 + 参考解法 + 已跑通的测试点。
+ *
+ * 同步长请求（实测约 70 秒），调用方必须把超时放宽到分钟级。
+ */
+export type AiProblemGeneration =
+  Schemas['AiProblemGenerationResponse']['data']
+export type AiProblemTestCase = AiProblemGeneration['testCases'][number]
 export type CreateOjPracticeRunRequest = Schemas['CreateOjPracticeRunRequest']
 export type OjPracticeTestCaseResult = Schemas['OjPracticeTestCaseResult']
 export type OjPracticeRunResult = Schemas['OjPracticeRunResult']
