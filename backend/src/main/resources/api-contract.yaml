@@ -2961,11 +2961,23 @@ paths:
       tags:
       - OJ题目
       summary: 查询题库
+      description: 学生只看到已发布的题；mine=true 时只看本人由 AI 生成的题（「我的题库」）。
       x-implementation-status: implemented
       x-roles:
       - COLLEGE_ADMIN
       - DIRECTION_LEADER
       - STUDENT
+      parameters:
+      - name: page
+        in: query
+        schema: {type: integer, minimum: 1, default: 1}
+      - name: size
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 200, default: 20}
+      - name: mine
+        in: query
+        description: 只看本人 AI 生成的题；需要账号绑定成员档案。
+        schema: {type: boolean, default: false}
       responses:
         '200':
           description: 成功。
@@ -3406,6 +3418,47 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AssessmentCommandRequest'
+
+  /api/v1/ai-generate-problem:
+    post:
+      tags:
+      - OJ题目
+      summary: AI 出题
+      description: 按知识点与难度生成一道函数传参题目，先用 Java 参考解法跑通全部测试点，通过后直接发布到出题人的专属题库；两次自测不过返回 503，不保存任何题目。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功：返回落库后的题目、参考解法与测试点。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiProblemGenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiProblemGenerateRequest'
 
   /api/v1/assessments/{assessmentId}/submissions:
     parameters:
@@ -6417,6 +6470,15 @@ components:
         status:
           type: string
           enum: [DRAFT, PUBLISHED, RETIRED]
+        source:
+          type: string
+          enum: [MANUAL, AI]
+          description: MANUAL 为人工创建或批量导入；AI 为学生用 AI 出题生成的专属题。
+        ownerMemberId:
+          type: string
+          nullable: true
+          pattern: ^[1-9][0-9]{0,18}$
+          description: AI 生成题的归属学生；公共题库为 null。
         version:
           type: integer
           minimum: 1
@@ -7196,6 +7258,54 @@ components:
       required: [version]
       properties:
         version: {type: integer, minimum: 1}
+      additionalProperties: false
+    AiProblemGenerationResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string, example: Success}
+        data:
+          type: object
+          required: [problem, referenceCode, testCases]
+          properties:
+            problem: {$ref: '#/components/schemas/AssessmentProblem'}
+            referenceCode:
+              type: string
+              maxLength: 200000
+              description: Java 参考解法（class Solution），只在生成结果里返回，不随题目详情暴露。
+            testCases:
+              type: array
+              minItems: 4
+              maxItems: 12
+              items:
+                type: object
+                required: [position, input, expectedOutput, boundary]
+                properties:
+                  position: {type: integer, minimum: 1, maximum: 100}
+                  input: {type: string, description: JSON 参数数组。}
+                  expectedOutput: {type: string, description: 返回值的紧凑 JSON。}
+                  boundary: {type: boolean, description: 是否为边界用例。}
+                additionalProperties: false
+          additionalProperties: false
+      additionalProperties: false
+    AiProblemGenerateRequest:
+      type: object
+      required: [topic, difficulty]
+      properties:
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: 知识点，例如「动态规划」「链表」。
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+        category:
+          type: string
+          nullable: true
+          maxLength: 40
+          description: 题型，例如「数组」「字符串」；可省略。
       additionalProperties: false
     CreateAssessmentProblemRequest:
       type: object

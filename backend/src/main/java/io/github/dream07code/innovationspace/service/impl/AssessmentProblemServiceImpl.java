@@ -288,19 +288,25 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     }
   }
 
-  public Map<String, Object> list(SessionPrincipal actor, int page, int size) {
+  public Map<String, Object> list(SessionPrincipal actor, int page, int size, boolean mine) {
     if (page < 1 || size < 1 || size > 200) throw bad();
+    if (mine && actor.memberId() == null)
+      throw new ApiException(400, ErrorCode.INVALID_REQUEST, "mine requires a member");
     if ("STUDENT".equals(actor.role())) {
-      String where = " WHERE status='PUBLISHED'";
+      // 学生只看公开题；带 mine=true 时进一步收窄到自己 AI 生成的题。
+      String where = mine
+          ? " WHERE status='PUBLISHED' AND owner_member_id=?"
+          : " WHERE status='PUBLISHED'";
+      Object[] args = mine ? new Object[] {actor.memberId()} : new Object[0];
       var ids =
           jdbc.queryForList(
               "SELECT id FROM assessment_problem" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
               Long.class,
-              size,
-              (page - 1) * size);
+              appendArgs(args, size, (page - 1) * size));
       var items = new ArrayList<Map<String, Object>>();
       for (Long id : ids) items.add(response(id));
-      Long total = jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem" + where, Long.class);
+      Long total =
+          jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem" + where, Long.class, args);
       return Map.of("items", items, "page", page, "size", size, "total", total);
     }
     requireManage(actor);
@@ -526,10 +532,20 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
             : json.readValue(String.valueOf(row.get("parameter_types")), List.class));
     out.put("returnType", row.get("return_type"));
     out.put("status", row.get("status"));
+    out.put("source", row.get("source") == null ? "MANUAL" : row.get("source"));
+    out.put("ownerMemberId",
+        row.get("owner_member_id") == null ? null : String.valueOf(row.get("owner_member_id")));
     out.put("version", row.get("version"));
     out.put("createdAt", time(row.get("created_at")));
     out.put("updatedAt", time(row.get("updated_at")));
     return out;
+  }
+
+  /** JDBC 可变参数：把固定前缀参数与分页参数拼成一个数组。 */
+  private static Object[] appendArgs(Object[] base, Object... extra) {
+    var result = java.util.Arrays.copyOf(base, base.length + extra.length);
+    System.arraycopy(extra, 0, result, base.length, extra.length);
+    return result;
   }
 
   private void audit(SessionPrincipal actor, String action, long id) {

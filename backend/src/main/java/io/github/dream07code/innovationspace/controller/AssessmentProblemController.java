@@ -19,8 +19,10 @@ public class AssessmentProblemController {
 
   @GetMapping
   public ApiResponse<Map<String, Object>> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-    return ApiResponse.success(service.list(actor(), page, size));
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int size,
+      @RequestParam(defaultValue = "false") boolean mine) {
+    return ApiResponse.success(service.list(actor(), page, size, mine));
   }
 
   @PostMapping

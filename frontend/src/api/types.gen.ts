@@ -893,10 +893,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 查询题库 */
+        /**
+         * 查询题库
+         * @description 学生只看到已发布的题；mine=true 时只看本人由 AI 生成的题（「我的题库」）。
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                    size?: number;
+                    /** @description 只看本人 AI 生成的题；需要账号绑定成员档案。 */
+                    mine?: boolean;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1418,6 +1426,58 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["EmptyResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                405: components["responses"]["MethodNotAllowed"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-generate-problem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * AI 出题
+         * @description 按知识点与难度生成一道函数传参题目，先用 Java 参考解法跑通全部测试点，通过后直接发布到出题人的专属题库；两次自测不过返回 503，不保存任何题目。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiProblemGenerateRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功：返回落库后的题目、参考解法与测试点。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProblemGenerationResponse"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -3449,6 +3509,13 @@ export interface components {
             returnType?: "int" | "long" | "bool" | "string" | "int[]" | "long[]" | "string[]" | "int[][]" | null;
             /** @enum {string} */
             status: "DRAFT" | "PUBLISHED" | "RETIRED";
+            /**
+             * @description MANUAL 为人工创建或批量导入；AI 为学生用 AI 出题生成的专属题。
+             * @enum {string}
+             */
+            source?: "MANUAL" | "AI";
+            /** @description AI 生成题的归属学生；公共题库为 null。 */
+            ownerMemberId?: string | null;
             version: number;
             /** Format: date-time */
             createdAt: string;
@@ -3924,6 +3991,34 @@ export interface components {
         };
         AssessmentCommandRequest: {
             version: number;
+        };
+        AiProblemGenerationResponse: {
+            /** @enum {string} */
+            code: "OK";
+            /** @example Success */
+            message: string;
+            data: {
+                problem: components["schemas"]["AssessmentProblem"];
+                /** @description Java 参考解法（class Solution），只在生成结果里返回，不随题目详情暴露。 */
+                referenceCode: string;
+                testCases: {
+                    position: number;
+                    /** @description JSON 参数数组。 */
+                    input: string;
+                    /** @description 返回值的紧凑 JSON。 */
+                    expectedOutput: string;
+                    /** @description 是否为边界用例。 */
+                    boundary: boolean;
+                }[];
+            };
+        };
+        AiProblemGenerateRequest: {
+            /** @description 知识点，例如「动态规划」「链表」。 */
+            topic: string;
+            /** @enum {string} */
+            difficulty: "EASY" | "MEDIUM" | "HARD";
+            /** @description 题型，例如「数组」「字符串」；可省略。 */
+            category?: string | null;
         };
         CreateAssessmentProblemRequest: {
             title: string;

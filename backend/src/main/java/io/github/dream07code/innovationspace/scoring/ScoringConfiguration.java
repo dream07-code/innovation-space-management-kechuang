@@ -1,5 +1,7 @@
 package io.github.dream07code.innovationspace.scoring;
 
+import io.github.dream07code.innovationspace.problemgen.OpenAiCompatibleProblemGenerator;
+import io.github.dream07code.innovationspace.problemgen.ProblemGenerator;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +45,12 @@ public class ScoringConfiguration {
   @Bean
   OpenAiCompatibleTutorChatAi openAiCompatibleTutorChatAi(ScoringProperties properties) {
     return new OpenAiCompatibleTutorChatAi(properties);
+  }
+
+  /** AI 出题：同一套模型配置，只换出题提示词；生成的题必须自测通过才落库。 */
+  @Bean
+  ProblemGenerator problemGenerator(ScoringProperties properties) {
+    return new OpenAiCompatibleProblemGenerator(properties);
   }
 
   @Bean

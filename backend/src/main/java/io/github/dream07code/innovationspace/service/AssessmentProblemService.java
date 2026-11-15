@@ -16,7 +16,7 @@ public interface AssessmentProblemService {
   IdempotencyService.StoredResponse create( Map<String, Object> request, SessionPrincipal actor, String key);
   IdempotencyService.StoredResponse importProblems(Map<String, Object> request, SessionPrincipal actor, String key);
   Map<String, Object> get(long id, SessionPrincipal actor);
-  Map<String, Object> list(SessionPrincipal actor, int page, int size);
+  Map<String, Object> list(SessionPrincipal actor, int page, int size, boolean mine);
   Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor);
   Map<String, Object> testCases(long id, SessionPrincipal actor);
   Map<String, Object> practiceTestCases(long id, SessionPrincipal actor);

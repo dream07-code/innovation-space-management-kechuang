@@ -278,3 +278,13 @@ OJ 考核系统当前只发布 `planned` 契约，前端可先行开发考核、
 - 报告内容只接受本站图片域名下的 URL，外链一律 400；每篇最多 10 张，单张元数据上限与上传限制一致。
 - `anchor` 表示图片跟在哪个正文段落之后（日报是 learningContent/gains/problems，周报是 summary/achievements/reflections/nextWeekPlan），`end` 表示统一放文末。
 - 凭据只从环境变量 `COS_SECRET_ID` / `COS_SECRET_KEY` 注入；未配置时上传接口返回 503，其余功能不受影响。
+
+## 6. AI 出题（2026-11 新增）
+
+- `POST /api/v1/ai-generate-problem`（仅学生）：入参 `topic`/`difficulty`/`category`（category 可空），同步返回落库的题目、Java 参考解法与全部测试点。
+- 生成流程：模型产出 JSON → 结构校验（8 种类型白名单、参数数组、期望输出类型）→ 用参考解法走 `FunctionHarness` + `OJ adapter` 逐点真跑 → 全过才落库。自测失败会带着失败原因重生成一次，两次都不过返回 503，**不写任何题目数据**。
+- 落库状态直接 `PUBLISHED`，`source='AI'`、`owner_member_id` 指向出题学生；题目列表的 `mine=true` 只看本人 AI 生成的题（「我的题库」）。
+- 参考解法只在生成响应里返回，题目详情 `GET /assessment-problems/{id}` 不暴露，避免把答案挂在公开题面上。
+- 每人每 10 分钟最多 6 道；生成不落幂等表——一次模型调用塞进幂等事务会长时间锁住用户行，重复提交由前端禁用按钮与限流兜住。
+- 题目同时写入 `assessment_problem_assessment_test_case` 与 `assessment_problem_practice_test_case`，练习与正式考核判题口径一致。
+- 生成一道题实测约 60-80 秒（模型出题 + 7 个测试点各编译执行一次），属于同步长请求，前端需要放宽单次超时。
