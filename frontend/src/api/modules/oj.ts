@@ -226,10 +226,13 @@ export async function createAssessmentSubmission(
 }
 
 export interface AssessmentSubmissionListQuery {
+  page?: number
+  size?: number
   assessmentId?: string
   problemId?: string
   memberId?: string
   status?: AssessmentSubmission['status']
+  language?: string
 }
 
 /** 学生调用时服务端强制只返回本人提交。 */

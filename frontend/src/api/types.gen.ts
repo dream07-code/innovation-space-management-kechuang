@@ -1699,10 +1699,22 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 查询提交记录 */
+        /**
+         * 查询提交记录
+         * @description 按提交时间倒序（同一时间按 id 倒序）分页返回；学生只返回本人提交。
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                    size?: number;
+                    assessmentId?: string;
+                    problemId?: string;
+                    /** @description 仅管理员与负责人可用；学生始终只有本人数据。 */
+                    memberId?: string;
+                    status?: "RECEIVED" | "JUDGING" | "JUDGED" | "FAILED" | "NEEDS_REVIEW";
+                    language?: "java" | "python" | "cpp" | "javascript" | "go" | "rust";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

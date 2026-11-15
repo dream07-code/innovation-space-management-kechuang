@@ -42,9 +42,11 @@ public class AssessmentSubmissionController {
       @RequestParam(required = false) String assessmentId,
       @RequestParam(required = false) String problemId,
       @RequestParam(required = false) String memberId,
-      @RequestParam(required = false) String status) {
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String language) {
     return ApiResponse.success(
-        service.list(MemberController.actor(), page, size, assessmentId, problemId, memberId, status));
+        service.list(
+            MemberController.actor(), page, size, assessmentId, problemId, memberId, status, language));
   }
 
   @GetMapping("/assessment-submissions/{submissionId}")

@@ -125,8 +125,10 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
       String assessmentValue,
       String problemValue,
       String memberValue,
-      String status) {
+      String status,
+      String language) {
     if (page < 1 || size < 1 || size > 200) throw bad();
+    if (language != null && !LANGUAGES.contains(language)) throw bad();
     Long assessmentId = assessmentValue == null ? null : parseId(assessmentValue);
     Long problemId = problemValue == null ? null : parseId(problemValue);
     Long memberId = memberValue == null ? null : parseId(memberValue);
@@ -161,6 +163,10 @@ public class AssessmentSubmissionServiceImpl implements AssessmentSubmissionServ
     if (status != null) {
       where.append(" AND s.status=?");
       args.add(status);
+    }
+    if (language != null) {
+      where.append(" AND s.language=?");
+      args.add(language);
     }
     String from = " FROM assessment_submission s JOIN assessment a ON a.id=s.assessment_id" + where;
     List<Long> ids =

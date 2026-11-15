@@ -184,7 +184,9 @@ describe('ProblemListView', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="problem-pager"]').text()).toContain('32')
-    await wrapper.get('[data-test="problem-pager"]').findAll('.el-pager li')[1].trigger('click')
+    const secondPage = wrapper.get('[data-test="problem-pager"]').findAll('.el-pager li')[1]
+    expect(secondPage).toBeDefined()
+    await secondPage!.trigger('click')
     await flushPromises()
 
     expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({ page: 2, size: 20 })

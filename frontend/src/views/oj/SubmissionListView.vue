@@ -5,7 +5,7 @@
  * 学生只看到本人提交，方向负责人只看到所辖方向，管理员可看全量。
  * 列表只展示 codeHash 安全摘要，不回显代码正文。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { DataAnalysis, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -22,6 +22,7 @@ import {
   submissionStatusMeta,
   verdictMeta,
 } from '@/components/ojMeta'
+import type { AssessmentSubmissionListQuery } from '@/api/modules/oj'
 import type {
   Assessment,
   AssessmentProblem,
@@ -38,25 +39,29 @@ const problems = ref<AssessmentProblem[]>([])
 const loading = ref(false)
 const status = ref<AssessmentSubmissionStatus | ''>('')
 const language = ref('')
+const page = ref(1)
+const PAGE_SIZE = 20
+const total = ref(0)
 
 const assessmentNames = computed(() => new Map(assessments.value.map((item) => [item.id, item.title])))
 const problemNames = computed(() => new Map(problems.value.map((item) => [item.id, item.title])))
-const items = computed(() =>
-  (data.value?.items ?? []).filter((item) => {
-    if (status.value && item.status !== status.value) return false
-    return !language.value || item.language === language.value
-  }),
-)
+/** 分页与筛选都在服务端，页面直接展示当前页，顺序由后端按提交时间倒序保证。 */
+const items = computed(() => data.value?.items ?? [])
 
 async function load(): Promise<void> {
   loading.value = true
   try {
+    const query: AssessmentSubmissionListQuery = { page: page.value, size: PAGE_SIZE }
+    if (status.value) query.status = status.value
+    if (language.value) query.language = language.value
     const [submissionPage, assessmentPage, problemPage] = await Promise.all([
-      listAssessmentSubmissions(),
+      listAssessmentSubmissions(query),
       listAssessments(),
-      listAssessmentProblems(),
+      // 题目名映射要覆盖全库，否则第二页之后的题只能显示 id。
+      listAssessmentProblems({ page: 1, size: 200 }),
     ])
     data.value = submissionPage
+    total.value = submissionPage.total ?? submissionPage.items.length
     assessments.value = assessmentPage.items
     problems.value = problemPage.items
   } catch (error) {
@@ -65,6 +70,20 @@ async function load(): Promise<void> {
     loading.value = false
   }
 }
+
+function reloadFromFirstPage(): void {
+  page.value = 1
+  void load()
+}
+
+function changePage(next: number): void {
+  page.value = next
+  void load()
+}
+
+watch([status, language], () => {
+  reloadFromFirstPage()
+})
 
 function goDetail(row: AssessmentSubmission): void {
   void router.push({ name: 'oj-submission-detail', params: { submissionId: row.id } })
@@ -152,6 +171,18 @@ onMounted(load)
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="page"
+        data-test="submission-pager"
+        layout="total, prev, pager, next, jumper"
+        :page-size="PAGE_SIZE"
+        :total="total"
+        :background="true"
+        @current-change="changePage"
+      />
+    </div>
   </el-card>
 </template>
 
@@ -174,5 +205,11 @@ onMounted(load)
 .member-cell__meta {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>
