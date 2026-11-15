@@ -3217,6 +3217,83 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateOjPracticeRunRequest'
 
+  /api/v1/mistake-book:
+    get:
+      tags:
+      - 错题本
+      summary: 我的错题本（仅学生）
+      description: 汇总本人的正式提交与题库练习，每道题只保留最近一次尝试；最近一次已通过则不算错题。按上次尝试时间倒序。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeBookResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/mistake-book/{problemId}/cause:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags:
+      - 错题本
+      summary: 读取该题最近一次做错的 AI 错因（仅学生）
+      description: 用最近一次做错的代码与判题结论生成一句话错因，按尝试缓存；模型不可用时返回 available=false 与原因，不返回占位结论。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功；available=false 时 error 说明原因。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeCauseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /api/v1/mistake-book/{problemId}/last-code:
+    parameters:
+    - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags:
+      - 错题本
+      summary: 读取该题最近一次做错的代码（仅学生）
+      description: 供错题本「重做」回填编辑器；历史练习记录没有保存代码时 available=false。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeLastCodeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/assessment-problems/{problemId}:
     parameters:
     - $ref: '#/components/parameters/ProblemId'
@@ -10101,3 +10178,59 @@ components:
             publishedAt: {type: string, format: date-time}
             publisher: {type: string}
             settled: {type: boolean}
+    MistakeBookResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            total: {type: integer}
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  problemId: {type: string}
+                  title: {type: string}
+                  difficulty: {type: string, enum: [EASY, MEDIUM, HARD]}
+                  tags: {type: array, items: {type: string}}
+                  source:
+                    type: string
+                    enum: [SUBMISSION, PRACTICE]
+                    description: 错题来自正式考核提交还是题库练习；练习没有考核与成绩。
+                  submissionId: {type: string, nullable: true}
+                  assessmentId: {type: string, nullable: true}
+                  attemptId: {type: string, nullable: true}
+                  language: {type: string}
+                  verdict: {type: string}
+                  passedTestCases: {type: integer}
+                  totalTestCases: {type: integer}
+                  safeError: {type: string, nullable: true}
+                  lastSubmittedAt: {type: string, format: date-time}
+    MistakeCauseResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            available: {type: boolean}
+            cause: {type: string, nullable: true, description: 一句话错因，来自 AI 批改}
+            model: {type: string, nullable: true}
+            cached: {type: boolean}
+            error: {type: string, nullable: true, description: available=false 时的原因}
+    MistakeLastCodeResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            available: {type: boolean}
+            source: {type: string, enum: [SUBMISSION, PRACTICE]}
+            language: {type: string}
+            code: {type: string}

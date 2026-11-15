@@ -40,6 +40,7 @@ const OJ_MEMBER_GROUP: MenuGroup = {
   items: [
     { label: '考核列表', path: '/oj/assessments', icon: 'medal' },
     { label: '题库', path: '/oj/problems', icon: 'list' },
+    { label: '错题本', path: '/oj/mistakes', icon: 'audit' },
     { label: '提交记录', path: '/oj/submissions', icon: 'document' },
   ],
 }

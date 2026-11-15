@@ -18,6 +18,7 @@ import {
   getAssessmentProblem,
   getAssessmentSubmission,
   getAssessmentSubmissionCode,
+  getMistakeLastCode,
   getPracticeTestCases,
   listAssessmentSubmissions,
   runPractice,
@@ -47,6 +48,8 @@ const problemId = computed(() => route.params.problemId as string)
 const restoreSubmissionId = computed(() =>
   typeof route.query?.restore === 'string' ? route.query.restore : '',
 )
+/** 错题本点「重做」进来：回填上次做错的代码。 */
+const retryMode = computed(() => route.query?.retry === '1')
 const assessment = ref<Assessment | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
 const practiceTestCases = ref<AssessmentProblemTestCase[]>([])
@@ -135,6 +138,28 @@ async function restoreCode(submissionId: string): Promise<boolean> {
   }
 }
 
+/**
+ * 错题本「重做」：按题目取上次做错时提交的代码。
+ *
+ * 服务端只按题目返回最近一次做错记录（正式提交优先读提交代码，练习读练习记录），
+ * 语言不在本题允许范围内时放弃回填，保持起始框架。
+ */
+async function restoreFromMistake(): Promise<boolean> {
+  try {
+    const last = await getMistakeLastCode(problemId.value)
+    if (!last.available || !last.code?.trim()) return false
+    const savedLanguage = last.language as AssessmentLanguage
+    if (!allowedLanguages.value.includes(savedLanguage)) return false
+    language.value = savedLanguage
+    code.value = last.code
+    codeByLanguage.value[savedLanguage] = last.code
+    restoredPrevious.value = true
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
@@ -156,13 +181,15 @@ async function load(): Promise<void> {
     language.value = allowedLanguages.value[0] ?? 'python'
     code.value = starterFor(language.value)
     codeByLanguage.value[language.value] = code.value
+    // 错题本点「重做」：优先回填上次做错时提交的代码（练习与考核都支持）。
+    let restored = retryMode.value ? await restoreFromMistake() : false
     // 从批改报告点「重做本题」进来：回填那一份提交的代码。
-    const restoredFromReport = restoreSubmissionId.value
-      ? await restoreCode(restoreSubmissionId.value)
-      : false
+    if (!restored && restoreSubmissionId.value) {
+      restored = await restoreCode(restoreSubmissionId.value)
+    }
     // 考核做题页：回填本人对该题最近一次提交的代码（语言跟随那次提交），
     // 让学生返回检查客观题后再进来能继续写。无提交或代码缺失时保持起始框架。
-    if (!restoredFromReport && assessmentId.value) {
+    if (!restored && assessmentId.value) {
       try {
         const page = await listAssessmentSubmissions({
           assessmentId: assessmentId.value,
@@ -356,7 +383,7 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', syncViewpor
         :closable="false"
         show-icon
         data-test="restored-notice"
-        title="已载入你上次提交的代码，可以继续编辑后重新提交。"
+        title="已载入你上次的代码，可以继续编辑后重新运行或提交。"
         class="restored-notice"
       />
     <template #header>

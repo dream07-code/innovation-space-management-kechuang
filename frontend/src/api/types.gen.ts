@@ -1200,6 +1200,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mistake-book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我的错题本（仅学生）
+         * @description 汇总本人的正式提交与题库练习，每道题只保留最近一次尝试；最近一次已通过则不算错题。按上次尝试时间倒序。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MistakeBookResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mistake-book/{problemId}/cause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取该题最近一次做错的 AI 错因（仅学生）
+         * @description 用最近一次做错的代码与判题结论生成一句话错因，按尝试缓存；模型不可用时返回 available=false 与原因，不返回占位结论。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功；available=false 时 error 说明原因。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MistakeCauseResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["Unavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mistake-book/{problemId}/last-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problemId: components["parameters"]["ProblemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取该题最近一次做错的代码（仅学生）
+         * @description 供错题本「重做」回填编辑器；历史练习记录没有保存代码时 available=false。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    problemId: components["parameters"]["ProblemId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MistakeLastCodeResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessment-problems/{problemId}": {
         parameters: {
             query?: never;
@@ -5600,6 +5736,62 @@ export interface components {
                 publishedAt?: string;
                 publisher?: string;
                 settled?: boolean;
+            };
+        };
+        MistakeBookResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                total?: number;
+                items?: {
+                    problemId?: string;
+                    title?: string;
+                    /** @enum {string} */
+                    difficulty?: "EASY" | "MEDIUM" | "HARD";
+                    tags?: string[];
+                    /**
+                     * @description 错题来自正式考核提交还是题库练习；练习没有考核与成绩。
+                     * @enum {string}
+                     */
+                    source?: "SUBMISSION" | "PRACTICE";
+                    submissionId?: string | null;
+                    assessmentId?: string | null;
+                    attemptId?: string | null;
+                    language?: string;
+                    verdict?: string;
+                    passedTestCases?: number;
+                    totalTestCases?: number;
+                    safeError?: string | null;
+                    /** Format: date-time */
+                    lastSubmittedAt?: string;
+                }[];
+            };
+        };
+        MistakeCauseResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                available?: boolean;
+                /** @description 一句话错因，来自 AI 批改 */
+                cause?: string | null;
+                model?: string | null;
+                cached?: boolean;
+                /** @description available=false 时的原因 */
+                error?: string | null;
+            };
+        };
+        MistakeLastCodeResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                available?: boolean;
+                /** @enum {string} */
+                source?: "SUBMISSION" | "PRACTICE";
+                language?: string;
+                code?: string;
             };
         };
     };

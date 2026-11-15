@@ -27,6 +27,9 @@ import type {
   CreateAssessmentRequest,
   CreateAssessmentReviewRequest,
   CreateAssessmentSubmissionRequest,
+  MistakeBook,
+  MistakeCause,
+  MistakeLastCode,
   PageData,
   PublishAssessmentResultsResponse,
   SubmissionReport,
@@ -40,6 +43,7 @@ const ASSESSMENTS = `${API_PREFIX}/assessments`
 const PROBLEMS = `${API_PREFIX}/assessment-problems`
 const SUBMISSIONS = `${API_PREFIX}/assessment-submissions`
 const AI_GENERATE_PROBLEM = `${API_PREFIX}/ai-generate-problem`
+const MISTAKE_BOOK = `${API_PREFIX}/mistake-book`
 
 /**
  * AI 出题的独立超时（3 分钟）。
@@ -334,4 +338,28 @@ export async function publishAssessmentResults(
     payload,
     { idempotencyKey },
   )
+}
+
+// ---------------------------------------------------------------------------
+// 错题本
+// ---------------------------------------------------------------------------
+
+/** 我的错题本：正式提交与题库练习合并，每题只保留最近一次尝试，时间倒序。 */
+export async function listMistakeBook(): Promise<MistakeBook> {
+  return get<MistakeBook>(MISTAKE_BOOK)
+}
+
+/**
+ * 该题最近一次做错的 AI 错因。
+ *
+ * 服务端要调模型（几秒到十几秒），因此由前端按行懒加载；模型不可用时返回
+ * available=false，页面展示判题结论，不渲染占位错因。
+ */
+export async function getMistakeCause(problemId: string): Promise<MistakeCause> {
+  return get<MistakeCause>(`${MISTAKE_BOOK}/${problemId}/cause`)
+}
+
+/** 该题上次做错时提交的代码，用于「重做」回填。 */
+export async function getMistakeLastCode(problemId: string): Promise<MistakeLastCode> {
+  return get<MistakeLastCode>(`${MISTAKE_BOOK}/${problemId}/last-code`)
 }

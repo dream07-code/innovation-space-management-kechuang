@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   listAssessmentSubmissions: vi.fn<(query?: unknown) => Promise<unknown>>(),
   getAssessmentSubmission: vi.fn<(id: string) => Promise<unknown>>(),
   getPracticeTestCases: vi.fn<(id: string) => Promise<unknown>>(),
+  getMistakeLastCode: vi.fn<(id: string) => Promise<unknown>>(),
   runPractice: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
   runTrial: vi.fn<(id: string, payload: unknown) => Promise<unknown>>(),
   createAssessmentSubmission: vi.fn<(id: string, payload: unknown, key: string) => Promise<unknown>>(),
@@ -51,6 +52,7 @@ vi.mock('@/api/modules/oj', () => ({
   listAssessmentSubmissions: mocks.listAssessmentSubmissions,
   getAssessmentSubmission: mocks.getAssessmentSubmission,
   getPracticeTestCases: mocks.getPracticeTestCases,
+  getMistakeLastCode: mocks.getMistakeLastCode,
   runPractice: mocks.runPractice,
   runTrial: mocks.runTrial,
   createAssessmentSubmission: mocks.createAssessmentSubmission,
@@ -64,6 +66,7 @@ beforeEach(() => {
   mocks.listAssessmentSubmissions.mockReset().mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
   mocks.getAssessmentSubmissionCode.mockReset()
   mocks.getAssessmentSubmission.mockReset()
+  mocks.getMistakeLastCode.mockReset()
 })
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: routeParams, query: routeQuery }),
@@ -71,6 +74,44 @@ vi.mock('vue-router', () => ({
 }))
 
 describe('CodeSubmitView 练习模式', () => {
+  it('错题本「重做」带回上次练习的代码', async () => {
+    routeQuery = { retry: '1' }
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '统计质数个数',
+      summary: '摘要',
+      description: '题面',
+      inputFormat: '输入',
+      outputFormat: '输出',
+      examples: [],
+      difficulty: 'MEDIUM',
+      tags: ['数学'],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['python'],
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-14T00:00:00+08:00',
+      updatedAt: '2026-10-14T00:00:00+08:00',
+    })
+    mocks.getPracticeTestCases.mockResolvedValue({ practiceTestCases: [] })
+    mocks.getMistakeLastCode.mockResolvedValue({
+      available: true,
+      source: 'PRACTICE',
+      language: 'python',
+      code: 'def count(n):\n    return 0',
+    })
+
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(mocks.getMistakeLastCode).toHaveBeenCalledWith('9101')
+    expect((wrapper.get('[data-test="code-editor"]').element as HTMLTextAreaElement).value).toBe(
+      'def count(n):\n    return 0',
+    )
+    expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(true)
+  })
+
   it('展示练习测试点并运行安全练习结果', async () => {
     mocks.getAssessmentProblem.mockResolvedValue({
       id: '9101',

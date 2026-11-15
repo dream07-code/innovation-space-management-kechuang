@@ -178,7 +178,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       return trialResult(id, language, code);
     }
     var result = judgeWorker.practice(id, language, code);
-    recordPracticeAttempt(id, actor.memberId(), language, result);
+    recordPracticeAttempt(id, actor.memberId(), language, code, result);
     var cases = practiceCases;
     var details = new ArrayList<Map<String, Object>>();
     for (var testCaseResult : result.testCaseResults()) {
@@ -208,20 +208,26 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   }
 
   /**
-   * 记一条练习运行，供学习画像统计活动指标（提交数、做题数、通过率）。
+   * 记一条练习运行，供学习画像统计活动指标（提交数、做题数、通过率），
+   * 同时留下代码供错题本「重做」回填。
    *
-   * <p>练习本身不产生提交号、不产生成绩，所以这里只留判题结论；写失败也只记日志，
+   * <p>练习本身不产生提交号、不产生成绩；写失败也只记日志，
    * 不回滚判题结果——学生已经拿到判题输出了，不该因为统计写不进去而报错。
    */
   private void recordPracticeAttempt(
-      long problemId, long memberId, String language, OjJudgeResult result) {
+      long problemId,
+      long memberId,
+      String language,
+      String code,
+      OjJudgeResult result) {
     try {
       jdbc.update(
-          "INSERT INTO problem_practice_attempt(problem_id,member_id,language,verdict,"
-              + " passed_test_cases,total_test_cases,created_at) VALUES(?,?,?,?,?,?,?)",
+          "INSERT INTO problem_practice_attempt(problem_id,member_id,language,code,verdict,"
+              + " passed_test_cases,total_test_cases,created_at) VALUES(?,?,?,?,?,?,?,?)",
           problemId,
           memberId,
           language,
+          code,
           result.verdict().name(),
           result.passedTestCases(),
           result.totalTestCases(),

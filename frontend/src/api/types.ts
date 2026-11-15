@@ -155,8 +155,7 @@ export type AssessmentProblemTestCases = AssessmentProblemTestCasesResponse['dat
 export type AssessmentProblemPracticeTestCasesResponse = Schemas['AssessmentProblemPracticeTestCasesResponse']
 export type AssessmentProblemPracticeTestCases = AssessmentProblemPracticeTestCasesResponse['data']
 /** AI 出题请求：知识点 + 难度（+ 可选题型）。 */
-export type AiProblemGenerateRequest = Schemas['AiProblemGenerateRequest']
-/**
+export type AiProblemGenerateRequest = Schemas['AiProblemGenerateRequest']/**
  * AI 出题结果：落库后的题目 + 参考解法 + 已跑通的测试点。
  *
  * 同步长请求（实测约 70 秒），调用方必须把超时放宽到分钟级。
@@ -164,6 +163,16 @@ export type AiProblemGenerateRequest = Schemas['AiProblemGenerateRequest']
 export type AiProblemGeneration =
   Schemas['AiProblemGenerationResponse']['data']
 export type AiProblemTestCase = AiProblemGeneration['testCases'][number]
+
+/** 错题本一行：正式提交或题库练习的最近一次做错记录。 */
+export type MistakeBookItem = NonNullable<
+  NonNullable<Schemas['MistakeBookResponse']['data']>['items']
+>[number]
+export type MistakeBook = NonNullable<Schemas['MistakeBookResponse']['data']>
+/** AI 错因：available=false 时用 error 展示原因，不渲染占位结论。 */
+export type MistakeCause = NonNullable<Schemas['MistakeCauseResponse']['data']>
+/** 上次做错时提交的代码，供「重做」回填编辑器。 */
+export type MistakeLastCode = NonNullable<Schemas['MistakeLastCodeResponse']['data']>
 export type CreateOjPracticeRunRequest = Schemas['CreateOjPracticeRunRequest']
 export type OjPracticeTestCaseResult = Schemas['OjPracticeTestCaseResult']
 export type OjPracticeRunResult = Schemas['OjPracticeRunResult']

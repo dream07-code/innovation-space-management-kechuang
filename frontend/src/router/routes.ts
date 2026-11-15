@@ -182,6 +182,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { roles: ['STUDENT'], title: '力扣 Top 100' },
       },
       {
+        path: 'mistakes',
+        name: 'oj-mistakes',
+        component: () => import('@/views/oj/MistakeBookView.vue'),
+        meta: { roles: ['STUDENT'], title: '错题本' },
+      },
+      {
         path: 'problems/new',
         name: 'oj-problem-new',
         component: () => import('@/views/oj/ProblemEditView.vue'),
