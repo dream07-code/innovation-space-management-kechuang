@@ -21,8 +21,11 @@ public class AssessmentProblemController {
   public ApiResponse<Map<String, Object>> list(
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int size,
-      @RequestParam(defaultValue = "false") boolean mine) {
-    return ApiResponse.success(service.list(actor(), page, size, mine));
+      @RequestParam(defaultValue = "false") boolean mine,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String difficulty) {
+    return ApiResponse.success(service.list(actor(), page, size, mine, keyword, status, difficulty));
   }
 
   @PostMapping

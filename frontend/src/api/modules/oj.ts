@@ -104,6 +104,11 @@ export interface AssessmentProblemListQuery {
   size?: number
   /** 只看本人 AI 生成的题目；学生专用。 */
   mine?: boolean
+  /** 搜索词，匹配标题、摘要、标签与题面（服务端全库搜索）。 */
+  keyword?: string
+  /** 状态筛选；仅管理员与负责人可用，学生侧固定只看已发布。 */
+  status?: string
+  difficulty?: string
 }
 
 export async function listAssessmentProblems(

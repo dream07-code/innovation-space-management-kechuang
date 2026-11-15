@@ -904,6 +904,12 @@ export interface paths {
                     size?: number;
                     /** @description 只看本人 AI 生成的题；需要账号绑定成员档案。 */
                     mine?: boolean;
+                    /** @description 搜索词，匹配标题、摘要、标签与题面；作用于全库，不是当前页。 */
+                    keyword?: string;
+                    /** @description 状态筛选，仅管理员与负责人有效；学生侧固定只看已发布。 */
+                    status?: "DRAFT" | "PUBLISHED" | "RETIRED";
+                    /** @description 难度筛选。 */
+                    difficulty?: "EASY" | "MEDIUM" | "HARD";
                 };
                 header?: never;
                 path?: never;

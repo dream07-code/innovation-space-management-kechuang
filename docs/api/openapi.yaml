@@ -2978,6 +2978,18 @@ paths:
         in: query
         description: 只看本人 AI 生成的题；需要账号绑定成员档案。
         schema: {type: boolean, default: false}
+      - name: keyword
+        in: query
+        description: 搜索词，匹配标题、摘要、标签与题面；作用于全库，不是当前页。
+        schema: {type: string, maxLength: 60}
+      - name: status
+        in: query
+        description: 状态筛选，仅管理员与负责人有效；学生侧固定只看已发布。
+        schema: {type: string, enum: [DRAFT, PUBLISHED, RETIRED]}
+      - name: difficulty
+        in: query
+        description: 难度筛选。
+        schema: {type: string, enum: [EASY, MEDIUM, HARD]}
       responses:
         '200':
           description: 成功。

@@ -10,7 +10,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Delete, Edit, MagicStick, Plus, Trophy, Upload, View } from '@element-plus/icons-vue'
+import { Delete, Edit, MagicStick, Plus, Search, Trophy, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
@@ -27,6 +27,7 @@ import {
 } from '@/components/ojMeta'
 import { useAuthStore } from '@/stores/auth'
 import type { AssessmentProblem, PageData } from '@/api/types'
+import type { AssessmentProblemListQuery } from '@/api/modules/oj'
 import { newIdempotencyKey } from '@/api/idempotency'
 import AiProblemDialog from '@/views/oj/AiProblemDialog.vue'
 
@@ -38,6 +39,11 @@ const loading = ref(false)
 const status = ref('')
 const difficulty = ref('')
 const keyword = ref('')
+/** 已提交给服务端的搜索词，避免边输边搜把分页冲掉。 */
+const appliedKeyword = ref('')
+const page = ref(1)
+const PAGE_SIZE = 20
+const total = ref(0)
 const mineOnly = ref(false)
 const aiDialogVisible = ref(false)
 const importInput = ref<HTMLInputElement>()
@@ -49,22 +55,20 @@ const importApiErrors = ref<Array<{ index: number; code: string }>>([])
 
 const canManage = computed(() => auth.isAdmin || auth.isLeader)
 const canUseAi = computed(() => auth.isStudent)
-const items = computed(() =>
-  (data.value?.items ?? []).filter((problem) => {
-    if (status.value && problem.status !== status.value) return false
-    if (difficulty.value && problem.difficulty !== difficulty.value) return false
-    const keywordValue = keyword.value.trim().toLowerCase()
-    if (!keywordValue) return true
-    return `${problem.title} ${problem.summary} ${problem.tags.join(' ')}`.toLowerCase().includes(keywordValue)
-  }),
-)
+/** 分页与筛选都在服务端完成，这里直接展示当前页。 */
+const items = computed(() => data.value?.items ?? [])
 
 async function load(): Promise<void> {
   loading.value = true
   try {
-    data.value = await listAssessmentProblems(
-      canUseAi.value && mineOnly.value ? { mine: true } : {},
-    )
+    const query: AssessmentProblemListQuery = { page: page.value, size: PAGE_SIZE }
+    if (canUseAi.value && mineOnly.value) query.mine = true
+    if (canManage.value && status.value) query.status = status.value
+    if (difficulty.value) query.difficulty = difficulty.value
+    if (appliedKeyword.value) query.keyword = appliedKeyword.value
+    const result = await listAssessmentProblems(query)
+    data.value = result
+    total.value = result.total ?? result.items.length
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
@@ -72,9 +76,30 @@ async function load(): Promise<void> {
   }
 }
 
-/** 「我的题库」是服务端过滤，切换后必须重新拉取。 */
-watch(mineOnly, () => {
+/** 条件变化一律回到第一页，否则会停在一个空页上。 */
+function reloadFromFirstPage(): void {
+  page.value = 1
   void load()
+}
+
+function search(): void {
+  appliedKeyword.value = keyword.value.trim()
+  reloadFromFirstPage()
+}
+
+function clearSearch(): void {
+  keyword.value = ''
+  appliedKeyword.value = ''
+  reloadFromFirstPage()
+}
+
+function changePage(next: number): void {
+  page.value = next
+  void load()
+}
+
+watch([status, difficulty, mineOnly], () => {
+  reloadFromFirstPage()
 })
 
 function goDetail(row: AssessmentProblem): void {
@@ -213,7 +238,7 @@ onMounted(load)
     />
 
     <el-form inline class="page__filter">
-      <el-form-item label="状态">
+      <el-form-item v-if="canManage" label="状态">
         <el-select v-model="status" clearable placeholder="全部" style="width: 130px">
           <el-option label="草稿" value="DRAFT" />
           <el-option label="已发布" value="PUBLISHED" />
@@ -228,7 +253,18 @@ onMounted(load)
         </el-select>
       </el-form-item>
       <el-form-item label="搜索">
-        <el-input v-model="keyword" placeholder="标题/摘要/标签" clearable style="width: 220px" />
+        <el-input
+          v-model="keyword"
+          data-test="problem-keyword"
+          placeholder="标题/摘要/标签/题面，回车搜索"
+          clearable
+          style="width: 240px"
+          @keyup.enter="search"
+          @clear="clearSearch"
+        />
+      </el-form-item>
+      <el-form-item>
+        <el-button data-test="problem-search" :icon="Search" @click="search">搜索</el-button>
       </el-form-item>
       <el-form-item v-if="canUseAi">
         <el-radio-group v-model="mineOnly" data-test="mine-toggle">
@@ -322,6 +358,18 @@ onMounted(load)
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="page"
+        data-test="problem-pager"
+        layout="total, prev, pager, next, jumper"
+        :page-size="PAGE_SIZE"
+        :total="total"
+        :background="true"
+        @current-change="changePage"
+      />
+    </div>
 
     <AiProblemDialog v-model="aiDialogVisible" @generated="handleGenerated" />
 
@@ -426,5 +474,11 @@ onMounted(load)
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

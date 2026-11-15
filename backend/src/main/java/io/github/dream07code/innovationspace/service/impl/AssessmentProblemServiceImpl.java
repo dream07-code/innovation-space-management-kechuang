@@ -21,6 +21,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -295,40 +296,96 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     }
   }
 
-  public Map<String, Object> list(SessionPrincipal actor, int page, int size, boolean mine) {
+  public Map<String, Object> list(
+      SessionPrincipal actor,
+      int page,
+      int size,
+      boolean mine,
+      String keyword,
+      String status,
+      String difficulty) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     if (mine && actor.memberId() == null)
       throw new ApiException(400, ErrorCode.INVALID_REQUEST, "mine requires a member");
+
+    // 过滤条件全部下推到 SQL：前端分页后，搜索与筛选必须作用于全库，
+    // 否则只能在当前 20 条里搜，翻页就丢结果。
+    var conditions = new ArrayList<String>();
+    var args = new ArrayList<Object>();
     if ("STUDENT".equals(actor.role())) {
       // 学生看公共题 + 本人 AI 生成的专属题；带 mine=true 时收窄到只有自己生成的。
-      // AI 题同样是 PUBLISHED，若不按 owner_member_id 过滤，别人生成的专属题会混进列表。
-      String where =
-          mine
-              ? " WHERE status='PUBLISHED' AND owner_member_id=?"
-              : " WHERE status='PUBLISHED' AND (owner_member_id IS NULL OR owner_member_id=?)";
-      Object[] args = {actor.memberId()};
-      var ids =
-          jdbc.queryForList(
-              "SELECT id FROM assessment_problem" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
-              Long.class,
-              appendArgs(args, size, (page - 1) * size));
-      var items = new ArrayList<Map<String, Object>>();
-      for (Long id : ids) items.add(response(id));
-      Long total =
-          jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem" + where, Long.class, args);
-      return Map.of("items", items, "page", page, "size", size, "total", total);
+      conditions.add("status='PUBLISHED'");
+      if (mine) {
+        conditions.add("owner_member_id=?");
+      } else {
+        conditions.add("(owner_member_id IS NULL OR owner_member_id=?)");
+      }
+      args.add(actor.memberId());
+    } else {
+      requireManage(actor);
+      if (status != null && !status.isBlank()) {
+        conditions.add("status=?");
+        args.add(status);
+      }
     }
-    requireManage(actor);
+    if (difficulty != null && !difficulty.isBlank()) {
+      conditions.add("difficulty=?");
+      args.add(difficulty);
+    }
+
+    var terms = keyword == null || keyword.isBlank() ? List.<String>of() : List.of(keyword.trim());
+    var pageResult = queryProblems(conditions, args, terms, page, size);
+    // 题型名与题库标题不一致时（如学生搜「计数质数」而题目叫「统计质数个数」），
+    // 整词搜不到就退回二元组模糊匹配，保证搜全库而不是只搜到同名词。
+    if (pageResult.total() == 0 && terms.size() == 1 && terms.getFirst().length() >= 3) {
+      pageResult = queryProblems(conditions, args, bigrams(terms.getFirst()), page, size);
+    }
+
+    var items = new ArrayList<Map<String, Object>>();
+    for (Long id : pageResult.ids()) items.add(response(id));
+    return Map.of("items", items, "page", page, "size", size, "total", pageResult.total());
+  }
+
+  private record ProblemPage(List<Long> ids, long total) {}
+
+  /** 按条件分页查题目 id 与总数；terms 非空时每个词匹配标题、摘要、标签与题面，词之间取并集。 */
+  private ProblemPage queryProblems(
+      List<String> conditions,
+      List<Object> baseArgs,
+      List<String> terms,
+      int page,
+      int size) {
+    var where = new StringBuilder(" WHERE ");
+    var args = new ArrayList<Object>(baseArgs);
+    where.append(String.join(" AND ", conditions));
+    if (!terms.isEmpty()) {
+      var groups = new ArrayList<String>();
+      for (String term : terms) {
+        groups.add("(title LIKE ? OR summary LIKE ? OR tags LIKE ? OR description LIKE ?)");
+        var pattern = "%" + term + "%";
+        args.add(pattern);
+        args.add(pattern);
+        args.add(pattern);
+        args.add(pattern);
+      }
+      where.append(" AND (").append(String.join(" OR ", groups)).append(")");
+    }
     var ids =
         jdbc.queryForList(
-            "SELECT id FROM assessment_problem ORDER BY id DESC LIMIT ? OFFSET ?",
+            "SELECT id FROM assessment_problem" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
             Long.class,
-            size,
-            (page - 1) * size);
-    var items = new ArrayList<Map<String, Object>>();
-    for (Long id : ids) items.add(response(id));
-    Long total = jdbc.queryForObject("SELECT COUNT(*) FROM assessment_problem", Long.class);
-    return Map.of("items", items, "page", page, "size", size, "total", total);
+            appendArgs(args.toArray(), size, (page - 1) * size));
+    Long total =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM assessment_problem" + where, Long.class, args.toArray());
+    return new ProblemPage(ids, total == null ? 0 : total);
+  }
+
+  /** 「计数质数」这类多字词拆成二元组，任一命中即可。 */
+  private static List<String> bigrams(String keyword) {
+    var grams = new LinkedHashSet<String>();
+    for (int i = 0; i + 2 <= keyword.length(); i++) grams.add(keyword.substring(i, i + 2));
+    return List.copyOf(grams);
   }
 
   public Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor) {

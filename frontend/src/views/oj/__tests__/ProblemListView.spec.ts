@@ -150,14 +150,44 @@ describe('ProblemListView', () => {
     const wrapper = mount(ProblemListView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
-    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({})
+    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({ page: 1, size: 20 })
     const radios = wrapper.findAll('[data-test="mine-toggle"] input[type="radio"]')
     const mineRadio = radios[1]
     expect(mineRadio).toBeDefined()
     await mineRadio!.setValue(true)
     await flushPromises()
 
-    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({ mine: true })
+    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({ page: 1, size: 20, mine: true })
+  })
+
+  it('搜索走服务端全库查询，并回到第一页', async () => {
+    mocks.auth.isAdmin = false
+    mocks.auth.isStudent = true
+    mocks.listAssessmentProblems.mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
+    const wrapper = mount(ProblemListView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    await wrapper.get('[data-test="problem-keyword"]').setValue(' 两数之和 ')
+    await wrapper.get('[data-test="problem-search"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 20,
+      keyword: '两数之和',
+    })
+  })
+
+  it('底部按总数分页，翻页请求对应页码', async () => {
+    mocks.listAssessmentProblems.mockResolvedValue({ items: [draftProblem], page: 1, size: 20, total: 32 })
+    const wrapper = mount(ProblemListView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="problem-pager"]').text()).toContain('32')
+    await wrapper.get('[data-test="problem-pager"]').findAll('.el-pager li')[1].trigger('click')
+    await flushPromises()
+
+    expect(mocks.listAssessmentProblems).toHaveBeenLastCalledWith({ page: 2, size: 20 })
   })
 
   it('页头展示函数传裁判题提示', async () => {

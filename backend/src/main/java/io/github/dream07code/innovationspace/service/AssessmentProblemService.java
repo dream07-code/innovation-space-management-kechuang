@@ -16,7 +16,20 @@ public interface AssessmentProblemService {
   IdempotencyService.StoredResponse create( Map<String, Object> request, SessionPrincipal actor, String key);
   IdempotencyService.StoredResponse importProblems(Map<String, Object> request, SessionPrincipal actor, String key);
   Map<String, Object> get(long id, SessionPrincipal actor);
-  Map<String, Object> list(SessionPrincipal actor, int page, int size, boolean mine);
+  /**
+   * 题库分页查询。
+   *
+   * <p>keyword 会匹配标题、摘要、标签与题面；status/difficulty 由后台筛选使用，
+   * 学生侧状态固定为已发布。搜索与筛选都在 SQL 里完成，作用于全库。
+   */
+  Map<String, Object> list(
+      SessionPrincipal actor,
+      int page,
+      int size,
+      boolean mine,
+      String keyword,
+      String status,
+      String difficulty);
   Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor);
   Map<String, Object> testCases(long id, SessionPrincipal actor);
   Map<String, Object> practiceTestCases(long id, SessionPrincipal actor);
