@@ -64,6 +64,39 @@ class AssessmentManagementHttpIT {
   }
 
   @Test
+  void studentOnlySeesOwnAiGeneratedProblems() throws Exception {
+    jdbc.update(
+        """
+        INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,status,version,created_by,source,owner_member_id,created_at,updated_at)
+        VALUES('别人生成的专属题','AI 专属','略','无','整数','[]','EASY','["数组"]',1000,65536,'["java"]','PUBLISHED',1,12,'AI',12,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+        """);
+    Long aiProblemId =
+        jdbc.queryForObject(
+            "SELECT id FROM assessment_problem WHERE title='别人生成的专属题'", Long.class);
+
+    // 别的学生在公共列表里看不到它，按 id 直接访问也当不存在。
+    var list = send(studentToken, "GET", "/api/v1/assessment-problems?page=1&size=20", "", null);
+    assertEquals(200, list.statusCode());
+    assertEquals(0, HttpTestSupport.json(list).path("data").path("total").asInt());
+    assertEquals(
+        404,
+        send(studentToken, "GET", "/api/v1/assessment-problems/" + aiProblemId, "", null)
+            .statusCode());
+
+    // 归属学生自己能看到；mine=true 只返回自己生成的，并带 source=AI。
+    String ownerToken = sessions.issue(12).accessToken();
+    assertEquals(
+        200,
+        send(ownerToken, "GET", "/api/v1/assessment-problems/" + aiProblemId, "", null)
+            .statusCode());
+    var mine = send(ownerToken, "GET", "/api/v1/assessment-problems?page=1&size=20&mine=true", "", null);
+    assertEquals(200, mine.statusCode());
+    assertEquals(1, HttpTestSupport.json(mine).path("data").path("total").asInt());
+    assertEquals(
+        "AI", HttpTestSupport.json(mine).path("data").path("items").path(0).path("source").asText());
+  }
+
+  @Test
   void adminCreatesProblemAndAssessmentThenPublishesAndCloses() throws Exception {
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
         {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"无","outputFormat":"两个下标","examples":[{"input":"数组 [2,7,11,15] 与目标 9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"functionName":"twoSum","parameterTypes":["int[]","int"],"returnType":"int[]","assessmentTestCases":[{"input":"[[2,7,11,15],9]","expectedOutput":"[0,1]"},{"input":"[[3,3],6]","expectedOutput":"[0,1]"}],"practiceTestCases":[{"input":"[[1,2],3]","expectedOutput":"[0,1]"}]}

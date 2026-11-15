@@ -153,7 +153,8 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   public Map<String, Object> practiceTestCases(long id, SessionPrincipal actor) {
     requireStudent(actor);
     var row = row(id);
-    requirePublished(row);
+    // 练习入口同样只对本人可见：别拿 id 直接刷别人的 AI 专属题。
+    requireVisible(actor, row);
     return Map.of("practiceTestCases", readTestCases(id, "assessment_problem_practice_test_case"));
   }
 
@@ -161,7 +162,7 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       long id, Map<String, Object> request, SessionPrincipal actor) {
     requireStudent(actor);
     var row = row(id);
-    requirePublished(row);
+    requireVisible(actor, row);
     if (request == null) throw bad();
     // 只接受 language/code：多带字段直接拒绝，并指出是哪个字段。
     RequestFields.rejectUnknown(request, Set.of("language", "code"));
@@ -293,11 +294,13 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     if (mine && actor.memberId() == null)
       throw new ApiException(400, ErrorCode.INVALID_REQUEST, "mine requires a member");
     if ("STUDENT".equals(actor.role())) {
-      // 学生只看公开题；带 mine=true 时进一步收窄到自己 AI 生成的题。
-      String where = mine
-          ? " WHERE status='PUBLISHED' AND owner_member_id=?"
-          : " WHERE status='PUBLISHED'";
-      Object[] args = mine ? new Object[] {actor.memberId()} : new Object[0];
+      // 学生看公共题 + 本人 AI 生成的专属题；带 mine=true 时收窄到只有自己生成的。
+      // AI 题同样是 PUBLISHED，若不按 owner_member_id 过滤，别人生成的专属题会混进列表。
+      String where =
+          mine
+              ? " WHERE status='PUBLISHED' AND owner_member_id=?"
+              : " WHERE status='PUBLISHED' AND (owner_member_id IS NULL OR owner_member_id=?)";
+      Object[] args = {actor.memberId()};
       var ids =
           jdbc.queryForList(
               "SELECT id FROM assessment_problem" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
@@ -493,7 +496,12 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
   }
 
   private void requireVisible(SessionPrincipal actor, Map<String, Object> row) {
-    if ("STUDENT".equals(actor.role()) && !"PUBLISHED".equals(row.get("status")))
+    if (!"STUDENT".equals(actor.role())) return;
+    if (!"PUBLISHED".equals(row.get("status")))
+      throw new ApiException(404, ErrorCode.NOT_FOUND);
+    // 别人 AI 生成的专属题不对其他学生开放：列表已过滤，这里兜住按 id 直接访问。
+    Object owner = row.get("owner_member_id");
+    if (owner != null && !String.valueOf(owner).equals(String.valueOf(actor.memberId())))
       throw new ApiException(404, ErrorCode.NOT_FOUND);
   }
 
