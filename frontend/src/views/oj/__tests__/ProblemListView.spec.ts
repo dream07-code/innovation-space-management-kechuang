@@ -136,6 +136,7 @@ describe('ProblemListView', () => {
       topic: '二分查找',
       difficulty: 'MEDIUM',
       category: null,
+      requestId: expect.any(String),
     })
     expect(mocks.push).toHaveBeenCalledWith({
       name: 'oj-problem-detail',

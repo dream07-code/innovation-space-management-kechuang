@@ -1639,6 +1639,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai-generate-problem/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 取消正在进行的 AI 出题
+         * @description 只打取消标记，不中断已经在跑的模型调用；生成线程在重试前、写库前、写库后检查标记，命中则不落库（已落库立刻回滚）。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiProblemCancelRequest"];
+                };
+            };
+            responses: {
+                /** @description 成功；返回 cancelled=true。 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProblemCancelResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessments/{assessmentId}/submissions": {
         parameters: {
             query?: never;
@@ -4167,6 +4214,8 @@ export interface components {
             };
         };
         AiProblemGenerateRequest: {
+            /** @description 可选的本次请求 id；取消接口按它打标记，服务端写库前后都会检查。 */
+            requestId?: string;
             /** @description 知识点，例如「动态规划」「链表」。 */
             topic: string;
             /** @enum {string} */
@@ -5810,6 +5859,17 @@ export interface components {
                 source?: "SUBMISSION" | "PRACTICE";
                 language?: string;
                 code?: string;
+            };
+        };
+        AiProblemCancelRequest: {
+            requestId: string;
+        };
+        AiProblemCancelResponse: {
+            /** @enum {string} */
+            code?: "OK";
+            message?: string;
+            data?: {
+                cancelled?: boolean;
             };
         };
     };

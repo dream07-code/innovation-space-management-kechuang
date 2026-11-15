@@ -28,4 +28,15 @@ public class AiProblemController {
   public ApiResponse<Map<String, Object>> generate(@RequestBody Map<String, Object> request) {
     return ApiResponse.success(service.generate(request, MemberController.actor()));
   }
+
+  /**
+   * 取消正在进行的生成。
+   *
+   * <p>生成是同步长请求，前端点「取消」后先关弹窗再调这里：本接口只打标记，
+   * 生成线程在写库前看到标记就放弃，题库里不会多出题目。
+   */
+  @PostMapping("/ai-generate-problem/cancel")
+  public ApiResponse<Map<String, Object>> cancel(@RequestBody Map<String, Object> request) {
+    return ApiResponse.success(service.cancel(request, MemberController.actor()));
+  }
 }

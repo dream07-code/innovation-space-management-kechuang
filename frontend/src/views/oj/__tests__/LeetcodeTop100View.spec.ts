@@ -93,6 +93,7 @@ describe('LeetcodeTop100View', () => {
       topic: '双指针',
       difficulty: 'EASY',
       category: '数组',
+      requestId: expect.any(String),
     })
     expect(mocks.push).toHaveBeenCalledWith({
       name: 'oj-problem-detail',

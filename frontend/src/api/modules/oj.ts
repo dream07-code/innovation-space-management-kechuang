@@ -122,12 +122,26 @@ export async function listAssessmentProblems(
  *
  * 同步长请求且不做幂等表（避免长事务锁用户行），重复提交只能靠界面禁用按钮兜住；
  * 服务端另有每人 10 分钟 6 道的限流。因此这里不带 Idempotency-Key，并单独放宽超时。
+ *
+ * 传入 requestId 后可以配合 {@link cancelAiGeneration} 取消：服务端写库前后都会检查标记。
  */
 export async function generateAiProblem(
   payload: AiProblemGenerateRequest,
 ): Promise<AiProblemGeneration> {
   return postWithoutIdempotency<AiProblemGeneration>(AI_GENERATE_PROBLEM, payload, {
     timeout: AI_GENERATE_TIMEOUT_MS,
+  })
+}
+
+/**
+ * 取消一次正在进行的 AI 出题。
+ *
+ * 服务端只打标记、不中断已经在跑的模型调用；生成线程在重试前、写库前、写库后
+ * 检查标记，命中就不落库（已落库则立刻回滚），所以取消不会在题库里留下题目。
+ */
+export async function cancelAiGeneration(requestId: string): Promise<{ cancelled: boolean }> {
+  return postWithoutIdempotency<{ cancelled: boolean }>(`${AI_GENERATE_PROBLEM}/cancel`, {
+    requestId,
   })
 }
 

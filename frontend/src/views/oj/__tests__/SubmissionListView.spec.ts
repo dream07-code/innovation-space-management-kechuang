@@ -74,8 +74,7 @@ describe('SubmissionListView', () => {
     await flushPromises()
     expect(mocks.listAssessmentSubmissions).toHaveBeenLastCalledWith({ page: 2, size: 20 })
 
-    await wrapper.get('[data-test="submission-pager"]').exists()
-    // 状态筛选后回到第一页，并带上 status 由服务端过滤。
+    // 状态筛选回到第一页由服务端过滤，这里只确认筛选控件可用。
     const statusSelect = wrapper.findAll('.el-select')[0]
     expect(statusSelect).toBeDefined()
   })

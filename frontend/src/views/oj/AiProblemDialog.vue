@@ -3,19 +3,24 @@
  * AI 出题弹窗。
  *
  * 服务端在请求内完成「模型生成 → 参考解法逐点真跑自测 → 落库发布」，实测约 70 秒，
- * 因此这里做了三件事：
+ * 因此这里做了四件事：
  *   1. 请求超时单独放宽到 3 分钟（见 api/modules/oj.ts 的 AI_GENERATE_TIMEOUT_MS）；
- *   2. 生成期间按钮置灰 + loading，禁止重复点击（服务端限流每人 10 分钟 6 道）；
- *   3. 展示已等待秒数，避免长请求看起来像卡死。
+ *   2. 生成期间「生成」按钮置灰 + loading，禁止重复点击（服务端限流每人 10 分钟 6 道）；
+ *   3. 展示已等待秒数，避免长请求看起来像卡死；
+ *   4. 「取消」和右上角 × 随时可用：先调取消接口打标记再关弹窗，服务端在写库前后
+ *      检查标记，命中就不落库（已落库会立刻回滚），所以取消不会在题库里留题。
  *
- * 生成成功后由调用方决定跳转，本组件只负责 emit 新题目 id。
+ * 前提是请求本身不中断：取消后仍等这一次响应回来，万一是「标记到之前已经落库」，
+ * 再问学生保留还是删除，避免静默丢题或静默留题。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { MagicStick } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { generateAiProblem } from '@/api/modules/oj'
+import { cancelAiGeneration, deleteAssessmentProblem, generateAiProblem } from '@/api/modules/oj'
 import { describeError, toApiError, type ApiError } from '@/api/errors'
+import { newIdempotencyKey } from '@/api/idempotency'
+import type { AiProblemGeneration } from '@/api/types'
 
 const props = withDefaults(
   defineProps<{
@@ -44,6 +49,10 @@ const difficulty = ref<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM')
 const category = ref('')
 const generating = ref(false)
 const elapsedSeconds = ref(0)
+/** 本次生成的请求 id，取消时按它打标记。 */
+const requestId = ref('')
+/** 学生点了取消：之后的响应只用于判断「是否已落库」，不再提示成功。 */
+const cancelled = ref(false)
 
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
@@ -98,6 +107,8 @@ async function submit(): Promise<void> {
     ElMessage.warning('请先填写知识点')
     return
   }
+  requestId.value = crypto.randomUUID()
+  cancelled.value = false
   generating.value = true
   startElapsed()
   try {
@@ -105,23 +116,75 @@ async function submit(): Promise<void> {
       topic: trimmedTopic,
       difficulty: difficulty.value,
       category: category.value.trim() || null,
+      requestId: requestId.value,
     })
     stopElapsed()
+    // 标记打到服务端之前就已经落库：问一句保留还是删除，不静默处理。
+    if (cancelled.value) {
+      await askKeepGenerated(result)
+      return
+    }
     ElMessage.success(`已生成《${result.problem.title}》，${result.testCases.length} 个测试点全部自测通过`)
     visible.value = false
     emit('generated', result.problem.id)
   } catch (error) {
-    ElMessage.error(generationErrorMessage(toApiError(error)))
+    const apiError = toApiError(error)
+    // 取消后服务端按标记拒绝落库（409），属于预期结果，不弹错误。
+    if (!cancelled.value) ElMessage.error(generationErrorMessage(apiError))
   } finally {
     stopElapsed()
     generating.value = false
   }
 }
 
-/** 生成中不允许关闭：请求还在跑，关掉会丢掉刚落库的题目。 */
+/** 取消本次生成：先关弹窗，再给服务端打标记；题库里不会多出题目。 */
+function cancel(): void {
+  if (!generating.value) {
+    visible.value = false
+    return
+  }
+  cancelled.value = true
+  generating.value = false
+  stopElapsed()
+  visible.value = false
+  if (requestId.value) void cancelAiGeneration(requestId.value).catch(() => undefined)
+  ElMessage.info('已取消生成，本次不会保存题目')
+}
+
+/** 题目已经落库但学生点过取消：由学生决定保留还是删除。 */
+async function askKeepGenerated(result: AiProblemGeneration): Promise<void> {
+  const keep = await ElMessageBox.confirm(
+    `《${result.problem.title}》已经生成好了，要保留在题库里吗？`,
+    '题目已生成',
+    {
+      type: 'warning',
+      confirmButtonText: '保留',
+      cancelButtonText: '不保留，删除',
+    },
+  )
+    .then(() => true)
+    .catch(() => false)
+  if (keep) {
+    ElMessage.success('已保留，可在「我的题库」里查看')
+    emit('generated', result.problem.id)
+    return
+  }
+  try {
+    await deleteAssessmentProblem(
+      result.problem.id,
+      { version: result.problem.version },
+      newIdempotencyKey(),
+    )
+    ElMessage.info('已删除这次生成的题目')
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  }
+}
+
+/** × 也随时可以关：生成中关掉等价于点取消。 */
 function handleBeforeClose(done: () => void): void {
   if (generating.value) {
-    ElMessage.warning('题目正在生成，请等待完成后再关闭')
+    cancel()
     return
   }
   done()
@@ -175,11 +238,11 @@ function handleBeforeClose(done: () => void): void {
 
     <div v-if="generating" class="ai__progress" data-test="ai-progress">
       <el-icon class="is-loading"><MagicStick /></el-icon>
-      <span>正在生成并自测，已等待 {{ elapsedSeconds }} 秒，请勿关闭或刷新页面…</span>
+      <span>正在生成并自测，已等待 {{ elapsedSeconds }} 秒；点「取消」可放弃这次生成，不会存题。</span>
     </div>
 
     <template #footer>
-      <el-button :disabled="generating" @click="visible = false">取消</el-button>
+      <el-button data-test="ai-cancel" @click="cancel">取消</el-button>
       <el-button
         data-test="ai-submit"
         type="primary"

@@ -73,6 +73,7 @@ class AiProblemGenerationServiceImplTest {
             adapter,
             problems,
             rateLimit,
+            new io.github.dream07code.innovationspace.problemgen.AiProblemCancellationRegistry(),
             Clock.fixed(Instant.parse("2026-11-16T00:00:00Z"), ZoneOffset.UTC),
             manager);
   }

@@ -3549,6 +3549,37 @@ paths:
             schema:
               $ref: '#/components/schemas/AiProblemGenerateRequest'
 
+  /api/v1/ai-generate-problem/cancel:
+    post:
+      tags:
+      - AI出题
+      summary: 取消正在进行的 AI 出题
+      description: 只打取消标记，不中断已经在跑的模型调用；生成线程在重试前、写库前、写库后检查标记，命中则不落库（已落库立刻回滚）。
+      x-implementation-status: implemented
+      x-roles:
+      - STUDENT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiProblemCancelRequest'
+      responses:
+        '200':
+          description: 成功；返回 cancelled=true。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiProblemCancelResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/assessments/{assessmentId}/submissions:
     parameters:
     - $ref: '#/components/parameters/AssessmentId'
@@ -7406,6 +7437,10 @@ components:
       type: object
       required: [topic, difficulty]
       properties:
+        requestId:
+          type: string
+          maxLength: 64
+          description: 可选的本次请求 id；取消接口按它打标记，服务端写库前后都会检查。
         topic:
           type: string
           minLength: 1
@@ -10270,3 +10305,17 @@ components:
             source: {type: string, enum: [SUBMISSION, PRACTICE]}
             language: {type: string}
             code: {type: string}
+    AiProblemCancelRequest:
+      type: object
+      required: [requestId]
+      properties:
+        requestId: {type: string, maxLength: 64}
+    AiProblemCancelResponse:
+      type: object
+      properties:
+        code: {type: string, enum: [OK]}
+        message: {type: string}
+        data:
+          type: object
+          properties:
+            cancelled: {type: boolean}
