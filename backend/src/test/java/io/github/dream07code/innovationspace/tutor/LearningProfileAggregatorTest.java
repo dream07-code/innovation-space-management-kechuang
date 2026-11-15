@@ -94,14 +94,15 @@ class LearningProfileAggregatorTest {
   }
 
   @Test
-  void practiceOnlyHistoryCountsAsActivityButNotAsPublishedScore() {
-    // 只在题库里练过、从没参加过考核：活动指标要有数，均分必须仍然为空（练习不产生成绩）。
+  void practiceOnlyHistoryCountsAsActivityButNotAsSubmissionCount() {
+    // 只在题库里练过、从没参加过考核：做题数与通过率要有数，提交数必须是 0，
+    // 均分也必须仍然为空——练习既不是正式提交，也不产生成绩。
     var practiceOnly =
         List.of(
             new AttemptedProblem(
-                1L, "两数之和", "EASY", List.of("数组"), 2, false, NOW.minusSeconds(120)),
+                1L, "两数之和", "EASY", List.of("数组"), 0, false, NOW.minusSeconds(120)),
             new AttemptedProblem(
-                2L, "滑动窗口", "MEDIUM", List.of("数组", "滑动窗口"), 1, true, NOW.minusSeconds(60)));
+                2L, "滑动窗口", "MEDIUM", List.of("数组", "滑动窗口"), 0, true, NOW.minusSeconds(60)));
 
     var profile =
         LearningProfileAggregator.aggregate(7L, practiceOnly, published(), null, NOW, NOW);
@@ -109,24 +110,25 @@ class LearningProfileAggregatorTest {
     assertEquals(2, profile.attemptedProblems(), "练过的题要算做题数");
     assertEquals(1, profile.passedProblems(), "练习判过 ACCEPTED 也算这题通过");
     assertEquals(50, profile.passRate());
-    assertEquals(3, profile.submissionCount(), "练习次数计入提交数");
+    assertEquals(0, profile.submissionCount(), "练习不算正式提交，提交次数为 0");
     assertNull(profile.averageScore(), "没有已发布考核成绩时均分仍为空，不能因为练习就有分");
   }
 
   @Test
-  void practiceSubmissionsAccumulateWithFormalSubmissionsOnTheSameProblem() {
-    // 同一题：1 次考核提交（未通过）+ 2 次练习（其中一次通过）——仍是一题，提交数 3，通过。
+  void formalSubmissionsAreCountedOncePracticeDoesNotInflateThem() {
+    // 同一题：1 次考核提交（未通过）+ 后续在题库练到通过——仍是一题、判为通过，
+    // 但提交数只算那 1 次考核提交，练习不把数字撑大。
     var mixed =
         List.of(
             new AttemptedProblem(
-                2L, "滑动窗口", "MEDIUM", List.of("滑动窗口"), 3, true, NOW.minusSeconds(30)));
+                2L, "滑动窗口", "MEDIUM", List.of("滑动窗口"), 1, true, NOW.minusSeconds(30)));
 
     var profile = LearningProfileAggregator.aggregate(7L, mixed, published(), 100, NOW, NOW);
 
     assertEquals(1, profile.attemptedProblems());
     assertEquals(1, profile.passedProblems());
     assertEquals(100, profile.passRate());
-    assertEquals(3, profile.submissionCount());
+    assertEquals(1, profile.submissionCount());
     assertEquals(100, profile.averageScore(), "均分只来自已发布考核成绩");
   }
 

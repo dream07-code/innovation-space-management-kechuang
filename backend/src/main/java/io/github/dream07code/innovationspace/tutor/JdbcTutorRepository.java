@@ -179,19 +179,20 @@ public class JdbcTutorRepository implements TutorRepository {
     // 活动口径 = 考核提交 + 题库练习，两者按「本人 + 题目」并成一条流再分组：
     // - 只算已判出结论的：还在判题中的提交既不算学会也不算没学会；
     // - 同一题无论提交几次、练习几次，都只算一题，通过 = 任意一次 ACCEPTED；
-    // - 提交数把练习次数一并计入（练习也是学生真实做过的活动）。
+    // - 提交数只算考核提交（kind=1）：练习是「试跑」，不产生提交记录，
+    //   也不该让画像的提交次数虚高——练习页明确写着「练习判题不写入正式提交」。
     // 练习不产生成绩，因此这个口径只影响活动指标，不影响「已发布成绩均分」。
     for (var row : jdbc.queryForList(
-        "SELECT p.id,p.title,p.difficulty,p.tags,COUNT(*) submissions,"
+        "SELECT p.id,p.title,p.difficulty,p.tags,SUM(a.kind) submissions,"
             + " MAX(a.accepted) accepted,MAX(a.occurred_at) last_submitted_at"
             + " FROM ("
-            + "  SELECT s.problem_id,CASE WHEN j.verdict='ACCEPTED' THEN 1 ELSE 0 END accepted,"
+            + "  SELECT s.problem_id,1 kind,CASE WHEN j.verdict='ACCEPTED' THEN 1 ELSE 0 END accepted,"
             + "   s.submitted_at occurred_at"
             + "  FROM assessment_submission s"
             + "  LEFT JOIN oj_judge_result j ON j.submission_id=s.id"
             + "  WHERE s.member_id=? AND s.status IN ('JUDGED','FAILED','NEEDS_REVIEW')"
             + "  UNION ALL"
-            + "  SELECT pa.problem_id,CASE WHEN pa.verdict='ACCEPTED' THEN 1 ELSE 0 END,"
+            + "  SELECT pa.problem_id,0 kind,CASE WHEN pa.verdict='ACCEPTED' THEN 1 ELSE 0 END,"
             + "   pa.created_at"
             + "  FROM problem_practice_attempt pa WHERE pa.member_id=?"
             + " ) a"

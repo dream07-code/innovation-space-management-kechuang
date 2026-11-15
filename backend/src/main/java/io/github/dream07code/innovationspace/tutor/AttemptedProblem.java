@@ -8,7 +8,8 @@ import java.util.List;
  *
  * <p>来源包含考核提交与题库练习，两者按「本人 + 题目」合并：只统计已判出结论的记录，
  * 还在判题中的提交既不算学会、也不算没学会，避免画像在判题完成前后抖动。
- * {@code submissions} 是这题的提交数 + 练习次数。
+ * {@code submissions} 是这题的**考核提交**次数：题库练习只用于判断「做过 / 通过」，
+ * 不计入提交数（练习不写正式提交表，也不该让画像的提交次数虚高）。
  */
 public record AttemptedProblem(
     long problemId,
