@@ -43,6 +43,10 @@ const assessmentId = computed(() =>
   typeof route.params.assessmentId === 'string' ? route.params.assessmentId : null,
 )
 const problemId = computed(() => route.params.problemId as string)
+/** 报告页「重做本题」带来的提交 id：指定回填这一份，而不是该题最近一次。 */
+const restoreSubmissionId = computed(() =>
+  typeof route.query?.restore === 'string' ? route.query.restore : '',
+)
 const assessment = ref<Assessment | null>(null)
 const problem = ref<AssessmentProblem | null>(null)
 const practiceTestCases = ref<AssessmentProblemTestCase[]>([])
@@ -106,6 +110,31 @@ const hasResult = computed(
     || formalSubmission.value?.judgeResult != null,
 )
 
+/**
+ * 回填某次提交的代码（语言跟随那次提交）。
+ *
+ * 只认归属这道题（考核页还要同一场考核）的提交：报告页跳过来时带了提交 id，
+ * 串题的回填比不回填更糟。回填失败一律返回 false，由调用方决定保底方案。
+ */
+async function restoreCode(submissionId: string): Promise<boolean> {
+  try {
+    const submission = await getAssessmentSubmission(submissionId)
+    if (submission.problemId !== problemId.value) return false
+    if (assessmentId.value && submission.assessmentId !== assessmentId.value) return false
+    const submissionLanguage = submission.language as AssessmentLanguage
+    if (!allowedLanguages.value.includes(submissionLanguage)) return false
+    const saved = await getAssessmentSubmissionCode(submission.id)
+    if (!saved.code.trim()) return false
+    language.value = submissionLanguage
+    code.value = saved.code
+    codeByLanguage.value[submissionLanguage] = saved.code
+    restoredPrevious.value = true
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
@@ -127,25 +156,20 @@ async function load(): Promise<void> {
     language.value = allowedLanguages.value[0] ?? 'python'
     code.value = starterFor(language.value)
     codeByLanguage.value[language.value] = code.value
+    // 从批改报告点「重做本题」进来：回填那一份提交的代码。
+    const restoredFromReport = restoreSubmissionId.value
+      ? await restoreCode(restoreSubmissionId.value)
+      : false
     // 考核做题页：回填本人对该题最近一次提交的代码（语言跟随那次提交），
     // 让学生返回检查客观题后再进来能继续写。无提交或代码缺失时保持起始框架。
-    if (assessmentId.value) {
+    if (!restoredFromReport && assessmentId.value) {
       try {
         const page = await listAssessmentSubmissions({
           assessmentId: assessmentId.value,
           problemId: problemId.value,
         })
         const latest = page.items[0]
-        const lastLanguage = latest?.language as AssessmentLanguage | undefined
-        if (latest && lastLanguage && allowedLanguages.value.includes(lastLanguage)) {
-          const saved = await getAssessmentSubmissionCode(latest.id)
-          if (saved.code.trim()) {
-            language.value = lastLanguage
-            code.value = saved.code
-            codeByLanguage.value[lastLanguage] = saved.code
-            restoredPrevious.value = true
-          }
-        }
+        if (latest) await restoreCode(latest.id)
       } catch {
         // 回填失败不影响做题：保持起始框架。
       }

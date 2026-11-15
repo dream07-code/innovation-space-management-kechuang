@@ -11,23 +11,27 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, MagicStick, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, MagicStick, Refresh, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-import { getSubmissionReport } from '@/api/modules/oj'
+import { getAssessmentSubmission, getSubmissionReport } from '@/api/modules/oj'
 import { describeError, toApiError } from '@/api/errors'
 import { difficultyMetaLabel, languageLabel, verdictMeta } from '@/components/ojMeta'
 import SubmissionTutorDrawer from '@/components/SubmissionTutorDrawer.vue'
+import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/datetime'
 import type { SubmissionReport } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const submissionId = computed(() => route.params.submissionId as string)
 const report = ref<SubmissionReport | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
+/** 重做本题：要先把这次提交归属的考核与题目查出来，再跳到做题页。 */
+const redoLoading = ref(false)
 /** 助教抽屉：打开后学生可围绕这次判题结果连续追问。 */
 const tutorOpen = ref(false)
 
@@ -72,6 +76,29 @@ function goProblemById(problemId: string): void {
   void router.push({ name: 'oj-problem-detail', params: { problemId } })
 }
 
+/**
+ * 重做本题：回到这道题原本的做题页，并让编辑器载入这次提交的代码。
+ *
+ * 报告里只带了题目标题、没有考核 id，所以先按提交 id 取一次提交详情拿到
+ * assessmentId；做题页收到 restore=<提交 id> 会直接回填这份代码，
+ * 而不是「该题最近一次提交」——连着交几次时两者可能不是同一份。
+ */
+async function redoProblem(): Promise<void> {
+  redoLoading.value = true
+  try {
+    const submission = await getAssessmentSubmission(submissionId.value)
+    await router.push({
+      name: 'oj-submit-code',
+      params: { assessmentId: submission.assessmentId, problemId: submission.problemId },
+      query: { restore: submission.id },
+    })
+  } catch (error) {
+    ElMessage.error(describeError(toApiError(error)))
+  } finally {
+    redoLoading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -85,6 +112,18 @@ onMounted(load)
             <span>AI 批改报告 · 提交 {{ submissionId }}</span>
           </div>
           <div class="page__actions">
+            <el-button
+              v-if="auth.isStudent"
+              type="primary"
+              plain
+              :icon="RefreshLeft"
+              :loading="redoLoading"
+              :disabled="!report"
+              data-test="redo-problem"
+              @click="redoProblem"
+            >
+              重做本题
+            </el-button>
             <el-button
               class="ai-cta"
               type="primary"

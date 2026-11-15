@@ -56,14 +56,17 @@ vi.mock('@/api/modules/oj', () => ({
   createAssessmentSubmission: mocks.createAssessmentSubmission,
 }))
 let routeParams: Record<string, string> = { problemId: '9101' }
+let routeQuery: Record<string, string> = {}
 
 beforeEach(() => {
   routeParams = { problemId: '9101' }
+  routeQuery = {}
   mocks.listAssessmentSubmissions.mockReset().mockResolvedValue({ items: [], page: 1, size: 20, total: 0 })
   mocks.getAssessmentSubmissionCode.mockReset()
+  mocks.getAssessmentSubmission.mockReset()
 })
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: routeParams }),
+  useRoute: () => ({ params: routeParams, query: routeQuery }),
   useRouter: () => ({ back: () => undefined, push: vi.fn<(route: unknown) => void>() }),
 }))
 
@@ -297,6 +300,14 @@ describe('CodeSubmitView 起始代码', () => {
       size: 20,
       total: 1,
     })
+    mocks.getAssessmentSubmission.mockResolvedValue({
+      id: '7001',
+      assessmentId: '8001',
+      problemId: '9101',
+      language: 'python',
+      status: 'JUDGED',
+      version: 1,
+    })
     mocks.getAssessmentSubmissionCode.mockResolvedValue({
       submissionId: '7001',
       language: 'python',
@@ -312,6 +323,69 @@ describe('CodeSubmitView 起始代码', () => {
     })
     expect(mocks.getAssessmentSubmissionCode).toHaveBeenCalledWith('7001')
     expect((wrapper.get('[data-test="code-editor"]').element as HTMLTextAreaElement).value).toBe('print(42)')
+    expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(true)
+  })
+
+  it('从批改报告重做本题时回填报告指向的那次提交，不取最近一次', async () => {
+    routeParams = { assessmentId: '8001', problemId: '9101' }
+    routeQuery = { restore: '7002' }
+    mocks.getAssessment.mockResolvedValue({
+      id: '8001',
+      title: '积分考核',
+      allowedLanguages: ['python', 'cpp'],
+    })
+    mocks.getAssessmentProblem.mockResolvedValue({
+      id: '9101',
+      title: '两数之和',
+      summary: 's',
+      description: 'd',
+      inputFormat: '无',
+      outputFormat: '和',
+      examples: [],
+      difficulty: 'EASY',
+      tags: [],
+      timeLimitMs: 1000,
+      memoryLimitKb: 65536,
+      allowedLanguages: ['python', 'cpp'],
+      judgeMode: 'FUNCTION',
+      functionName: 'add',
+      parameterTypes: ['int', 'int'],
+      returnType: 'int',
+      status: 'PUBLISHED',
+      version: 1,
+      createdAt: '2026-10-26T09:00:00+08:00',
+      updatedAt: '2026-10-26T09:00:00+08:00',
+    })
+    // 该题最近一次提交是 7001（python），报告页指向的是更早的 7002（cpp）。
+    mocks.listAssessmentSubmissions.mockResolvedValue({
+      items: [{ id: '7001', language: 'python', status: 'JUDGED' }],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    mocks.getAssessmentSubmission.mockResolvedValue({
+      id: '7002',
+      assessmentId: '8001',
+      problemId: '9101',
+      language: 'cpp',
+      status: 'JUDGED',
+      version: 1,
+    })
+    mocks.getAssessmentSubmissionCode.mockResolvedValue({
+      submissionId: '7002',
+      language: 'cpp',
+      code: 'int add(int a, int b) { return a - b; }',
+    })
+
+    const wrapper = mount(CodeSubmitView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(mocks.getAssessmentSubmission).toHaveBeenCalledWith('7002')
+    expect(mocks.getAssessmentSubmissionCode).toHaveBeenCalledWith('7002')
+    expect(mocks.listAssessmentSubmissions).not.toHaveBeenCalled()
+    expect((wrapper.get('[data-test="code-editor"]').element as HTMLTextAreaElement).value).toBe(
+      'int add(int a, int b) { return a - b; }',
+    )
     expect(wrapper.find('[data-test="restored-notice"]').exists()).toBe(true)
   })
 

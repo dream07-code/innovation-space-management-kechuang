@@ -8,10 +8,20 @@ const push = vi.hoisted(() => vi.fn<(route: unknown) => void>())
 const back = vi.hoisted(() => vi.fn<() => void>())
 const mocks = vi.hoisted(() => ({
   getSubmissionReport: vi.fn<(id: string) => Promise<unknown>>(),
+  getAssessmentSubmission: vi.fn<(id: string) => Promise<unknown>>(),
+  isStudent: { value: true },
 }))
 
 vi.mock('@/api/modules/oj', () => ({
   getSubmissionReport: mocks.getSubmissionReport,
+  getAssessmentSubmission: mocks.getAssessmentSubmission,
+}))
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    get isStudent() {
+      return mocks.isStudent.value
+    },
+  }),
 }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { submissionId: '9301' } }),
@@ -84,6 +94,8 @@ function mountView() {
 
 beforeEach(() => {
   mocks.getSubmissionReport.mockReset()
+  mocks.getAssessmentSubmission.mockReset()
+  mocks.isStudent.value = true
   push.mockReset()
 })
 
@@ -167,6 +179,41 @@ describe('SubmissionReportView', () => {
       name: 'oj-problem-detail',
       params: { problemId: '9102' },
     })
+  })
+
+  it('点击重做本题跳回该题做题页，并带上这次提交让编辑器回填', async () => {
+    mocks.getSubmissionReport.mockResolvedValue(report())
+    mocks.getAssessmentSubmission.mockResolvedValue({
+      id: '9301',
+      assessmentId: '8101',
+      problemId: '9101',
+      language: 'python',
+      status: 'JUDGED',
+      version: 1,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="redo-problem"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.getAssessmentSubmission).toHaveBeenCalledWith('9301')
+    expect(push).toHaveBeenCalledWith({
+      name: 'oj-submit-code',
+      params: { assessmentId: '8101', problemId: '9101' },
+      query: { restore: '9301' },
+    })
+  })
+
+  it('非学生角色不显示重做本题', async () => {
+    mocks.isStudent.value = false
+    mocks.getSubmissionReport.mockResolvedValue(report())
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="redo-problem"]').exists()).toBe(false)
   })
 
   it('AI 不可用时说明原因，仍展示判题与推荐', async () => {
