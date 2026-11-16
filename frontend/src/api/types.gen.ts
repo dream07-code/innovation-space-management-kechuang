@@ -910,6 +910,8 @@ export interface paths {
                     status?: "DRAFT" | "PUBLISHED" | "RETIRED";
                     /** @description 难度筛选。 */
                     difficulty?: "EASY" | "MEDIUM" | "HARD";
+                    /** @description 按题目 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情按挂题回填标题用。与 keyword/difficulty 可叠加，仍受分页与可见性约束。 */
+                    ids?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2635,6 +2637,8 @@ export interface paths {
                     type?: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRUE_FALSE" | "FILL_BLANK";
                     status?: "DRAFT" | "PUBLISHED" | "RETIRED";
                     keyword?: string;
+                    /** @description 按客观题 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情回填标题用。 */
+                    ids?: string;
                 };
                 header?: never;
                 path?: never;

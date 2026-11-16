@@ -2990,6 +2990,10 @@ paths:
         in: query
         description: 难度筛选。
         schema: {type: string, enum: [EASY, MEDIUM, HARD]}
+      - name: ids
+        in: query
+        description: 按题目 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情按挂题回填标题用。与 keyword/difficulty 可叠加，仍受分页与可见性约束。
+        schema: {type: string, maxLength: 1000}
       responses:
         '200':
           description: 成功。
@@ -5150,6 +5154,7 @@ paths:
       - {name: type, in: query, schema: {type: string, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}}
       - {name: status, in: query, schema: {type: string, enum: [DRAFT, PUBLISHED, RETIRED]}}
       - {name: keyword, in: query, schema: {type: string}}
+      - {name: ids, in: query, description: 按客观题 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情回填标题用。, schema: {type: string, maxLength: 1000}}
       responses:
         '200':
           description: 成功。

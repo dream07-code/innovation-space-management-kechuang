@@ -24,8 +24,9 @@ public class QuizQuestionController {
       @RequestParam(defaultValue = "20") int size,
       @RequestParam(required = false) String type,
       @RequestParam(required = false) String status,
-      @RequestParam(required = false) String keyword) {
-    return ApiResponse.success(service.list(actor(), page, size, type, status, keyword));
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String ids) {
+    return ApiResponse.success(service.list(actor(), page, size, type, status, keyword, ids));
   }
 
   @PostMapping

@@ -65,18 +65,32 @@ const structureItems = computed(() => {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const requests: Array<Promise<unknown>> = [getAssessment(assessmentId.value), listAssessmentProblems()]
+    const current = await getAssessment(assessmentId.value)
+    assessment.value = current
+    const items =
+      current.items ??
+      current.problemIds.map((refId, index) => ({
+        position: index + 1,
+        type: 'PROGRAM' as const,
+        refId,
+        score: 100,
+      }))
+    // 题库/客观题列表是 id DESC 服务端分页：按挂题 id 精准取，
+    // 否则题目总数超过一页时，挂在考核里的老题不在第一页，详情页会显示「暂无数据」。
+    const programIds = [...new Set(items.filter((item) => item.type === 'PROGRAM').map((item) => item.refId))]
+    const quizIds = [...new Set(items.filter((item) => item.type === 'QUIZ').map((item) => item.refId))]
+    const requests: Array<Promise<unknown>> = [
+      listAssessmentProblems({ ids: programIds.join(','), size: Math.max(programIds.length, 1) }),
+    ]
     // 客观题接口对学生一律 404，只有负责人/管理员才拉题库做条目标题回填。
     if (auth.isAdmin || auth.isLeader) {
-      requests.push(listQuizQuestions({ page: 1, size: 100 }))
+      requests.push(listQuizQuestions({ ids: quizIds.join(','), size: Math.max(quizIds.length, 1) }))
     }
-    const [current, problemPage, quizPage] = (await Promise.all(requests)) as [
-      Assessment,
+    const [problemPage, quizPage] = (await Promise.all(requests)) as [
       { items: AssessmentProblem[] },
       { items: QuizQuestion[] } | undefined,
     ]
-    assessment.value = current
-    problems.value = problemPage.items.filter((problem) => current.problemIds.includes(problem.id))
+    problems.value = problemPage.items.filter((problem) => programIds.includes(problem.id))
     if (quizPage) quizzes.value = quizPage.items
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))

@@ -303,7 +303,8 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       boolean mine,
       String keyword,
       String status,
-      String difficulty) {
+      String difficulty,
+      String ids) {
     if (page < 1 || size < 1 || size > 200) throw bad();
     if (mine && actor.memberId() == null)
       throw new ApiException(400, ErrorCode.INVALID_REQUEST, "mine requires a member");
@@ -312,6 +313,13 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     // 否则只能在当前 20 条里搜，翻页就丢结果。
     var conditions = new ArrayList<String>();
     var args = new ArrayList<Object>();
+    var idFilter = parseIds(ids);
+    if (!idFilter.isEmpty()) {
+      // 考核详情等调用方按挂题 id 精准取题目；题库列表是 id DESC 分页，
+      // 靠「第一页 ∩ 挂题」过滤会在题目总数超过一页时丢掉老题。
+      conditions.add("id IN (" + String.join(",", java.util.Collections.nCopies(idFilter.size(), "?")) + ")");
+      args.addAll(idFilter);
+    }
     if ("STUDENT".equals(actor.role())) {
       // 学生看公共题 + 本人 AI 生成的专属题；带 mine=true 时收窄到只有自己生成的。
       conditions.add("status='PUBLISHED'");
@@ -344,6 +352,19 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
     var items = new ArrayList<Map<String, Object>>();
     for (Long id : pageResult.ids()) items.add(response(id));
     return Map.of("items", items, "page", page, "size", size, "total", pageResult.total());
+  }
+
+  /** 解析逗号分隔的题目 id（十进制、去重、最多 100 个）；空串返回空列表，格式非法直接 400。 */
+  private static List<Long> parseIds(String raw) {
+    if (raw == null || raw.isBlank()) return List.of();
+    var out = new java.util.LinkedHashSet<Long>();
+    for (String part : raw.split(",")) {
+      String token = part.trim();
+      if (token.isEmpty() || !token.matches("\\d{1,9}")) throw bad();
+      out.add(Long.parseLong(token));
+      if (out.size() > 100) throw bad();
+    }
+    return List.copyOf(out);
   }
 
   private record ProblemPage(List<Long> ids, long total) {}

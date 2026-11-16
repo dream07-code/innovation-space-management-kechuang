@@ -12,7 +12,13 @@ public interface QuizQuestionService {
   Map<String, Object> get(long id, SessionPrincipal actor);
 
   Map<String, Object> list(
-      SessionPrincipal actor, int page, int size, String type, String status, String keyword);
+      SessionPrincipal actor,
+      int page,
+      int size,
+      String type,
+      String status,
+      String keyword,
+      String ids);
 
   Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor);
 

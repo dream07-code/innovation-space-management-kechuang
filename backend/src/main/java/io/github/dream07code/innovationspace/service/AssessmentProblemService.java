@@ -29,7 +29,8 @@ public interface AssessmentProblemService {
       boolean mine,
       String keyword,
       String status,
-      String difficulty);
+      String difficulty,
+      String ids);
   Map<String, Object> update(long id, Map<String, Object> request, SessionPrincipal actor);
   Map<String, Object> testCases(long id, SessionPrincipal actor);
   Map<String, Object> practiceTestCases(long id, SessionPrincipal actor);

@@ -91,7 +91,13 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
 
   @Override
   public Map<String, Object> list(
-      SessionPrincipal actor, int page, int size, String type, String status, String keyword) {
+      SessionPrincipal actor,
+      int page,
+      int size,
+      String type,
+      String status,
+      String keyword,
+      String ids) {
     requireStaff(actor);
     if (page < 1 || size < 1 || size > 200) throw bad();
     if (type != null && !TYPES.contains(type)) throw bad();
@@ -99,6 +105,14 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
 
     var args = new ArrayList<Object>();
     var where = new StringBuilder(" WHERE 1=1");
+    var idFilter = parseIds(ids);
+    if (!idFilter.isEmpty()) {
+      // 考核详情按挂题 id 精准回填标题；客观题库同样是 id DESC 分页，整页拉取会漏老题。
+      where.append(" AND id IN (")
+          .append(String.join(",", java.util.Collections.nCopies(idFilter.size(), "?")))
+          .append(")");
+      args.addAll(idFilter);
+    }
     if (type != null) {
       where.append(" AND type=?");
       args.add(type);
@@ -117,13 +131,13 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
         jdbc.queryForObject("SELECT COUNT(*) FROM quiz_question" + where, Long.class, args.toArray());
     args.add(size);
     args.add((page - 1) * size);
-    List<Long> ids =
+    List<Long> idRows =
         jdbc.queryForList(
             "SELECT id FROM quiz_question" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
             Long.class,
             args.toArray());
     var items = new ArrayList<Map<String, Object>>();
-    for (long id : ids) items.add(response(id));
+    for (long id : idRows) items.add(response(id));
     var out = new LinkedHashMap<String, Object>();
     out.put("items", items);
     out.put("page", page);
@@ -177,6 +191,19 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
   }
 
   /** 客观题对学生保密：按不存在处理，而不是显式拒绝。 */
+  /** 解析逗号分隔的客观题 id（十进制、去重、最多 100 个）；空串返回空列表，格式非法直接 400。 */
+  private static List<Long> parseIds(String raw) {
+    if (raw == null || raw.isBlank()) return List.of();
+    var out = new java.util.LinkedHashSet<Long>();
+    for (String part : raw.split(",")) {
+      String token = part.trim();
+      if (token.isEmpty() || !token.matches("\\d{1,9}")) throw bad();
+      out.add(Long.parseLong(token));
+      if (out.size() > 100) throw bad();
+    }
+    return List.copyOf(out);
+  }
+
   private void requireStaff(SessionPrincipal actor) {
     if ("STUDENT".equals(actor.role())) throw new ApiException(404, ErrorCode.NOT_FOUND);
   }

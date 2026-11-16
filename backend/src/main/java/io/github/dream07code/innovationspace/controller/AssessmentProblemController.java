@@ -24,8 +24,10 @@ public class AssessmentProblemController {
       @RequestParam(defaultValue = "false") boolean mine,
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
-      @RequestParam(required = false) String difficulty) {
-    return ApiResponse.success(service.list(actor(), page, size, mine, keyword, status, difficulty));
+      @RequestParam(required = false) String difficulty,
+      @RequestParam(required = false) String ids) {
+    return ApiResponse.success(
+        service.list(actor(), page, size, mine, keyword, status, difficulty, ids));
   }
 
   @PostMapping

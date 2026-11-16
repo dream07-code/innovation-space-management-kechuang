@@ -37,6 +37,8 @@ export interface QuizQuestionListQuery {
   status?: QuizQuestion['status']
   /** 题干关键字过滤。 */
   keyword?: string
+  /** 按客观题 id 精准取（逗号分隔，最多 100 个）；考核详情回填标题用。 */
+  ids?: string
 }
 
 /** 分页列出客观题；后端默认排除 RETIRED。 */

@@ -2978,6 +2978,10 @@ paths:
         in: query
         description: 只看本人 AI 生成的题；需要账号绑定成员档案。
         schema: {type: boolean, default: false}
+      - name: ids
+        in: query
+        description: 按题目 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情按挂题回填标题用。
+        schema: {type: string, maxLength: 1000}
       responses:
         '200':
           description: 成功。
@@ -5006,6 +5010,7 @@ paths:
       - {name: type, in: query, schema: {type: string, enum: [SINGLE_CHOICE, MULTI_CHOICE, TRUE_FALSE, FILL_BLANK]}}
       - {name: status, in: query, schema: {type: string, enum: [DRAFT, PUBLISHED, RETIRED]}}
       - {name: keyword, in: query, schema: {type: string}}
+      - {name: ids, in: query, description: 按客观题 id 精准取（逗号分隔十进制、去重、最多 100 个）；考核详情回填标题用。, schema: {type: string, maxLength: 1000}}
       responses:
         '200':
           description: 成功。

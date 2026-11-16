@@ -109,6 +109,8 @@ export interface AssessmentProblemListQuery {
   /** 状态筛选；仅管理员与负责人可用，学生侧固定只看已发布。 */
   status?: string
   difficulty?: string
+  /** 按题目 id 精准取（逗号分隔，最多 100 个）；考核详情按挂题回填标题用。 */
+  ids?: string
 }
 
 export async function listAssessmentProblems(
