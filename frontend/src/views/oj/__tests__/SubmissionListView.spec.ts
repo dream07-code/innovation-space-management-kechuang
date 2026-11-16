@@ -57,6 +57,27 @@ describe('SubmissionListView', () => {
     expect(mocks.listAssessmentProblems).toHaveBeenCalledWith({ page: 1, size: 200 })
   })
 
+  it('题库映射请求失败时，提交列表仍然正常展示', async () => {
+    // 管理端曾因题库接口 500（辅助请求）导致整页 Promise.all 失败，
+    // 页面只显示「暂无数据」+「服务器内部错误」；主数据正常时不应该被拖垮。
+    mocks.listAssessmentSubmissions.mockResolvedValue({
+      items: [submission],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    mocks.listAssessmentProblems.mockRejectedValue({ code: 'INTERNAL_ERROR' })
+
+    const wrapper = mount(SubmissionListView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.findAll('.el-table__body tr').length).toBe(1)
+    expect(wrapper.get('[data-test="submission-pager"]').text()).toContain('1')
+    // 题目名缺失时退回显示题目 id，而不是空白。
+    expect(wrapper.text()).toContain('38')
+    expect(wrapper.text()).toContain('5')
+  })
+
   it('翻页与状态筛选都带分页参数重新请求', async () => {
     mocks.listAssessmentSubmissions.mockResolvedValue({
       items: [submission],

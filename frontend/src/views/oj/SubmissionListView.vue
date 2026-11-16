@@ -54,16 +54,22 @@ async function load(): Promise<void> {
     const query: AssessmentSubmissionListQuery = { page: page.value, size: PAGE_SIZE }
     if (status.value) query.status = status.value
     if (language.value) query.language = language.value
-    const [submissionPage, assessmentPage, problemPage] = await Promise.all([
+    // 提交列表是主数据，只有它失败才算这页加载失败。
+    // 考核名/题目名只是展示映射：辅助请求出错（例如题库接口异常）不能让整页变空白，
+    // 缺映射时模板会退回显示 id，管理员至少还能看到提交本身。
+    const [submissionResult, assessmentResult, problemResult] = await Promise.allSettled([
       listAssessmentSubmissions(query),
       listAssessments(),
       // 题目名映射要覆盖全库，否则第二页之后的题只能显示 id。
       listAssessmentProblems({ page: 1, size: 200 }),
     ])
+    if (submissionResult.status === 'rejected') throw submissionResult.reason
+    const submissionPage = submissionResult.value
     data.value = submissionPage
     total.value = submissionPage.total ?? submissionPage.items.length
-    assessments.value = assessmentPage.items
-    problems.value = problemPage.items
+    if (assessmentResult.status === 'fulfilled')
+      assessments.value = assessmentResult.value.items
+    if (problemResult.status === 'fulfilled') problems.value = problemResult.value.items
   } catch (error) {
     ElMessage.error(describeError(toApiError(error)))
   } finally {
