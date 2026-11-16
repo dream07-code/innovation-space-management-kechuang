@@ -134,13 +134,23 @@ public class RankingServiceImpl implements RankingService {
       args.add(Timestamp.from(period.from()));
       args.add(Timestamp.from(period.to()));
     }
-    String sql =
+    String perMember =
         "SELECT m.id member_id,m.name display_name,m.direction_id,d.name direction_name,"
             + "COALESCE(SUM(pl.delta),0) points FROM member m "
             + "JOIN app_user u ON u.member_id=m.id JOIN direction d ON d.id=m.direction_id "
             + "LEFT JOIN point_ledger pl ON pl.member_id=m.id"
             + where
             + " GROUP BY m.id,m.name,m.direction_id,d.name";
+    // 同一姓名在历史测试数据里会对应多个 member 档案（同一场景被反复建人），
+    // 按 member.id 出榜就会一个名字刷出十几行、还把同一个人的分数拆开。
+    // 榜单按姓名收成一行：取该姓名下积分最高的档案作为代表，同分取 id 小的，
+    // 保证同一份数据每次排序结果一致；积分不做跨档案相加，避免重复建人把分数堆高。
+    String sql =
+        "SELECT member_id,display_name,direction_id,direction_name,points FROM ("
+            + " SELECT per.*,ROW_NUMBER() OVER ("
+            + " PARTITION BY per.display_name ORDER BY per.points DESC,per.member_id ASC"
+            + " ) rn FROM (" + perMember + ") per"
+            + ") dedup WHERE rn=1";
     return new Query(sql, args);
   }
 

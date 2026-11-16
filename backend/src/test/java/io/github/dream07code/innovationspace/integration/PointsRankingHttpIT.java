@@ -110,6 +110,27 @@ class PointsRankingHttpIT {
   }
 
   @Test
+  void duplicateAccountsWithSameNameAreCollapsedIntoOneRow() throws Exception {
+    // 历史测试数据会给同一个姓名反复建人：同一姓名在榜单里只能出现一次，
+    // 取该姓名下积分最高的档案做代表，不把多个档案的分数相加堆高。
+    insertMember(20, "MOCK020", 1, "甲同学", "ACTIVE");
+    insertMember(21, "MOCK021", 1, "甲同学", "ACTIVE");
+    insertLedger(20, 4, "2026-10-01 01:00:00", "DUP1");
+    insertLedger(21, 9, "2026-10-01 01:00:00", "DUP2");
+
+    var overall = send(studentToken, "GET", "/api/v1/rankings/overall?page=1&size=20", null);
+    assertEquals(200, overall.statusCode());
+    var data = HttpTestSupport.json(overall).at("/data");
+    assertEquals(3, data.at("/total").asInt(), "同名档案合并后按人数计");
+    int rows = 0;
+    for (var item : data.at("/items")) {
+      if ("甲同学".equals(item.at("/displayName").asText())) rows++;
+    }
+    assertEquals(1, rows, "同一姓名只能出现一行");
+    assertEquals(9, data.at("/items/0/points").asInt(), "取同名档案里最高的那份");
+  }
+
+  @Test
   void pointsSummaryLedgerFiltersAndScopeAreEnforced() throws Exception {
     var summary = send(studentToken, "GET", "/api/v1/points/me?month=2026-10", null);
     assertEquals(200, summary.statusCode());
