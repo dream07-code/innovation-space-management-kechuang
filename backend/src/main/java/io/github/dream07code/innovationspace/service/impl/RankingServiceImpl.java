@@ -52,8 +52,12 @@ public class RankingServiceImpl implements RankingService {
             Timestamp.from(selected.to()));
     boolean eligible = "ACTIVE".equals(row.get("membership_status"));
     long direction = ((Number) row.get("direction_id")).longValue();
-    Long overallRank = eligible ? rank(points, null, selected) : null;
-    Long directionRank = eligible ? rank(points, direction, selected) : null;
+    // 月度榜的集合只含「当月有积分流水」的人（见 scored 的时间条件），
+    // 所以没当月经分的人不在榜上：名次必须是 null，不能按「比我高的人数+1」算，
+    // 否则会出现「4 / 3」这种名次大于总人数的结果。
+    boolean onBoard = selected.month() == null || hasPointsIn(principal.memberId(), selected);
+    Long overallRank = eligible && onBoard ? rank(points, null, selected) : null;
+    Long directionRank = eligible && onBoard ? rank(points, direction, selected) : null;
     int overallCount = count(null, selected);
     int directionCount = count(direction, selected);
     Map<String, Object> out = new LinkedHashMap<>();
@@ -104,6 +108,25 @@ public class RankingServiceImpl implements RankingService {
     result.put("month", selected.month());
     result.put("asOf", asOf());
     return result;
+  }
+
+  /**
+   * 该成员在统计窗口内是否有积分流水（哪怕净额为 0）。
+   *
+   * <p>月度榜只收有当月流水的人，没流水的人压根不在集合里；用它来判断「是否上榜」，
+   * 保证名次和总人数用的是同一个集合。
+   */
+  private boolean hasPointsIn(long memberId, Period period) {
+    if (period.month() == null) return true;
+    Long rows =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM point_ledger WHERE member_id=?"
+                + " AND business_effective_at>=? AND business_effective_at<?",
+            Long.class,
+            memberId,
+            Timestamp.from(period.from()),
+            Timestamp.from(period.to()));
+    return rows != null && rows > 0;
   }
 
   private long rank(long points, Long direction, Period period) {

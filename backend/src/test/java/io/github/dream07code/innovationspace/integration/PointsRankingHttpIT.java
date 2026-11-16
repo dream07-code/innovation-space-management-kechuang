@@ -110,6 +110,29 @@ class PointsRankingHttpIT {
   }
 
   @Test
+  void monthlyRankIsNullWhenMemberHasNoLedgerInThatMonth() throws Exception {
+    // 10 月没有任何流水的人不在月度榜的集合里：名次必须是 null，
+    // 不能出现「名次 4 / 总人数 3」这种分子大于分母的结果；总榜仍然有名次。
+    insertMember(15, "MOCK015", 1, "丁同学", "ACTIVE");
+    insertLedger(15, 7, "2026-09-15 01:00:00", "E1");
+    String token = sessions.issue(15).accessToken();
+
+    var monthly = send(token, "GET", "/api/v1/rankings/me?period=MONTH&month=2026-10", null);
+    assertEquals(200, monthly.statusCode());
+    var monthlyData = HttpTestSupport.json(monthly).at("/data");
+    assertTrue(monthlyData.at("/overallRank").isNull(), "当月没流水就不该有月度名次");
+    assertTrue(monthlyData.at("/directionRank").isNull());
+    assertEquals(3, monthlyData.at("/overallCount").asInt(), "月度总人数只算当月有流水的人");
+    assertEquals(0, monthlyData.at("/points").asInt());
+
+    var overall = send(token, "GET", "/api/v1/rankings/me?period=ALL_TIME", null);
+    assertEquals(200, overall.statusCode());
+    var overallData = HttpTestSupport.json(overall).at("/data");
+    assertEquals(1, overallData.at("/overallRank").asInt(), "9 月的 7 分仍计入总榜");
+    assertEquals(4, overallData.at("/overallCount").asInt());
+  }
+
+  @Test
   void duplicateAccountsWithSameNameAreCollapsedIntoOneRow() throws Exception {
     // 历史测试数据会给同一个姓名反复建人：同一姓名在榜单里只能出现一次，
     // 取该姓名下积分最高的档案做代表，不把多个档案的分数相加堆高。
