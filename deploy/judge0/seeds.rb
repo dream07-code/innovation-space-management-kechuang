@@ -10,7 +10,7 @@
 require_relative 'languages/archived'
 require_relative 'languages/active'
 
-JAVA_FLAGS = '-Xmx128m -Xss16m -XX:CompressedClassSpaceSize=64m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m'.freeze
+JAVA_FLAGS = '-Xmx128m -Xss4m -XX:CompressedClassSpaceSize=64m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m'.freeze
 NODE_FLAGS = '--max-old-space-size=128'.freeze
 
 ActiveRecord::Base.transaction do
@@ -28,7 +28,7 @@ ActiveRecord::Base.transaction do
 
   # Java (OpenJDK 13.0.1)：编译和运行都限制堆与元空间，避免 JVM 预留 1GB 类空间。
   Language.where(id: 62).update_all(
-    compile_cmd: "/usr/local/openjdk13/bin/javac -J-Xmx128m -J-XX:CompressedClassSpaceSize=64m %s Main.java",
+    compile_cmd: "/usr/local/openjdk13/bin/javac -J-Xmx128m -J-Xss1m -J-XX:CompressedClassSpaceSize=64m -J-XX:MaxMetaspaceSize=128m -J-XX:ReservedCodeCacheSize=32m -J-XX:CICompilerCount=2 %s Main.java",
     run_cmd: "/usr/local/openjdk13/bin/java #{JAVA_FLAGS} Main",
   )
 
