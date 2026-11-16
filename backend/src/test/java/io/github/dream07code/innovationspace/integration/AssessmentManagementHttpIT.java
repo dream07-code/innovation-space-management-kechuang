@@ -97,6 +97,32 @@ class AssessmentManagementHttpIT {
   }
 
   @Test
+  void adminListsWholeBankWithoutStatusFilter() throws Exception {
+    // 管理员不选状态时查询条件为空：不能拼出空的 WHERE，否则 SQL 语法错误 →
+    // 接口 500、管理端题库页只显示「共 0 条」。
+    jdbc.update(
+        """
+        INSERT INTO assessment_problem(title,summary,description,input_format,output_format,examples,difficulty,tags,time_limit_ms,memory_limit_kb,allowed_languages,status,version,created_by,source,created_at,updated_at)
+        VALUES('管理端可见题','摘要','略','无','整数','[]','EASY','["数组"]',1000,65536,'["java"]','PUBLISHED',1,20,'MANUAL',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+        """);
+
+    var list = send(adminToken, "GET", "/api/v1/assessment-problems?page=1&size=20", "", null);
+    assertEquals(200, list.statusCode());
+    assertEquals(1, HttpTestSupport.json(list).path("data").path("total").asInt());
+
+    var published =
+        send(adminToken, "GET", "/api/v1/assessment-problems?page=1&size=20&status=PUBLISHED", "", null);
+    assertEquals(200, published.statusCode());
+    assertEquals(
+        1, HttpTestSupport.json(published).path("data").path("total").asInt());
+
+    var drafts =
+        send(adminToken, "GET", "/api/v1/assessment-problems?page=1&size=20&status=DRAFT", "", null);
+    assertEquals(200, drafts.statusCode());
+    assertEquals(0, HttpTestSupport.json(drafts).path("data").path("total").asInt());
+  }
+
+  @Test
   void adminCreatesProblemAndAssessmentThenPublishesAndCloses() throws Exception {
     var problem = send(adminToken, "POST", "/api/v1/assessment-problems", """
         {"title":"两数之和","summary":"基础题","description":"给定数组和目标值。","inputFormat":"无","outputFormat":"两个下标","examples":[{"input":"数组 [2,7,11,15] 与目标 9","output":"[0,1]"}],"difficulty":"EASY","tags":["数组"],"timeLimitMs":1000,"memoryLimitKb":65536,"allowedLanguages":["java"],"functionName":"twoSum","parameterTypes":["int[]","int"],"returnType":"int[]","assessmentTestCases":[{"input":"[[2,7,11,15],9]","expectedOutput":"[0,1]"},{"input":"[[3,3],6]","expectedOutput":"[0,1]"}],"practiceTestCases":[{"input":"[[1,2],3]","expectedOutput":"[0,1]"}]}

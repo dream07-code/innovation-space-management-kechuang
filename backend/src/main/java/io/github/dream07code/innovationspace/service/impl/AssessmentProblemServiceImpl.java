@@ -355,9 +355,10 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
       List<String> terms,
       int page,
       int size) {
-    var where = new StringBuilder(" WHERE ");
+    // 条件可能一条都没有（管理员不加状态筛选时就是这样），不能直接拼 " WHERE " 加空串，
+    // 否则 SQL 变成 "... WHERE  ORDER BY ..." 直接语法错误，前端只看到 0 条。
+    var predicates = new ArrayList<>(conditions);
     var args = new ArrayList<Object>(baseArgs);
-    where.append(String.join(" AND ", conditions));
     if (!terms.isEmpty()) {
       var groups = new ArrayList<String>();
       for (String term : terms) {
@@ -368,7 +369,11 @@ public class AssessmentProblemServiceImpl implements AssessmentProblemService {
         args.add(pattern);
         args.add(pattern);
       }
-      where.append(" AND (").append(String.join(" OR ", groups)).append(")");
+      predicates.add("(" + String.join(" OR ", groups) + ")");
+    }
+    var where = new StringBuilder();
+    if (!predicates.isEmpty()) {
+      where.append(" WHERE ").append(String.join(" AND ", predicates));
     }
     var ids =
         jdbc.queryForList(
