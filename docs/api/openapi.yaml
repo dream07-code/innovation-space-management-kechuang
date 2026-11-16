@@ -6854,7 +6854,7 @@ components:
           additionalProperties: false
     TutorProfileOverview:
       type: object
-      required: [attemptedProblems, passedProblems, passRate, submissionCount]
+      required: [attemptedProblems, passedProblems, passRate, submissionCount, practiceCount]
       properties:
         attemptedProblems:
           type: integer
@@ -6869,7 +6869,14 @@ components:
           minimum: 0
           maximum: 100
           description: 通过题数 ÷ 尝试题数，四舍五入到整数百分比。
-        submissionCount: {type: integer, minimum: 0}
+        submissionCount:
+          type: integer
+          minimum: 0
+          description: 正式提交次数，只算考核里的提交；题库练习不计入这里，另见 practiceCount。
+        practiceCount:
+          type: integer
+          minimum: 0
+          description: 题库练习的判题次数；练习不写正式提交表，单独计数、单独展示。
         averageScore:
           type: integer
           nullable: true

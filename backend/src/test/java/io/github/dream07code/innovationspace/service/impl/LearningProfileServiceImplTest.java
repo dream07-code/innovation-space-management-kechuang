@@ -58,6 +58,7 @@ class LearningProfileServiceImplTest {
     @SuppressWarnings("unchecked")
     var overview = (Map<String, Object>) body.get("overview");
     assertEquals(0, overview.get("attemptedProblems"));
+    assertEquals(0, overview.get("practiceCount"));
     assertNull(overview.get("averageScore"));
     verify(repository).deleteProfile(MEMBER_ID);
     verify(repository, never()).saveProfile(org.mockito.ArgumentMatchers.any());
@@ -74,6 +75,7 @@ class LearningProfileServiceImplTest {
                 new AttemptedProblem(
                     2L, "滑动窗口", "MEDIUM", List.of("数组", "滑动窗口"), 1, false, NOW.minusSeconds(30))));
     when(repository.averagePublishedScore(MEMBER_ID)).thenReturn(82);
+    when(repository.practiceAttemptCount(MEMBER_ID)).thenReturn(4);
     when(repository.publishedProblems(500))
         .thenReturn(
             List.of(
@@ -90,6 +92,7 @@ class LearningProfileServiceImplTest {
     assertEquals(1, overview.get("passedProblems"));
     assertEquals(50, overview.get("passRate"));
     assertEquals(3, overview.get("submissionCount"));
+    assertEquals(4, overview.get("practiceCount"), "练习次数单独统计，不混进正式提交数");
     assertEquals(82, overview.get("averageScore"));
     assertEquals("2026-11-09T19:59:30+08:00", overview.get("lastSubmittedAt"));
 
@@ -117,14 +120,16 @@ class LearningProfileServiceImplTest {
   }
 
   @Test
-  void practiceActivityDoesNotChangeAverageScore() {
-    // 只有练习记录、没有已发布考核成绩：活动指标有数，均分仍为空。
+  void practiceActivityDoesNotCountAsSubmissionOrChangeAverageScore() {
+    // 只有练习记录、没有已发布考核成绩：做题数与通过率有数，提交数为 0，
+    // 练习次数单独报出，均分仍为空。
     when(repository.attemptedProblems(MEMBER_ID))
         .thenReturn(
             List.of(
                 new AttemptedProblem(
-                    4L, "数组去重", "EASY", List.of("数组"), 2, true, NOW.minusSeconds(10))));
+                    4L, "数组去重", "EASY", List.of("数组"), 0, true, NOW.minusSeconds(10))));
     when(repository.averagePublishedScore(MEMBER_ID)).thenReturn(null);
+    when(repository.practiceAttemptCount(MEMBER_ID)).thenReturn(2);
     when(repository.publishedProblems(500)).thenReturn(List.of());
 
     var body = service.profile(ACTOR);
@@ -134,7 +139,8 @@ class LearningProfileServiceImplTest {
     assertEquals(1, overview.get("attemptedProblems"));
     assertEquals(1, overview.get("passedProblems"));
     assertEquals(100, overview.get("passRate"));
-    assertEquals(2, overview.get("submissionCount"), "练习次数计入提交数");
+    assertEquals(0, overview.get("submissionCount"), "练习不算正式提交");
+    assertEquals(2, overview.get("practiceCount"), "练习次数单独统计");
     assertNull(overview.get("averageScore"), "练习不产生成绩，均分不能因此变成 0 或 100");
   }
 

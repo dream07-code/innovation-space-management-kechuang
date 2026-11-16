@@ -214,6 +214,18 @@ public class JdbcTutorRepository implements TutorRepository {
   }
 
   @Override
+  public int practiceAttemptCount(long memberId) {
+    // 练习判题单独计数：不写 assessment_submission，也就不该出现在「提交次数」里，
+    // 但它是学生真实做过的活动，单独报出来比直接丢掉更诚实。
+    Integer count =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM problem_practice_attempt WHERE member_id=?",
+            Integer.class,
+            memberId);
+    return count == null ? 0 : count;
+  }
+
+  @Override
   public Integer averagePublishedScore(long memberId) {
     // 与成绩页同一口径：一份考核算一个分，取「每题最后一次提交的 final_score 之和 + 客观题答题卡分」，
     // 再对已发布的考核求平均。不能直接 AVG(assessment_submission.final_score)：那是按单题提交平均，

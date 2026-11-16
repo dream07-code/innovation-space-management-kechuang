@@ -114,7 +114,9 @@ defineExpose({ load })
         <div class="stat">
           <span class="stat__label">已发布成绩均分</span>
           <strong class="stat__value stat__value--text">{{ averageScore }}</strong>
-          <span class="stat__unit">共 {{ overview.submissionCount }} 次提交</span>
+          <span class="stat__unit">
+            正式提交 {{ overview.submissionCount }} 次 · 练习 {{ overview.practiceCount }} 次
+          </span>
         </div>
       </div>
 

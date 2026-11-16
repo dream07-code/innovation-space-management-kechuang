@@ -70,15 +70,17 @@ public class LearningProfileServiceImpl implements LearningProfileService {
             lastSubmittedAt,
             clock.instant());
     repository.saveProfile(profile);
-    return view(profile);
+    return view(profile, repository.practiceAttemptCount(memberId));
   }
 
-  private Map<String, Object> view(LearningProfile profile) {
+  private Map<String, Object> view(LearningProfile profile, int practiceCount) {
     var overview = new LinkedHashMap<String, Object>();
     overview.put("attemptedProblems", profile.attemptedProblems());
     overview.put("passedProblems", profile.passedProblems());
     overview.put("passRate", profile.passRate());
+    // submissionCount 只算考核里的正式提交；练习单独给一个数字，两者不混。
     overview.put("submissionCount", profile.submissionCount());
+    overview.put("practiceCount", practiceCount);
     overview.put("averageScore", profile.averageScore());
     overview.put("lastSubmittedAt", TutorSupport.time(profile.lastSubmittedAt()));
 
@@ -119,6 +121,7 @@ public class LearningProfileServiceImpl implements LearningProfileService {
     overview.put("passedProblems", 0);
     overview.put("passRate", 0);
     overview.put("submissionCount", 0);
+    overview.put("practiceCount", 0);
     overview.put("averageScore", null);
     overview.put("lastSubmittedAt", null);
 

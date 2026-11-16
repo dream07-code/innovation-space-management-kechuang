@@ -39,9 +39,17 @@ public interface TutorRepository {
   /**
    * 本人所有判题完成的题目，一题一行；考核提交与题库练习合并统计。
    *
-   * <p>练习只计入活动指标（提交数/做题数/通过率），不参与 {@link #averagePublishedScore(long)}。
+   * <p>练习只影响做题数与通过率，不计入提交数，也不参与 {@link #averagePublishedScore(long)}。
    */
   List<AttemptedProblem> attemptedProblems(long memberId);
+
+  /**
+   * 本人在题库里的练习判题次数。
+   *
+   * <p>练习不写正式提交表，所以这个数字单独统计、单独展示，不混进提交数，
+   * 也不参与通过率与成绩均分。
+   */
+  int practiceAttemptCount(long memberId);
 
   /** 已发布成绩按考核汇总后的平均分（与成绩页同口径）；无已发布成绩时返回 null，不按 0 分算。 */
   Integer averagePublishedScore(long memberId);

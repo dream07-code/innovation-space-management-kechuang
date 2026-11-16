@@ -29,6 +29,7 @@ function emptyProfile() {
       passedProblems: 0,
       passRate: 0,
       submissionCount: 0,
+      practiceCount: 0,
       averageScore: null,
       lastSubmittedAt: null,
     },
@@ -46,6 +47,7 @@ function profile() {
       passedProblems: 2,
       passRate: 50,
       submissionCount: 7,
+      practiceCount: 3,
       averageScore: 82,
       lastSubmittedAt: '2026-11-09T20:40:00+08:00',
     },
@@ -89,6 +91,9 @@ describe('TutorProfilePanel', () => {
     expect(wrapper.text()).toContain('4')
     expect(wrapper.text()).toContain('50%')
     expect(wrapper.text()).toContain('82 分')
+    // 正式提交与练习分开显示：练习不计入提交次数，但也不藏着。
+    expect(wrapper.text()).toContain('正式提交 7 次')
+    expect(wrapper.text()).toContain('练习 3 次')
     expect(wrapper.text()).toContain('滑动窗口')
     expect(wrapper.text()).toContain('0 / 2 通过')
     expect(wrapper.text()).toContain('最长无重复子串')

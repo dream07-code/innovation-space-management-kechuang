@@ -3859,7 +3859,10 @@ export interface components {
             passedProblems: number;
             /** @description 通过题数 ÷ 尝试题数，四舍五入到整数百分比。 */
             passRate: number;
+            /** @description 正式提交次数，只算考核里的提交；题库练习不计入这里，另见 practiceCount。 */
             submissionCount: number;
+            /** @description 题库练习的判题次数；练习不写正式提交表，单独计数、单独展示。 */
+            practiceCount: number;
             /** @description 已发布成绩的平均分；没有已发布成绩时为 null。 */
             averageScore?: number | null;
             lastSubmittedAt?: string | null;
