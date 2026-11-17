@@ -331,7 +331,8 @@ export async function getSubmissionCode(
  * 判题未完成时后端返回 409；AI 未配置或调用失败时仍返回 200 且 `ai.available=false`。
  */
 export async function getSubmissionReport(submissionId: string): Promise<SubmissionReport> {
-  return get<SubmissionReport>(`${SUBMISSIONS}/${submissionId}/report`)
+  // 报告可能触发一次同步 AI 生成（实测数秒到十几秒），放宽到 60 秒避免假性失败。
+  return get<SubmissionReport>(`${SUBMISSIONS}/${submissionId}/report`, { timeout: 60_000 })
 }
 
 /**

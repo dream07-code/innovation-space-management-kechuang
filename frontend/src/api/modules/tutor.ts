@@ -26,8 +26,18 @@ const BASE = `${API_PREFIX}/tutor`
  * AI 未配置或调用失败时仍返回 200，`available=false` 并用 `error` 说明原因；
  * 前端只展示原因，不渲染占位回答。
  */
+/**
+ * 助教对话的独立超时（3 分钟）。
+ *
+ * AI 生成实测 10 秒到 2 分钟不等，远超客户端默认的 15 秒；
+ * 超时后前端报「无法连接服务器」，但后端仍在执行并把回答落库——表现为假性失败。
+ */
+export const TUTOR_CHAT_TIMEOUT_MS = 180_000
+
 export async function askTutorChat(payload: TutorChatRequest): Promise<TutorChatReply> {
-  return postWithoutIdempotency<TutorChatReply>(`${BASE}/chat`, payload)
+  return postWithoutIdempotency<TutorChatReply>(`${BASE}/chat`, payload, {
+    timeout: TUTOR_CHAT_TIMEOUT_MS,
+  })
 }
 
 /** 本人会话列表，最近更新在前。 */
